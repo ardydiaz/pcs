@@ -90,7 +90,7 @@
         }
 
         // Form auto-submit on filter change
-        document.querySelectorAll('select[name="department"], select[name="academic_year"], select[name="semester"]').forEach(select => {
+        document.querySelectorAll('select[name="department"], select[name="academic_year"], select[name="semester"], select[name="subject_type"]').forEach(select => {
             select.addEventListener('change', function () {
                 // Add loading state
                 const button = document.querySelector('button[type="submit"]');
@@ -256,7 +256,7 @@
                             </select>
                         @endif
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-2">
                         <label class="form-label">Academic Year</label>
                         <select name="academic_year" class="form-select">
                             <option value="all" {{ $selectedAcademicYear == 'all' ? 'selected' : '' }}>All Years</option>
@@ -267,7 +267,7 @@
                             @endforeach
                         </select>
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-2">
                         <label class="form-label">Semester</label>
                         <select name="semester" class="form-select">
                             <option value="all" {{ $selectedSemester == 'all' ? 'selected' : '' }}>All Semesters</option>
@@ -276,6 +276,14 @@
                                     {{ $sem }}
                                 </option>
                             @endforeach
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Subject Type</label>
+                        <select name="subject_type" class="form-select">
+                            <option value="all" {{ $selectedSubjectType == 'all' ? 'selected' : '' }}>All Types</option>
+                            <option value="major" {{ $selectedSubjectType == 'major' ? 'selected' : '' }}>Major</option>
+                            <option value="minor" {{ $selectedSubjectType == 'minor' ? 'selected' : '' }}>Minor</option>
                         </select>
                     </div>
                     <div class="col-md-3 d-flex align-items-end">
@@ -513,6 +521,7 @@
                                         <th class="text-center">Faculties</th>
                                         <th class="text-center">Evaluations</th>
                                         <th class="text-center">Responses</th>
+                                        <th class="text-center">Subject Type Split</th>
                                         <th class="text-center">Avg Rating</th>
                                         <th class="text-center">Actions</th>
                                     </tr>
@@ -544,6 +553,28 @@
                                                 <span class="badge bg-success">{{ $dept['total_responses'] }}</span>
                                             </td>
                                             <td class="text-center">
+                                                @php
+                                                    $majorR = $dept['major_responses'] ?? 0;
+                                                    $minorR = $dept['minor_responses'] ?? 0;
+                                                @endphp
+                                                <div class="d-flex flex-column gap-1 align-items-center">
+                                                    <div class="d-flex align-items-center gap-1"
+                                                        title="Major: {{ $majorR }} responses">
+                                                        <span class="badge bg-label-success">
+                                                            <i class="bx bx-book-open me-1"></i>Major
+                                                        </span>
+                                                        <span class="fw-medium small">{{ $majorR }} resp.</span>
+                                                    </div>
+                                                    <div class="d-flex align-items-center gap-1"
+                                                        title="Minor: {{ $minorR }} responses">
+                                                        <span class="badge bg-label-warning">
+                                                            <i class="bx bx-book me-1"></i>Minor
+                                                        </span>
+                                                        <span class="fw-medium small">{{ $minorR }} resp.</span>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td class="text-center">
                                                 <span class="fw-medium">{{ $dept['average_rating'] }}</span>
                                                 <div class="progress rating-progress mt-1">
                                                     <div class="progress-bar bg-{{ $dept['average_rating'] >= 3 ? 'success' : ($dept['average_rating'] >= 2 ? 'warning' : 'danger') }}"
@@ -559,7 +590,7 @@
                                         </tr>
                                     @empty
                                         <tr>
-                                            <td colspan="6" class="text-center py-4">
+                                            <td colspan="7" class="text-center py-4">
                                                 <i class="bx bx-buildings text-muted mb-2" style="font-size: 2rem;"></i>
                                                 <p class="text-muted mb-0">No department data available</p>
                                             </td>
@@ -768,10 +799,39 @@
         <div class="modal-dialog modal-xl">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">Faculty Members - <span id="modalDepartmentName"></span></h5>
+                    <h5 class="modal-title">
+                        Faculty Members - <span id="modalDepartmentName"></span>
+                        @if($selectedSubjectType !== 'all')
+                            <span class="badge {{ $selectedSubjectType === 'major' ? 'bg-success' : 'bg-warning text-dark' }} ms-2">
+                                {{ ucfirst($selectedSubjectType) }} Subjects Only
+                            </span>
+                        @endif
+                    </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
+                    {{-- Active filter summary --}}
+                    <div class="alert alert-light border d-flex flex-wrap align-items-center gap-2 py-2 mb-3" id="modalFilterSummary">
+                        <small class="text-muted me-1"><i class="bx bx-filter-alt me-1"></i>Showing faculty with responses for:</small>
+                        @if($selectedAcademicYear !== 'all')
+                            <span class="badge bg-label-primary">{{ $selectedAcademicYear }}</span>
+                        @else
+                            <span class="badge bg-label-secondary">All Years</span>
+                        @endif
+                        @if($selectedSemester !== 'all')
+                            <span class="badge bg-label-primary">{{ $selectedSemester }} Semester</span>
+                        @else
+                            <span class="badge bg-label-secondary">All Semesters</span>
+                        @endif
+                        @if($selectedSubjectType !== 'all')
+                            <span class="badge {{ $selectedSubjectType === 'major' ? 'bg-success' : 'bg-warning text-dark' }}">
+                                {{ ucfirst($selectedSubjectType) }} Subjects
+                            </span>
+                        @else
+                            <span class="badge bg-label-secondary">All Subject Types</span>
+                        @endif
+                        <span class="ms-auto text-muted small" id="modalFacultyCount"></span>
+                    </div>
                     <div class="d-flex justify-content-end mb-3">
                         <button type="button" class="btn btn-outline-primary" id="departmentExportBtn">
                             <i class="bx bx-download me-1"></i>Export Responses
@@ -987,6 +1047,7 @@
             url.searchParams.set('sort_dir', facultySortState.direction);
             url.searchParams.set('academic_year', '{{ $selectedAcademicYear }}');
             url.searchParams.set('semester', '{{ $selectedSemester }}');
+            url.searchParams.set('subject_type', '{{ $selectedSubjectType }}');
 
             // Show loading
             document.getElementById('facultyTableContainer').innerHTML = `
@@ -1053,6 +1114,11 @@
                     // Update pagination info if meta data is available
                     if (data.meta) {
                         updatePaginationInfo(data.meta);
+                        // Update faculty count in the filter summary bar
+                        const countEl = document.getElementById('modalFacultyCount');
+                        if (countEl) {
+                            countEl.textContent = `${data.meta.total} faculty member${data.meta.total !== 1 ? 's' : ''} found`;
+                        }
                     }
 
                     // Bind pagination click events
@@ -1244,7 +1310,7 @@
         });
 
         // Form auto-submit on filter change
-        document.querySelectorAll('select[name="department"], select[name="academic_year"], select[name="semester"]').forEach(select => {
+        document.querySelectorAll('select[name="department"], select[name="academic_year"], select[name="semester"], select[name="subject_type"]').forEach(select => {
             select.addEventListener('change', function () {
                 // Add loading state
                 const button = document.querySelector('button[type="submit"]');
