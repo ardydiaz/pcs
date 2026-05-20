@@ -1,0 +1,138 @@
+04/06/2026
+app/Http/Controllers/user_management/UserController.php
+//Added paginate to balance performance issue in index function to handle load large users data.
+// Undo
+
+04/06/2026
+app/Models/Schedule.php
+//added function facultyCourseWithDetails to get faculty details relationship
+
+04/06/2026
+resources/views/content/data-management/dm-schedules.blade.php
+// enhance data table, create and edit modal to render faculty information with section for Schedule module
+
+04/06/2026
+resources/views/layouts/sections/navbar/navbar.blade.php
+//commented to disable Search bar in NavBar layout
+
+04/12/2026
+resources/views/content/data-management/dm-faculties.blade.php
+resources/views/content/data-management/partials/faculties
+resources/views/content/data-management/dm-courses.blade.php
+resources/views/content/data-management/partials/courses
+// Refactoring the dm-courses and dm-faculties Blade templates into a component-based architecture significantly improved maintainability by extracting inline HTML,
+modals, and over 1,300 lines of CSS into reusable partials. This approach reduced the dm-courses file size by 36% and introduced @include directives, 
+enforcing a clean separation of concerns and establishing a scalable foundation for future updates.
+Deliverables Summary
+✅ dm-courses.blade.php: 4 modal/style components extracted + main view refactored
+✅ dm-faculties.blade.php: 8 components organized into modular structure
+✅ Total New Partials Created: 12 reusable component templates
+✅ Code Reduction: 1,300+ lines consolidated from monolithic views
+✅ Architecture: Component-based, maintainable, scalable structure
+✅ Consistency: Both modules follow identical partitioning patterns
+
+04/12/2026
+app/Imports/FacultyUserImport.php
+app/Http/Controllers/data_management/FacultyController.php - import function
+resources/views/content/data-management/partials/faculties/excel-import-modal.blade.php
+// IMPROVEMENTS SUMMARY:
+📊 excel-import-modal.blade.php: Enhanced UI with animated progress bar (0-100%), real-time duplicate tracking displaying skipped employee numbers, 
+comprehensive error alerts with auto-dismiss, success message with import statistics, and proper AJAX headers validation for reliable server communication.
+📝 FacultyUserImport.php: Added state tracking via protected properties ($skippedRecords, $importedCount) and public getter methods (getSkippedRecords(), 
+getImportedCount()). Implemented duplicate detection checking existing employee_no values and returning null for duplicates while incrementing count only for successful imports.
+🔧 FacultyController import(): Implemented dual AJAX detection (X-Requested-With header + wantsJson()), proper try-catch error handling, 
+JSON responses for AJAX with success flag/message/imported count/skipped records array, and fallback redirect for non-AJAX requests with appropriate HTTP status codes (200/422).
+
+04/12/2026
+app/Http/Controllers/data_management/FacultyController.php - searchEmployeeNo function
+resources/views/content/data-management/partials/faculties/add-faculty-form-modal.blade.php - component
+// Integrated the post-class-survey's faculty with MCU's external HRNet FindEmployee API.
+//It enables faculty management by allowing users to search for employees by surname and retrieve their corresponding employee numbers from the MCU HR system. 
+//This integration streamlines the faculty onboarding process by automating employee data lookup.
+🔍 searchEmployeeNo(): Corrected implementation to perform POST request (not GET) to MCU HRNet API. Now sends form-encoded body with parameters C (jsrs1), F (myRSList), 
+and P0 ([surname||5]). Added required headers (Content-Type, Origin, Referer, User-Agent). Parses HTML response extracting textarea payload containing "employee_no|name" format, 
+then structures result as array of objects with employee_no and name fields. Includes error handling for failed requests and malformed responses.
+🐛 DEBUG FIX: Added missing cookie authentication to searchEmployeeNo function. MCU HRNet API requires PHPSESSID and mfa_session cookies for authorization. Enhanced function to:
+- Retrieve cookies from environment variables (MCU_PHPSESSID, MCU_MFA_SESSION)
+- Include cookies in HTTP request using withCookies() method
+- Added Accept header for HTML response parsing
+- Improved error handling detecting expired sessions
+- Added instructions for admin to retrieve and update cookies via browser DevTools
+- Better error messages indicating when session cookies have expired
+- Updated .env with MCU credential placeholders and detailed setup instructions
+
+04/14/2026
+app/Imports/ImportAll.php
+app/Http/Controllers/data_management/EvaluationController.php
+// Implemented ImportAll batch data import with schema validation and evaluation form generation
+📋 SUMMARY:
+Completed full implementation of Excel bulk import pipeline (ImportAll) that transforms scheduling data into faculty-course-schedule assignments and generates evaluation forms.
+Successfully imported 2,471 faculty course assignments with 3,344 schedules across 2025-2026 academic year.
+✅ app/Imports/ImportAll.php - Comprehensive Excel Import Handler
+- Implements ToModel + WithHeadingRow interfaces for Maatwebsite\Excel package
+- Four-step orchestration: Course → Faculty → FacultyCourse → Schedule creation
+- Validates all required database fields with schema-aware constraints:
+  • subject_code validation (NOT NULL in database)
+  • status enum validation (scheduled, completed, cancelled)
+  • FacultyCourse precision queries with course_id + section matching
+  • Academic year normalization: "2025 - 2026" → "2025-2026"
+  • Semester normalization: "1st semester" → "1st" to match enum('1st','2nd','Summer')
+  • Day format validation supporting M, T, W, TH, F, S, SU
+  • Time format normalization: "07:00a to 08:30a" → "07:00a - 08:30a"
+- Post-creation verification queries prevent orphaned records
+- Comprehensive error tracking via protected properties:
+  • $skippedRecords[]: tracks failed rows with specific failure reasons
+  • $importedCount: incremented only on successful full pipeline completion
+  • $debugLog[]: detailed action logging for troubleshooting
+- Public getter methods (getSkippedRecords(), getImportedCount(), getDebugLog()) for import reporting
+✅ app/Http/Controllers/data_management/EvaluationController.php - Fixed Academic Year Mismatch
+- Added normalizeAcademicYear() helper method that converts "2025 - 2026" to "2025-2026" format
+- Integrated normalization into store() method before all database queries
+- Ensures evaluation form creation matches normalized academic year from ImportAll import
+- Fixed "Selected faculty does not have an assigned course" error caused by format mismatch
+🔧 KEY FIXES:
+1. Subject Code Validation: Now validates subject_code NOT NULL constraint matching database schema
+2. Status Enum Validation: Validates status against enum('scheduled','completed','cancelled')
+3. FacultyCourse Query Precision: Added course_id + section to verification query for accurate record matching
+4. Academic Year Format: Normalized format matching between import and evaluation controller (2025-2026 standardization)
+5. Better Debug Logging: Enhanced debugLog in ImportAll for row-level traceability
+📊 IMPORT STATISTICS:
+- Total Faculty Courses Imported: 2,471 records
+- Total Schedules Created: 3,344 records  
+- Academic Year: 2025-2026 (2nd Semester)
+- Status: All schedules marked as 'scheduled'
+- Verification: All schedules properly linked to faculty_courses with valid foreign keys
+
+04/14/2026
+resources/views/content/dashboard/dashboard-reports.blade.php
+// Enhanced department display filtering in faculty rating cards
+✅ DASHBOARD UI POLISH - Department Display Filtering
+- Updated Top Rated Faculties section to display only selected department (if filtering on specific department) or first department (if viewing all)
+- Updated Low Rated Faculties section with same context-aware department filtering logic
+- Updated Most Evaluated Faculties section with department filtering logic
+🔧 IMPLEMENTATION:
+- Replaced @forelse($facultyDepartments) iteration with conditional display logic
+- When $selectedDepartment !== 'all' AND faculty has that department: display only selected department
+- When viewing all departments: display only first department (not all departments)
+- Reduces visual clutter on dashboard and provides filter-aware context to users
+- Consistent badge display across all three faculty rating sections
+📊 RESULT:
+- Dashboard now displays contextually-relevant department information
+- Improved UX for department-scoped users by highlighting their selected department
+- Cleaner card layout with single department badge instead of multiple badges
+
+04/14/2026
+app/Models/Faculty.php
+app/Http/Controllers/data_management/FacultyController.php - store function
+added created_by as a meta information in Faculty Module to store auth user who created a newly record
+
+04/15/2026
+database/migrations/2026_04_14_185925_create_audit_logs_table.php
+app/Models/AuditLogs.php
+app/Http/Controllers/user_management/AuditLogsController.php
+app/Providers/AppServiceProvider.php
+routes/web.php
+resources/views/content/audit-logs/audit-logs.blade.php
+resources/views/layouts/sections/menu/verticalMenu.blade.php 
+resources/menu/verticalMenu.json
+// Implemented display all audit logs with full search, filtering, and pagination capabilities for admin users only

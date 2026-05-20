@@ -1,0 +1,47 @@
+employeeno,classcode,section,academicyear,semester,time,day,subjectcode,status,name,department,jobtitle
+24300800,219013,BSN 1-4,2025 - 2026,Summer,07:30a - 12:00p ,"T,TH ","
+BIO 006L ",scheduled,"ARQUERO, ARON JOSHUA BON",College of Nursing,Faculty
+11121209,219014,BSN 1-4,2025 - 2026,Summer,07:00a - 11:30a ,"M,W ","
+NCM 103C ",scheduled,"ATANACIO , HENLYN ENRIQUEZ",College of Nursing,Faculty
+1140500,219015,BSN 1-4,2025 - 2026,Summer,12:30p - 05:30p,"M,W ",NCM 103CL,scheduled,"AGUINALDO , MARJORIE VALENTIN",College of Nursing,Faculty
+25140731,219016,BSN 1-5,2025 - 2026,Summer,07:30a - 12:00p,"M,W ",BIO 006,scheduled,"MABUGAY, NIQUE C.",College of Nursing,Faculty
+21150901,219017,BSN 1-5,2025 - 2026,Summer,01:00p - 05:30p ,"T,TH ",BIO 006L ,scheduled,"CABALLERO, REY JOHN D",College of Nursing,Faculty
+11121209,219018,BSN 1-5,2025 - 2026,Summer,01:00p - 05:30p ,"M,W ",NCM 103C ,scheduled,"ATANACIO , HENLYN ENRIQUEZ",College of Nursing,Faculty
+11121209,219019,BSN 1-5,2025 - 2026,Summer,07:00a - 12:00p ,"T,TH ",NCM 103CL,scheduled,"ATANACIO , HENLYN ENRIQUEZ",College of Nursing,Faculty
+22210201,219020,BSN 1-6,2025 - 2026,Summer,01:00p - 04:00p,"M,W,F",BIO 006,scheduled,"
+ZAFRA, CHRISTIAN I",College of Nursing,Faculty
+19180602,219021,BSN 1-6,2025 - 2026,Summer,"
+01:00p - 05:30p ","T,TH ",BIO 006L,scheduled,"BIGCAS, BRYLLE RAPHAEL U",College of Nursing,Faculty
+25140705,219022,BSN 1-6,2025 - 2026,Summer,07:00a - 11:30a ,"M,W",NCM 103C ,scheduled,"PITAMANAN, MOHAIMEN M.",College of Nursing,Faculty
+11060615,219023,BSN 1-6,2025 - 2026,Summer,07:00a - 12:00p ,"T,TH ",NCM 103CL,scheduled,"ASURO , CARMELA CONSTANTINO",College of Nursing,Faculty
+25140731,219024,BSN 1-7,2025 - 2026,Summer,01:00p - 05:30p ,"M,W",BIO 006,scheduled,"MABUGAY, NIQUE C.",College of Nursing,Faculty
+25200100,219025,BSN 1-7,2025 - 2026,Summer,07:00a - 11:30a ,"M,W ",BIO 006L ,scheduled,"PEREZ, VIVIEN DELA CRUZ",College of Nursing,Faculty
+1140500,219027,BSN 1-7,2025 - 2026,Summer,07:00a - 12:00p,"T,TH ",NCM 103CL ,scheduled,"AGUINALDO , MARJORIE VALENTIN",College of Nursing,Faculty
+6208800,219028,SC-IRREG3,2025 - 2026,Summer,01:00p - 05:30p ,"T,TH ",BIO 001 ,scheduled,"CAPILI , NIEVES LIBANAN",College of Nursing,Faculty
+25140731,219029,SC-IRREG3,2025 - 2026,Summer,07:30a - 12:00p,"T,TH ",BIO 001L ,scheduled,"MABUGAY, NIQUE C.",College of Nursing,Faculty
+26040502,219030,SC-IRREG3,2025 - 2026,Summer,07:30a - 12:00p,"M,W","
+CHE 006",scheduled,"GRACILLA, DANIEL E",College of Nursing,Faculty
+26040502,219031,SC-IRREG3,2025 - 2026,Summer,01:00p - 05:30p,"M,W,F",CHE 006L ,scheduled,"GRACILLA, DANIEL E",College of Nursing,Faculty
+11189200,215000,BS-PHARMACY 4-SC,2025 - 2026,Summer,07:00a - 10:00a,"M,W,S ",PCA 141,scheduled,"BALMAS , MANUEL",Institue of Education,Faculty
+6101303,2116000,MAED 2-1,2025 - 2026,Summer,09:00a - 06:00p,S,MAP 208 ,scheduled,"PATUBO, MARK VICTOR EMMANUEL VASQUEZ",Institue of Education,Faculty
+6101303,2116001,MAED 2-1,2025 - 2026,Summer,06:00p - 09:00p,"M,W,F ",MAP 211,scheduled,"PATUBO, MARK VICTOR EMMANUEL VASQUEZ",Institue of Education,Faculty
+6130610,2116002,PHD 2,2025 - 2026,Summer,06:00p - 09:00p,"M,W,F ",PHD 313 ,scheduled,"FLORES, RAMIL VILLANUEVA",Institue of Education,Faculty
+6130610,2116003,PHD 3,2025 - 2026,Summer,06:00p - 09:00p,"T,TH",PHD 314,scheduled,"FLORES, RAMIL VILLANUEVA",Institue of Education,Faculty
+6130611,2116004,PHD 1,2025 - 2026,Summer,06:00p - 09:00p,"M,W,F ","
+PHD 306",scheduled,"GO , RONALD SY KIM HO",Institue of Education,Faculty
+6101303,2116005,PHD 2,2025 - 2026,Summer,06:00p - 09:00p,"T,TH","
+PHD 309",scheduled,"PATUBO, MARK VICTOR EMMANUEL VASQUEZ",Institue of Education,Faculty
+6130611,2116006,PHD 3,2025 - 2026,Summer,06:00p - 09:00p,"T,THS ",PHD 316 ,scheduled,"GO , RONALD SY KIM HO",Institue of Education,Faculty
+18090100,218000,OM 1-1,2025 - 2026,Summer,01:00p - 05:30p ,"M,W ",IFS 000,scheduled,"LAMBINO, DANILO SANCHEZ",School of Business and Management,Faculty
+10241123,218001,OM 1-1,2025 - 2026,Summer,07:00a - 11:30a,"M,W ",PEO 001 ,scheduled,"AQUINO, LEA ALMARIO",School of Business and Management,Faculty
+18090100,218002,MM 1-1,2025 - 2026,Summer,01:00p - 05:30p ,"M,W ",IFS 000 ,scheduled,"LAMBINO, DANILO SANCHEZ",School of Business and Management,Faculty
+18190300,218003,MM 1-1,2025 - 2026,Summer,07:00a - 11:30a ,"M,W",PME 001,scheduled,"Leoncio, Honey Tess Basco",School of Business and Management,Faculty
+10290701,218004,AC 2-1,2025 - 2026,Summer,07:00a - 11:30a,"M,W",RPH 000 ,scheduled,"
+FULGENCIO, III , PAULINO B.",School of Business and Management,Faculty
+18051101,218005,AC 2-1,2025 - 2026,Summer,07:00a - 11:30a,"T,TH","
+RZL 000",scheduled,"RUBILLOS, JOEY BOY DRIZ",School of Business and Management,Faculty
+25100300,218006,AC 2-1,2025 - 2026,Summer,01:00a - 05:30a,"T,TH ",SCA 000 ,scheduled,"GONZALES, REGINALD HIPOLITO",School of Business and Management,Faculty
+23130201,218007,AC 3-1,2025 - 2026,Summer,01:00p - 05:30p ,T ,"
+ARM 000",scheduled,"DE QUITO, JOJO J",School of Business and Management,Faculty
+6040731,218008,AC 3-1,2025 - 2026,Summer,07:00a - 11:30a,"T,TH","
+ASL 001",scheduled,"SUMAWAY, MARGARET COLEEN SEECKTS",School of Business and Management,Faculty

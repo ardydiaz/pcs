@@ -1,0 +1,28 @@
+@php
+    $containerFooter = !empty($containerNav) ? $containerNav : 'container-fluid';
+@endphp
+
+<style>
+    .swal2-container {
+        z-index: 9999;
+    }
+</style>
+<!-- Footer-->
+<footer class="content-footer footer bg-footer-theme">
+    <div class="{{ $containerFooter }}">
+        <div class="footer-container d-flex align-items-center justify-content-between py-4 flex-md-row flex-column">
+            <div class="text-body">
+                ©
+                <script>
+                    document.write(new Date().getFullYear())
+                </script> <a href="https://mcu.edu.ph/" target="_blank" class="footer-link">Manila Central
+                    University</a>
+            </div>
+            <div class="d-none d-lg-inline-block">
+                <!-- <a href="{{ config('variables.licenseUrl') ? config('variables.licenseUrl') : '#' }}" class="footer-link me-4" target="_blank">License</a> -->
+                <span>Information Technology Department</span>
+            </div>
+        </div>
+    </div>
+</footer>
+<!--/ Footer-->

@@ -1,0 +1,3354 @@
+@extends('layouts/contentNavbarLayout')
+
+@php
+    $facultyPayload = $faculties
+        ->sortByDesc(function ($faculty) {
+            return $faculty->created_at ?? $faculty->id ?? 0;
+        })
+        ->map(function ($faculty) {
+            $facultyUser = optional($faculty->user);
+
+            return [
+                'id' => $faculty->id,
+                'user_id' => $faculty->user_id,
+                'employee_no' => $faculty->employee_no,
+                'department' => $faculty->department,
+                'job_title' => $faculty->job_title ?? $facultyUser->job_title,
+                'user' => [
+                    'id' => $facultyUser->id,
+                    'name' => $facultyUser->name ?? $faculty->name ?? 'Unknown',
+                    'email' => $facultyUser->email,
+                    'job_title' => $facultyUser->job_title,
+                ],
+            ];
+        })->values();
+
+    $registeredUserIds = $faculties
+        ->pluck('user_id')
+        ->filter()
+        ->map(fn($id) => (int) $id)
+        ->unique()
+        ->values();
+
+    $eligibleUsers = $users->filter(function ($user) use ($registeredUserIds) {
+        if (strtolower($user->role ?? '') !== 'faculty') {
+            return false;
+        }
+        $userId = (int) ($user->id ?? 0);
+        return $userId && !$registeredUserIds->contains($userId);
+    });
+
+    $userOptions = $eligibleUsers->map(function ($user) {
+        return [
+            'id' => $user->id,
+            'name' => $user->name ?? 'Unknown',
+            'email' => $user->email,
+        ];
+    })->values();
+
+    $jobTitleOptions = collect()
+        ->merge($faculties->map(fn($faculty) => $faculty->job_title ?? optional($faculty->user)->job_title))
+        ->merge($users->map(fn($user) => $user->job_title))
+        ->map(fn($value) => trim((string) $value))
+        ->filter(fn($value) => $value !== '')
+        ->unique()
+        ->sort()
+        ->values();
+
+    $predefinedDepartments = [
+        'Academic Department',
+        'Admissions and Financial Aid Department',
+        'Basic Education',
+        'Campus Development Department',
+        'College of Arts & Sciences',
+        'College of Dentistry',
+        'College of Medical Technology',
+        'College of Medicine',
+        'College of Nursing',
+        'College of Optometry',
+        'College of Pharmacy',
+        'College of Physical Therapy',
+        'Executive Vice Chair',
+        'Executive Vice President',
+        'External Affairs Office',
+        'Finance Department',
+        'Human Resource Department',
+        'Information Technology Department',
+        'Institute of Education',
+        'Institutional Research Office',
+        'Internal Audit Office',
+        'Lead Institute',
+        'Library Services Department',
+        'Marketing Department',
+        'Office of the President',
+        'Office of the Registrar',
+        'Quality Assurance Office',
+        'Research Ethics Office',
+        'School of Business and Management',
+        'Student Affairs Services',
+    ];
+
+    $departmentSelectOptions = collect($predefinedDepartments)
+        ->merge($faculties->flatMap(function ($faculty) {
+            return collect(explode(',', $faculty->department ?? ''))
+                ->map(function ($value) {
+                    return trim($value);
+                })
+                ->filter(function ($value) {
+                    return $value !== '';
+                });
+        }))
+        ->merge($users->flatMap(function ($user) {
+            return collect(explode(',', $user->department ?? ''))
+                ->map(function ($value) {
+                    return trim($value);
+                })
+                ->filter(function ($value) {
+                    return $value !== '';
+                });
+        }))
+        ->unique()
+        ->sort()
+        ->values();
+
+    $container = 'container-xxl';
+    $accessLevels = collect(auth()->user()?->access_level ?? []);
+    $isAdmin = auth()->user()?->role === 'Admin';
+    $canManageFaculties = $isAdmin || $accessLevels->contains('Manage Faculties');
+    $canAdd = $canManageFaculties;
+    $canEdit = $canManageFaculties;
+    $canDelete = $isAdmin;
+    $showDeleteDisabled = !$isAdmin && $canManageFaculties;
+    $canImport = $canManageFaculties;
+@endphp
+
+@section('title', 'Data Management - Faculties')
+
+@section('page-style')
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <style>
+        :root {
+            --dm-pill-max: clamp(5.5rem, 16vw, 10rem);
+            --dm-cell-max: clamp(8.5rem, 22vw, 13.5rem);
+            --dm-stack-max: clamp(10.5rem, 28vw, 18rem);
+        }
+
+        .container-fluid {
+            padding-left: 1.5rem;
+            padding-right: 1.5rem;
+            max-width: 100%;
+        }
+
+        .layout-page .content-wrapper > .container-xxl.container-p-y {
+            padding-top: 1.5rem !important;
+            padding-bottom: 1.5rem !important;
+        }
+
+        .layout-page .content-wrapper > .container-xxl.container-p-y > .container-fluid {
+            padding-left: 0;
+            padding-right: 0;
+        }
+
+        #alertContainer,
+        #alertContainer + .card {
+            margin-top: 0 !important;
+        }
+
+        #alertContainer:not(:empty) {
+            margin-bottom: 1.5rem;
+        }
+
+        .evaluation-card {
+            background-color: var(--bs-card-bg);
+            border: var(--bs-card-border-width) solid var(--bs-card-border-color);
+            border-radius: var(--bs-card-border-radius);
+            box-shadow: var(--bs-card-box-shadow, 0 2px 6px rgba(67, 89, 113, 0.12));
+        }
+
+        .faculty-action-card {
+            background-color: #5c297c;
+            color: #ffffff;
+        }
+
+        .faculty-action-card .card-title {
+            color: #ffb736;
+        }
+
+        .faculty-action-card .card-title i {
+            color: #ffb736;
+        }
+
+        .faculty-action-card p {
+            color: #ffffff;
+        }
+
+        .faculty-action-card .text-muted {
+            color: #ffffff !important;
+        }
+
+        .faculty-action-card .btn-faculty-action {
+            background-color: #ffb736;
+            color: #5c297c;
+            border: none;
+            font-weight: 600;
+        }
+
+        .faculty-action-card .btn-faculty-action i {
+            color: #5c297c;
+        }
+
+        .faculty-action-card .btn-faculty-action:hover,
+        .faculty-action-card .btn-faculty-action:focus {
+            background-color: #e6a431;
+            color: #5c297c;
+        }
+
+        .btn-faculty-primary {
+            background-color: #5c297c;
+            border-color: #5c297c;
+            color: #ffffff;
+        }
+
+        .btn-faculty-primary:hover,
+        .btn-faculty-primary:focus {
+            background-color: #4b2266;
+            border-color: #4b2266;
+            color: #ffffff;
+        }
+
+        .btn-delete-action {
+            background-color: #dc3545;
+            border-color: #dc3545;
+            color: #ffffff;
+        }
+
+        .btn-delete-action:hover,
+        .btn-delete-action:focus {
+            background-color: #b92c39;
+            border-color: #b92c39;
+            color: #ffffff;
+        }
+
+        .evaluation-card--table {
+            border-radius: var(--bs-card-border-radius);
+            padding: 0;
+        }
+
+        .modal-content.evaluation-card {
+            background-color: #ffffff;
+            border-radius: 0.75rem;
+            border: var(--bs-card-border-width) solid var(--bs-card-border-color);
+            box-shadow: var(--bs-card-box-shadow, 0 2px 6px rgba(67, 89, 113, 0.12));
+            overflow: visible;
+        }
+
+        .evaluation-card--table .card-body {
+            padding: var(--bs-card-spacer-y, 1.5rem) var(--bs-card-spacer-x, 1.5rem);
+        }
+
+        .evaluation-card--table .card-body.pt-0 {
+            padding-top: 0 !important;
+        }
+
+        .evaluation-card--table .card-body.border-0,
+        .evaluation-card--table .card-body.pt-0,
+        .evaluation-card--table .card-body.pb-0 {
+            padding-left: var(--bs-card-spacer-x, 1.5rem) !important;
+            padding-right: var(--bs-card-spacer-x, 1.5rem) !important;
+        }
+
+        .evaluation-controls label {
+            font-size: 0.75rem;
+            letter-spacing: 0.08em;
+            color: #64748b;
+        }
+
+        .evaluation-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            table-layout: auto;
+        }
+
+        .evaluation-table thead th {
+            font-size: 0.7rem;
+            letter-spacing: 0.08em;
+            font-weight: 600;
+            color: #94a3b8;
+            border-bottom: 1px solid #eef2f6;
+            padding: 0.85rem 0.75rem 0.7rem;
+            background-color: #ffffff;
+            vertical-align: middle;
+            text-align: left;
+            line-height: 1.2;
+        }
+
+        .evaluation-table thead th,
+        .evaluation-table tbody td {
+            white-space: nowrap;
+        }
+
+        .table-text-truncate {
+            display: inline-block;
+            vertical-align: middle;
+            min-width: 0;
+            max-width: var(--dm-cell-max);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .table-text-truncate.is-wide {
+            max-width: var(--dm-stack-max);
+        }
+
+        .table-cell-stack {
+            display: flex;
+            flex-direction: column;
+            gap: 0.15rem;
+            min-width: 0;
+            max-width: var(--dm-stack-max);
+            align-items: flex-start;
+        }
+
+        .table-cell-stack > * {
+            display: block;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            max-width: 100%;
+        }
+
+        .table-cell-stack.is-wide {
+            max-width: var(--dm-stack-max);
+        }
+
+        .evaluation-table thead th:first-child,
+        .evaluation-table tbody td:first-child {
+            width: 48px;
+            white-space: normal;
+        }
+
+        .evaluation-table thead th.sortable {
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .evaluation-sort-wrapper {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+        }
+
+        .evaluation-table thead th.sortable.text-center .evaluation-sort-wrapper {
+            justify-content: center;
+        }
+
+        .evaluation-table thead th.sortable:not(.text-center) .evaluation-sort-wrapper {
+            justify-content: flex-start;
+        }
+
+        .evaluation-sort-indicator {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 12px;
+            color: #94a3b8;
+            font-size: 0.65rem;
+        }
+
+        .evaluation-sort-indicator i {
+            display: none;
+        }
+
+        .evaluation-table thead th.sorted-asc .evaluation-sort-indicator,
+        .evaluation-table thead th.sorted-desc .evaluation-sort-indicator {
+            color: #1d4ed8;
+        }
+
+        .evaluation-table thead th.sorted-asc .evaluation-sort-indicator .icon-up,
+        .evaluation-table thead th.sorted-desc .evaluation-sort-indicator .icon-down {
+            display: inline-flex;
+        }
+
+        .evaluation-table tbody tr {
+            border-bottom: 1px solid #f1f5f9;
+            transition: background-color 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .evaluation-table tbody tr:hover {
+            background-color: #f8fafc;
+        }
+
+        .evaluation-table tbody tr.is-selected {
+            background-color: #eef2ff;
+            box-shadow: inset 0 0 0 1px #c7d2fe;
+        }
+
+        .evaluation-table tbody td {
+            padding: 1rem 0.75rem;
+            color: #1f2937;
+            font-size: 0.85rem;
+            vertical-align: middle;
+            text-align: left;
+        }
+
+        .evaluation-table tbody td.evaluation-pill-cell,
+        .evaluation-table tbody td.actions-cell {
+            text-align: left;
+        }
+
+        .evaluation-pill,
+        .evaluation-count-pill {
+            display: inline-block;
+            padding: 0.25rem 0.85rem;
+            border-radius: 999px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            background-color: var(--pill-bg, #e2e8f0);
+            color: var(--pill-color, #475569);
+            max-width: var(--dm-pill-max);
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .evaluation-pill {
+            text-align: center;
+        }
+
+        .evaluation-pill-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.35rem;
+        }
+
+        .evaluation-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            border-radius: 999px;
+            padding: 0.35rem 0.75rem;
+            font-weight: 600;
+            font-size: 0.75rem;
+        }
+
+        .evaluation-link-box {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            background-color: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.75rem;
+            padding: 0.45rem 0.65rem;
+            width: 220px;
+        }
+
+        .evaluation-link {
+            max-width: 160px;
+            font-size: 0.85rem;
+            color: #334155;
+            text-decoration: none;
+        }
+
+        .evaluation-icon-btn {
+            border: none;
+            background-color: #f8fafc;
+            color: #475569;
+            border-radius: 0.75rem;
+            width: 2.25rem;
+            height: 2.25rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+        }
+
+        .evaluation-icon-btn:hover {
+            background-color: #e2e8f0;
+            color: #1f2937;
+        }
+
+        .evaluation-count-pill {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 2.25rem;
+        }
+
+        .evaluation-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            flex-wrap: nowrap;
+            margin-bottom: 2.5rem;
+        }
+
+        .evaluation-toolbar-title {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #111827;
+        }
+
+        .evaluation-toolbar-title i {
+            font-size: 1.8rem;
+            color: #111827;
+        }
+
+        .evaluation-search-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background-color: #ffffff;
+            border: 1px solid #d1d5db;
+            border-radius: 0.375rem;
+            min-height: calc(2.25rem + 2px);
+            padding: 0 0.75rem;
+            max-width: 340px;
+            width: 100%;
+            transition: border-color 0.2s ease;
+        }
+
+        .evaluation-search-wrapper:focus-within {
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.1);
+        }
+
+        .evaluation-search-icon {
+            color: #94a3b8;
+            font-size: 1.1rem;
+        }
+
+        .evaluation-search-input {
+            border: none;
+            outline: none;
+            flex: 1;
+            font-size: 0.95rem;
+            background: transparent;
+            height: 100%;
+            padding-top: 0;
+            padding-bottom: 0;
+        }
+
+        .evaluation-search-input::placeholder {
+            color: #9ca3af;
+        }
+
+        .evaluation-search-clear {
+            border: none;
+            background: transparent;
+            color: #94a3b8;
+            font-size: 1.2rem;
+            line-height: 1;
+            padding: 0;
+            cursor: pointer;
+            display: none;
+            width: 1.5rem;
+            height: 1.5rem;
+            border-radius: 999px;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .evaluation-search-clear.is-visible {
+            display: inline-flex;
+        }
+
+        .evaluation-search-clear:hover {
+            color: #1f2937;
+            background-color: rgba(148, 163, 184, 0.15);
+        }
+
+        .evaluation-bulk-bar {
+            position: fixed;
+            left: 50%;
+            transform: translateX(-50%);
+            bottom: 24px;
+            display: inline-flex;
+            align-items: center;
+            gap: 1rem;
+            background-color: #ffffff;
+            color: #1f2937;
+            padding: 0.85rem 1.5rem;
+            border-radius: 999px;
+            box-shadow: 0 20px 45px rgba(15, 23, 42, 0.12);
+            border: 1px solid #e2e8f0;
+            z-index: 1040;
+        }
+
+        .evaluation-bulk-bar .evaluation-bulk-btn {
+            color: #1f2937;
+        }
+
+        .evaluation-bulk-bar .evaluation-bulk-btn--danger {
+            color: #dc2626 !important;
+        }
+
+        .evaluation-bulk-bar #facultySelectedCount {
+            color: #1f2937;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 0.5rem;
+            padding: 0.55rem 1.4rem;
+            font-weight: 600;
+            font-size: 0.9rem;
+            transition: none;
+            box-shadow: none;
+        }
+
+        .btn.btn-sm {
+            padding: 0.35rem 0.9rem;
+            font-size: 0.8rem;
+            border-radius: 0.4rem;
+        }
+
+        .btn.btn-primary {
+            background-color: #2563eb;
+            border: none;
+            color: #ffffff;
+        }
+
+        .btn.btn-primary:hover,
+        .btn.btn-primary:focus,
+        .btn.btn-primary:active {
+            background-color: #2563eb;
+            border-color: #2563eb;
+            color: #ffffff;
+            box-shadow: none;
+        }
+
+        .btn.btn-secondary {
+            background-color: #dc2626;
+            border: none;
+            color: #ffffff;
+        }
+
+        .btn.btn-secondary:hover,
+        .btn.btn-secondary:focus,
+        .btn.btn-secondary:active {
+            background-color: #dc2626;
+            border-color: #dc2626;
+            color: #ffffff;
+            box-shadow: none;
+        }
+
+        .btn.btn-tertiary {
+            background: transparent;
+            border: none;
+            color: #64748b;
+            padding: 0.55rem 1.2rem;
+        }
+
+        .btn.btn-tertiary:hover,
+        .btn.btn-tertiary:focus,
+        .btn.btn-tertiary:active {
+            background: transparent;
+            color: #64748b;
+            box-shadow: none;
+        }
+
+        div[data-table-id="facultyTable"] [data-table-info] {
+            color: #6b7280;
+            font-size: 0.875rem;
+        }
+
+        div[data-table-id="facultyTable"] .pagination .page-link {
+            border: none;
+            border-radius: 0.5rem;
+            padding: 0.5rem 0.9rem;
+            margin: 0 0.1rem;
+            color: #64748b;
+            background-color: #e2e8f0;
+            font-weight: 600;
+            transition: background-color 0.15s ease;
+        }
+
+        div[data-table-id="facultyTable"] .pagination .page-link:hover:not(.disabled) {
+            background-color: #cbd5e1;
+            color: #475569;
+        }
+
+        div[data-table-id="facultyTable"] .pagination .page-item.active .page-link {
+            background-color: #5c297c;
+            color: #ffffff;
+        }
+
+        div[data-table-id="facultyTable"] .pagination .page-item.active .page-link:hover {
+            background-color: #4b2266;
+            color: #ffffff;
+        }
+
+        div[data-table-id="facultyTable"] .pagination .page-link span {
+            color: inherit;
+        }
+
+        div[data-table-id="facultyTable"] .pagination .page-item.disabled .page-link {
+            background-color: #e2e8f0;
+            color: #94a3b8;
+        }
+
+        div[data-table-id="facultyTable"] .pagination .page-item.disabled .page-link,
+        div[data-table-id="facultyTable"] .pagination .page-item.active .page-link,
+        div[data-table-id="facultyTable"] .pagination .page-link {
+            box-shadow: none;
+        }
+
+        .evaluation-bulk-bar.d-none {
+            display: none !important;
+        }
+
+        .evaluation-bulk-btn {
+            border: none;
+            background: transparent;
+            color: inherit;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.25rem 0.75rem;
+            border-radius: 999px;
+            cursor: pointer;
+        }
+
+        .evaluation-bulk-btn--danger {
+            background-color: rgba(220, 38, 38, 0.08);
+            color: #dc2626 !important;
+            border: 1px solid rgba(220, 38, 38, 0.25);
+        }
+
+        .evaluation-bulk-btn--danger i {
+            color: #dc2626 !important;
+        }
+
+        .evaluation-bulk-close {
+            border: none;
+            background: transparent;
+            color: #475569;
+            font-size: 1.2rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 2rem;
+            height: 2rem;
+            border-radius: 999px;
+            cursor: pointer;
+        }
+
+        .evaluation-checkbox {
+            width: 1.05rem;
+            height: 1.05rem;
+            border-radius: 6px;
+            border: 1px solid #cbd5e1;
+            cursor: pointer;
+        }
+
+        .evaluation-checkbox:checked {
+            background-color: #4f46e5;
+            border-color: #4f46e5;
+        }
+
+        .evaluation-modal-header {
+            background-color: #f5f7fb;
+            border-bottom: 1px solid #e2e8f0;
+            padding: 1rem 1.5rem;
+        }
+
+        .evaluation-modal-body {
+            padding: 1.5rem;
+        }
+
+        .evaluation-modal-close {
+            position: absolute;
+            right: 1.25rem;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: #475569;
+            font-size: 1.35rem;
+            line-height: 1;
+            padding: 0;
+        }
+
+        .evaluation-modal-close:focus {
+            outline: none;
+            box-shadow: none;
+        }
+
+        .evaluation-modal-footer {
+            border-top: none;
+            justify-content: flex-end;
+            gap: 1rem;
+            padding: 1rem 1.5rem;
+        }
+
+        .evaluation-modal-footer .btn {
+            min-width: 120px;
+        }
+
+        .evaluation-modal-trigger,
+        .evaluation-modal-btn {
+            transition: none;
+        }
+
+        .evaluation-modal-trigger:hover,
+        .evaluation-modal-trigger:focus,
+        .evaluation-modal-trigger:active,
+        .evaluation-modal-btn:hover,
+        .evaluation-modal-btn:focus,
+        .evaluation-modal-btn:active {
+            transform: none;
+            filter: none;
+            box-shadow: none;
+        }
+
+        .evaluation-modal-btn.btn-danger {
+            background-color: #dc2626;
+            border-color: #dc2626;
+        }
+
+        .evaluation-modal-btn.btn-danger:hover,
+        .evaluation-modal-btn.btn-danger:focus {
+            background-color: #dc2626;
+            border-color: #dc2626;
+            color: #ffffff;
+        }
+
+        .evaluation-modal-body .form-label {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #475569;
+            letter-spacing: normal;
+        }
+
+        .evaluation-modal-body .form-select,
+        .evaluation-modal-body .form-control {
+            border-radius: 0.6rem;
+            padding: 0.6rem 0.85rem;
+        }
+
+        .evaluation-modal-body .form-control[readonly] {
+            background-color: #f1f5f9;
+            color: #6b7280;
+            border: 1px solid #e2e8f0;
+            cursor: not-allowed;
+            box-shadow: none !important;
+            pointer-events: none;
+        }
+
+        .evaluation-modal-dialog--narrow {
+            max-width: 42%;
+        }
+
+        @media (max-width: 992px) {
+            .evaluation-modal-dialog--narrow {
+                max-width: 60%;
+            }
+
+            .evaluation-toolbar {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .evaluation-card--table {
+                padding: 1.25rem;
+            }
+
+            .evaluation-table tbody td {
+                padding: 0.85rem 0.6rem;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .evaluation-table tbody td {
+                padding: 0.75rem;
+            }
+
+            .evaluation-bulk-bar {
+                bottom: 90px;
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+        }
+        .table-filter-dropdown .filter-toggle {
+            border: 1px solid #d1d5db;
+            border-radius: 0.375rem;
+            padding: 0 0.75rem;
+            background-color: #ffffff;
+            font-weight: 600;
+            font-size: 0.95rem;
+            color: #0f172a;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            line-height: 1.2;
+            min-height: calc(2.25rem + 2px);
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .table-filter-dropdown .filter-toggle i {
+            color: #94a3b8;
+            font-size: 1rem;
+        }
+
+        .table-filter-dropdown .filter-toggle:focus,
+        .table-filter-dropdown .filter-toggle:focus-visible {
+            outline: none;
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.1);
+        }
+
+        .table-filter-dropdown .filter-toggle.is-active {
+            border-color: #5c297c;
+            color: #5c297c;
+        }
+
+        .table-filter-dropdown .dropdown-menu {
+            min-width: 260px;
+            border-radius: 0.75rem;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 10px 35px rgba(15, 23, 42, 0.1);
+        }
+
+        .table-filter-dropdown label {
+            font-size: 0.78rem;
+            font-weight: 600;
+            letter-spacing: 0.06em;
+            color: #94a3b8;
+        }
+
+        .table-filter-reset {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: #5c297c;
+        }
+
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            padding: 1.5rem 0;
+            color: #64748b;
+        }
+
+        .empty-state h5 {
+            font-weight: 600;
+            color: #111827;
+        }
+
+        .empty-state p {
+            color: #6b7280;
+        }
+
+        .user-dropdown {
+            position: relative;
+        }
+
+        .user-dropdown-input {
+            border-radius: 0.6rem;
+        }
+
+        .user-dropdown.show .user-dropdown-input {
+            border-color: #94a3b8;
+            box-shadow: none;
+        }
+
+        .user-dropdown-toggle {
+            border: 1px solid #d9dee3;
+            border-radius: 0.6rem;
+            padding: 0.6rem 0.85rem;
+            background-color: #ffffff;
+            width: 100%;
+            cursor: pointer;
+            color: #0f172a;
+            font-weight: 500;
+            box-shadow: none;
+            transition: border-color 0.2s ease;
+        }
+
+        .user-dropdown-toggle:hover,
+        .user-dropdown-toggle:focus,
+        .user-dropdown-toggle:active,
+        .user-dropdown.show .user-dropdown-toggle {
+            border-color: #94a3b8;
+            background-color: #ffffff;
+            box-shadow: none;
+        }
+
+        .user-dropdown-toggle:focus {
+            outline: none;
+        }
+
+        .user-dropdown-toggle i {
+            color: #94a3b8;
+        }
+
+        .user-dropdown-label {
+            font-weight: 500;
+            color: var(--bs-body-color, #4b5563);
+            font-size: 0.95rem;
+        }
+
+        .user-dropdown-label.is-placeholder {
+            color: #94a3b8;
+            font-weight: 400;
+        }
+
+        .user-dropdown .dropdown-menu {
+            width: 100%;
+            border-radius: 0.75rem;
+            box-shadow: 0 15px 30px rgba(15, 23, 42, 0.15);
+            padding: 0.75rem 0.85rem;
+            top: calc(100% + 0.4rem) !important;
+            left: 0 !important;
+            right: 0 !important;
+            transform: none !important;
+            margin-top: 0 !important;
+            z-index: 1085;
+        }
+
+        .user-dropdown .dropdown-menu::before {
+            display: none;
+        }
+
+        .user-dropdown-list {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.45rem 0.65rem;
+            max-height: calc((2 * 3.25rem) + 0.75rem);
+            overflow-y: auto;
+            padding-right: 0.25rem;
+        }
+
+        .user-dropdown-list.is-unlimited {
+            max-height: calc((2 * 3.25rem) + 0.75rem);
+            overflow-y: auto;
+        }
+
+        .user-dropdown .dropdown-item {
+            border-radius: 0.45rem;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.15rem;
+            font-weight: 500;
+            color: #111827;
+            width: 100%;
+            padding: 0.6rem 0.75rem;
+            background-color: #ffffff;
+            border: 1px solid transparent;
+            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+        }
+
+        .user-dropdown .dropdown-item:hover,
+        .user-dropdown .dropdown-item:focus {
+            background-color: #f8fafc;
+            border-color: #e2e8f0;
+        }
+
+        .user-dropdown .dropdown-item span,
+        .user-dropdown .dropdown-item small {
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .user-dropdown .dropdown-item {
+            min-height: 3.25rem;
+        }
+
+        .user-dropdown .dropdown-item small {
+            font-size: 0.75rem;
+            color: #94a3b8;
+            font-weight: 400;
+            width: 100%;
+        }
+
+        .user-dropdown-search {
+            border-radius: 0.5rem;
+            margin-bottom: 0.6rem;
+        }
+
+        .department-multiselect {
+            position: relative;
+        }
+
+        .department-multiselect-toggle {
+            border: 1px solid #d9dee3;
+            border-radius: 0.6rem;
+            padding: 0.6rem 0.85rem;
+            background-color: #ffffff;
+            min-height: 3.1rem;
+            cursor: pointer;
+            color: #0f172a;
+            font-weight: 500;
+            box-shadow: none;
+            gap: 0.4rem;
+        }
+
+        .department-multiselect-toggle:hover,
+        .department-multiselect-toggle:focus,
+        .department-multiselect.show .department-multiselect-toggle {
+            border-color: #94a3b8;
+            background-color: #ffffff;
+            box-shadow: none;
+        }
+
+        .department-multiselect-toggle:focus {
+            outline: none;
+        }
+
+        .department-multiselect-content {
+            min-height: 1.5rem;
+        }
+
+        .department-multiselect-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.4rem;
+        }
+
+        .department-multiselect-placeholder {
+            color: #94a3b8;
+            font-weight: 400;
+        }
+
+        .department-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            padding: 0.2rem 0.5rem;
+            border-radius: 999px;
+            background-color: #e3e8f1;
+            color: #475569;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .department-chip-remove {
+            border: none;
+            background: transparent;
+            color: inherit;
+            font-size: 0.85rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .department-multiselect-search {
+            position: relative;
+            margin-bottom: 0.75rem;
+        }
+
+        .department-multiselect-search input {
+            padding-left: 0.85rem;
+            border-radius: 0.6rem;
+        }
+
+        .department-multiselect .dropdown-menu {
+            width: 100%;
+            border-radius: 0.85rem;
+            box-shadow: 0 12px 28px rgba(15, 23, 42, 0.2);
+            padding: 1rem;
+            top: calc(100% + 0.5rem) !important;
+            bottom: auto !important;
+            transform: none !important;
+            left: 0 !important;
+            right: 0 !important;
+            z-index: 1105;
+        }
+
+        .department-multiselect-list {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.45rem 0.5rem;
+            max-height: calc((2 * 3rem) + 0.5rem);
+            overflow-y: auto;
+        }
+
+        .department-multiselect-option {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.65rem;
+            padding: 0.5rem 0.85rem;
+            cursor: pointer;
+            transition: border-color 0.2s ease, background-color 0.2s ease;
+        }
+
+        .department-multiselect-option:hover,
+        .department-multiselect-option:focus-within {
+            border-color: #c7d2fe;
+            background-color: #eef2ff;
+        }
+
+        .department-multiselect-option span {
+            font-weight: 600;
+            color: #0f172a;
+        }
+
+    </style>
+@endsection
+
+@section('page-script')
+    @include('components.table-controller-script')
+    <script>
+        const PILL_PALETTES = {
+            purple: [{ bg: '#e4c7ff', color: '#4c1d95' }],
+            blue: [{ bg: '#d3e2ff', color: '#1d4ed8' }],
+            green: [{ bg: '#d1f9e0', color: '#047857' }],
+            gray: [{ bg: '#e3e8f1', color: '#475569' }],
+        };
+        function getPillColor(value, paletteName) {
+            const palette = PILL_PALETTES[paletteName];
+            if (!palette || !palette.length) {
+                return null;
+            }
+            return palette[0];
+        }
+
+        function stylePillElement(element) {
+            const paletteName = element.dataset.pillPalette;
+            if (!paletteName) {
+                return;
+            }
+            const color = getPillColor(element.dataset.pillValue || element.textContent, paletteName);
+            if (!color) {
+                return;
+            }
+            element.style.setProperty('--pill-bg', color.bg);
+            element.style.setProperty('--pill-color', color.color);
+        }
+
+        function applyPillPalettes(root = document) {
+            const scope = root instanceof Element ? root : document.body;
+            scope.querySelectorAll('[data-pill-palette]').forEach(stylePillElement);
+        }
+
+        const facultyPermissions = {
+            canAdd: @json($canAdd),
+            canEdit: @json($canEdit),
+            canDelete: @json($canDelete),
+            showDeleteDisabled: @json($showDeleteDisabled),
+            canImport: @json($canImport),
+        };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initUserDropdowns();
+            initDepartmentMultiselects();
+
+            window.facultyPage = new FacultyPage({
+                faculties: @json($facultyPayload),
+                users: @json($userOptions),
+            });
+        });
+
+        function initUserDropdowns() {
+            const dropdowns = document.querySelectorAll('[data-user-dropdown]');
+            if (!dropdowns.length) {
+                return;
+            }
+
+            dropdowns.forEach((dropdown) => {
+                if (dropdown.dataset.dropdownInitialized === 'true') {
+                    return;
+                }
+                dropdown.dataset.dropdownInitialized = 'true';
+
+                const hiddenInput = dropdown.querySelector('input[name="user_id"]');
+                const nameInput = dropdown.querySelector('[data-user-name-input]');
+                const listWrapper = dropdown.querySelector('[data-user-list]');
+                const menu = dropdown.querySelector('.dropdown-menu');
+                let selectedName = '';
+                let ignoreBlurClose = false;
+                let pointerSelection = false;
+
+                const resetSelection = () => {
+                    if (hiddenInput) {
+                        hiddenInput.value = '';
+                    }
+                    if (nameInput) {
+                        nameInput.value = '';
+                    }
+                    selectedName = '';
+                };
+
+                const getOptions = () => Array.from(dropdown.querySelectorAll('[data-user-option]'));
+
+                const applySearchFilter = () => {
+                    const term = nameInput ? nameInput.value.trim().toLowerCase() : '';
+                    const hasTerm = term !== '';
+                    let matchesCount = 0;
+
+                    getOptions().forEach((option) => {
+                        const name = option.dataset.userNameLower || '';
+                        const email = option.dataset.userEmailLower || '';
+                        const matches = !hasTerm || name.includes(term) || email.includes(term);
+                        option.classList.toggle('d-none', !matches);
+                        if (matches) {
+                            matchesCount += 1;
+                        }
+                    });
+
+                    if (listWrapper) {
+                        listWrapper.classList.toggle('is-unlimited', hasTerm);
+                    }
+                    if (menu) {
+                        menu.classList.toggle('d-none', hasTerm && matchesCount === 0);
+                    }
+                };
+
+                const openDropdown = () => {
+                    if (menu) {
+                        menu.classList.add('show');
+                    }
+                    dropdown.classList.add('show');
+                };
+
+                const closeDropdown = () => {
+                    if (menu) {
+                        menu.classList.remove('show');
+                    }
+                    dropdown.classList.remove('show');
+                };
+
+                const selectOption = (option) => {
+                    if (!option) {
+                        return;
+                    }
+                    if (hiddenInput) {
+                        hiddenInput.value = option.dataset.userId || '';
+                        hiddenInput.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
+                    if (nameInput) {
+                        nameInput.value = option.dataset.userName || '';
+                        selectedName = nameInput.value.trim();
+                    }
+                    closeDropdown();
+                };
+
+                if (listWrapper) {
+                    listWrapper.addEventListener('pointerdown', (event) => {
+                        const option = event.target.closest('[data-user-option]');
+                        if (!option) {
+                            return;
+                        }
+                        pointerSelection = true;
+                        ignoreBlurClose = true;
+                        event.preventDefault();
+                        selectOption(option);
+                        setTimeout(() => {
+                            pointerSelection = false;
+                            ignoreBlurClose = false;
+                        }, 0);
+                    });
+                    listWrapper.addEventListener('click', (event) => {
+                        if (pointerSelection) {
+                            return;
+                        }
+                        const option = event.target.closest('[data-user-option]');
+                        if (!option) {
+                            return;
+                        }
+                        event.preventDefault();
+                        selectOption(option);
+                    });
+                }
+
+                if (nameInput) {
+                    nameInput.addEventListener('input', () => {
+                        const currentName = nameInput.value.trim();
+                        if (currentName !== selectedName) {
+                            selectedName = '';
+                            if (hiddenInput) {
+                                hiddenInput.value = '';
+                                hiddenInput.dispatchEvent(new Event('change', { bubbles: true }));
+                            }
+                        }
+                        applySearchFilter();
+                        openDropdown();
+                    });
+                    nameInput.addEventListener('focus', () => {
+                        applySearchFilter();
+                        openDropdown();
+                    });
+                    nameInput.addEventListener('blur', () => {
+                        setTimeout(() => {
+                            if (ignoreBlurClose) {
+                                return;
+                            }
+                            if (dropdown.contains(document.activeElement)) {
+                                return;
+                            }
+                            closeDropdown();
+                        }, 120);
+                    });
+                    nameInput.addEventListener('keydown', (event) => {
+                        if (event.key === 'Escape') {
+                            closeDropdown();
+                        }
+                    });
+                }
+
+                document.addEventListener('click', (event) => {
+                    if (!dropdown.contains(event.target)) {
+                        closeDropdown();
+                    }
+                });
+
+                const parentForm = dropdown.closest('form');
+                if (parentForm) {
+                    parentForm.addEventListener('reset', () => {
+                        setTimeout(() => {
+                            resetSelection();
+                            applySearchFilter();
+                        }, 0);
+                    });
+                }
+
+                const initialValue = hiddenInput?.value?.trim();
+                if (initialValue) {
+                    const option = getOptions().find((opt) => opt.dataset.userId === initialValue);
+                    if (option && nameInput) {
+                        nameInput.value = option.dataset.userName || option.textContent.trim();
+                        selectedName = nameInput.value.trim();
+                    } else {
+                        resetSelection();
+                    }
+                } else {
+                    resetSelection();
+                }
+
+                applySearchFilter();
+
+                dropdown.__userDropdown = {
+                    applyFilter: applySearchFilter,
+                    resetSelection,
+                    setName: (text) => {
+                        if (!nameInput) {
+                            return;
+                        }
+                        nameInput.value = text;
+                        selectedName = text.trim();
+                    },
+                };
+            });
+        }
+
+        function initDepartmentMultiselects() {
+            const multiselects = document.querySelectorAll('[data-department-multiselect]');
+            multiselects.forEach((multiselect) => {
+                if (multiselect.departmentMultiselectApi) {
+                    return;
+                }
+                setupDepartmentMultiselect(multiselect);
+            });
+        }
+
+        function setupDepartmentMultiselect(multiselect) {
+            const placeholder = multiselect.querySelector('[data-department-placeholder]');
+            const chipsContainer = multiselect.querySelector('[data-department-selected]');
+            const inputsContainer = multiselect.querySelector('[data-department-inputs]');
+            const hiddenInput = multiselect.querySelector('[data-department-input]');
+            const searchInput = multiselect.querySelector('[data-department-search]');
+            const listContainer = multiselect.querySelector('[data-department-list]');
+            const optionElements = Array.from(multiselect.querySelectorAll('[data-department-option]'));
+
+            const options = [];
+            const selected = new Set();
+
+            const normalizeValues = (value) => {
+                if (Array.isArray(value)) {
+                    return value.map((entry) => String(entry ?? '').trim()).filter((entry) => entry !== '');
+                }
+                return String(value ?? '')
+                    .split(',')
+                    .map((entry) => entry.trim())
+                    .filter((entry) => entry !== '');
+            };
+
+            const ensureOption = (value) => {
+                const normalized = String(value ?? '').trim();
+                if (!normalized || options.some((option) => option.value === normalized)) {
+                    return;
+                }
+                if (!listContainer) {
+                    return;
+                }
+                const label = document.createElement('label');
+                label.className = 'department-multiselect-option';
+                label.dataset.departmentOption = '';
+                label.dataset.value = normalized;
+                label.dataset.label = normalized;
+                label.dataset.search = normalized.toLowerCase();
+
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.className = 'form-check-input';
+                checkbox.dataset.departmentCheckbox = '';
+                checkbox.value = normalized;
+
+                const span = document.createElement('span');
+                span.textContent = normalized;
+
+                label.appendChild(checkbox);
+                label.appendChild(span);
+                listContainer.appendChild(label);
+
+                registerOption(label);
+            };
+
+            const syncHiddenInput = () => {
+                if (hiddenInput) {
+                    hiddenInput.value = Array.from(selected).join(', ');
+                }
+                if (inputsContainer) {
+                    inputsContainer.innerHTML = '';
+                    selected.forEach((value) => {
+                        const input = document.createElement('input');
+                        input.type = 'hidden';
+                        input.name = 'department[]';
+                        input.value = value;
+                        inputsContainer.appendChild(input);
+                    });
+                }
+            };
+
+            const syncChips = () => {
+                if (!chipsContainer) {
+                    return;
+                }
+                chipsContainer.innerHTML = '';
+                selected.forEach((value) => {
+                    const chip = document.createElement('span');
+                    chip.className = 'department-chip';
+                    chip.innerHTML = `
+                        <span>${value}</span>
+                        <button type="button" class="department-chip-remove" data-department-remove="${value}" aria-label="Remove ${value}">&times;</button>
+                    `;
+                    chipsContainer.appendChild(chip);
+                });
+                if (placeholder) {
+                    placeholder.classList.toggle('d-none', selected.size > 0);
+                }
+            };
+
+            const syncCheckboxes = () => {
+                options.forEach(({ value, checkbox, element }) => {
+                    const isSelected = selected.has(value);
+                    if (checkbox) {
+                        checkbox.checked = isSelected;
+                    }
+                    element.classList.toggle('is-selected', isSelected);
+                });
+            };
+
+            const applySearchFilter = () => {
+                const term = (searchInput?.value || '').trim().toLowerCase();
+                const hasTerm = term !== '';
+                options.forEach(({ element, searchValue }) => {
+                    const matches = !hasTerm || (searchValue || '').includes(term);
+                    element.classList.toggle('d-none', !matches);
+                });
+            };
+
+            const setSelectedValues = (values) => {
+                const normalized = normalizeValues(values);
+                selected.clear();
+                normalized.forEach((value) => {
+                    if (value) {
+                        ensureOption(value);
+                        selected.add(value);
+                    }
+                });
+                syncHiddenInput();
+                syncChips();
+                syncCheckboxes();
+            };
+
+            const toggleValue = (value) => {
+                if (!value) {
+                    return;
+                }
+                const key = String(value);
+                if (selected.has(key)) {
+                    selected.delete(key);
+                } else {
+                    ensureOption(key);
+                    selected.add(key);
+                }
+                syncHiddenInput();
+                syncChips();
+                syncCheckboxes();
+            };
+
+            const handleChipRemoval = (event) => {
+                const removeBtn = event.target.closest('[data-department-remove]');
+                if (!removeBtn) {
+                    return;
+                }
+                event.preventDefault();
+                event.stopImmediatePropagation();
+                const value = removeBtn.dataset.departmentRemove;
+                if (value && selected.has(value)) {
+                    selected.delete(value);
+                    syncHiddenInput();
+                    syncChips();
+                    syncCheckboxes();
+                }
+            };
+
+            const registerOption = (element) => {
+                const value = element.dataset.value ?? '';
+                const label = element.dataset.label ?? value;
+                const searchValue = element.dataset.search ?? label.toLowerCase();
+                const checkbox = element.querySelector('[data-department-checkbox]');
+                const option = { element, value, label, searchValue, checkbox };
+                options.push(option);
+
+                element.addEventListener('click', (event) => {
+                    if (event.target instanceof HTMLInputElement) {
+                        return;
+                    }
+                    event.preventDefault();
+                    event.stopPropagation();
+                    toggleValue(value);
+                });
+
+                if (checkbox) {
+                    checkbox.addEventListener('change', (event) => {
+                        event.stopPropagation();
+                        if (event.target.checked) {
+                            selected.add(String(value));
+                        } else {
+                            selected.delete(String(value));
+                        }
+                        syncHiddenInput();
+                        syncChips();
+                        syncCheckboxes();
+                    });
+                }
+            };
+
+            optionElements.forEach(registerOption);
+            chipsContainer?.addEventListener('click', handleChipRemoval);
+            chipsContainer?.addEventListener('mousedown', handleChipRemoval);
+
+            if (searchInput) {
+                searchInput.addEventListener('input', applySearchFilter);
+            }
+
+            multiselect.addEventListener('shown.bs.dropdown', () => {
+                if (searchInput) {
+                    searchInput.value = '';
+                    applySearchFilter();
+                    searchInput.focus();
+                }
+            });
+
+            const parentForm = multiselect.closest('form');
+            if (parentForm) {
+                parentForm.addEventListener('reset', () => {
+                    setTimeout(() => {
+                        setSelectedValues([]);
+                        if (searchInput) {
+                            searchInput.value = '';
+                            applySearchFilter();
+                        }
+                    }, 0);
+                });
+            }
+
+            applySearchFilter();
+            syncChips();
+            syncCheckboxes();
+            syncHiddenInput();
+
+            multiselect.departmentMultiselectApi = {
+                setSelected: setSelectedValues,
+                getSelected: () => Array.from(selected),
+                reset: () => setSelectedValues([]),
+            };
+        }
+
+        class FacultyPage {
+            constructor({ faculties, users }) {
+                this.faculties = Array.isArray(faculties) ? faculties : [];
+                this.users = Array.isArray(users)
+                    ? users.map((user) => this.normaliseUserOption(user)).filter(Boolean)
+                    : [];
+                this.sortUserOptions();
+
+                this.userDropdownEl = document.querySelector('[data-user-dropdown]');
+
+                this.selection = new Set();
+                this.sortState = { key: null, direction: 'asc' };
+                this.filters = { department: 'all', job: 'all' };
+                this.lastSelectionScopeKey = this.getSelectionScopeKey();
+
+                this.tableRoot = document.querySelector('[data-table-id="facultyTable"]');
+                this.tableBody = document.getElementById('facultyTableBody');
+                this.selectAllEl = document.getElementById('facultySelectAll');
+                this.bulkBar = document.getElementById('facultyBulkBar');
+                this.selectedCountEl = document.getElementById('facultySelectedCount');
+
+                this.alertContainer = document.getElementById('alertContainer');
+                this.searchInput = document.getElementById('facultySearch');
+                this.searchClear = document.getElementById('facultySearchClear');
+                this.filterToggle = document.getElementById('facultyFilterToggle');
+                this.filterControls = {
+                    department: document.getElementById('facultyFilterDepartment'),
+                    job: document.getElementById('facultyFilterJob'),
+                };
+                this.filterResetBtn = document.getElementById('facultyFilterReset');
+
+                this.createModalEl = document.getElementById('facultyCreateModal');
+                this.editModalEl = document.getElementById('facultyEditModal');
+                this.deleteModalEl = document.getElementById('facultyDeleteModal');
+                this.bulkDeleteModalEl = document.getElementById('facultyBulkDeleteModal');
+
+                const hasBootstrap = typeof bootstrap !== 'undefined' && bootstrap && bootstrap.Modal;
+                this.createModal = this.createModalEl && hasBootstrap ? new bootstrap.Modal(this.createModalEl) : null;
+                this.editModal = this.editModalEl && hasBootstrap ? new bootstrap.Modal(this.editModalEl) : null;
+                this.deleteModal = this.deleteModalEl && hasBootstrap ? new bootstrap.Modal(this.deleteModalEl) : null;
+                this.bulkDeleteModal = this.bulkDeleteModalEl && hasBootstrap ? new bootstrap.Modal(this.bulkDeleteModalEl) : null;
+
+                this.currentEditId = null;
+                this.pendingDeleteId = null;
+                this.pendingBulkIds = null;
+
+                this.controller = null;
+
+                this.bindBaseEvents();
+                this.initSorting();
+                this.initSearchInput();
+                this.initFilters();
+                this.renderTable();
+            }
+
+            bindBaseEvents() {
+                const createForm = document.getElementById('addFacultyForm');
+                if (createForm) {
+                    createForm.addEventListener('submit', (event) => {
+                        event.preventDefault();
+                        this.handleCreate(createForm);
+                    });
+                    if (this.createModalEl) {
+                        this.createModalEl.addEventListener('hidden.bs.modal', () => {
+                            createForm.reset();
+                        });
+                    }
+                }
+
+                const editForm = document.getElementById('editFacultyForm');
+                if (editForm) {
+                    editForm.addEventListener('submit', (event) => {
+                        event.preventDefault();
+                        this.handleUpdate(editForm);
+                    });
+                }
+
+                const importForm = document.getElementById('facultyImportForm');
+                if (importForm) {
+                    importForm.addEventListener('submit', () => {
+                        const submitBtn = importForm.querySelector('[type="submit"]');
+                        this.toggleButtonLoading(submitBtn, true, 'Import', 'Importing...');
+                    });
+                }
+
+                const confirmDeleteBtn = document.getElementById('confirmFacultyDeleteBtn');
+                if (confirmDeleteBtn) {
+                    confirmDeleteBtn.addEventListener('click', () => {
+                        if (this.pendingDeleteId !== null) {
+                            this.handleDelete(this.pendingDeleteId);
+                        }
+                    });
+                }
+
+                const confirmBulkBtn = document.getElementById('confirmFacultyBulkDeleteBtn');
+                if (confirmBulkBtn) {
+                    confirmBulkBtn.addEventListener('click', () => {
+                        if (Array.isArray(this.pendingBulkIds) && this.pendingBulkIds.length > 0) {
+                            this.executeBulkDelete(this.pendingBulkIds.slice());
+                        }
+                    });
+                }
+
+                if (this.selectAllEl) {
+                    this.selectAllEl.addEventListener('change', (event) => {
+                        this.handleSelectAll(event.target.checked);
+                    });
+                }
+
+                if (this.bulkBar) {
+                    this.bulkBar.addEventListener('click', (event) => {
+                        const button = event.target.closest('[data-bulk-action]');
+                        if (!button) {
+                            return;
+                        }
+
+                        if (button.dataset.bulkAction === 'clear') {
+                            this.clearSelection();
+                        } else if (button.dataset.bulkAction === 'delete') {
+                            this.handleBulkDeletePrompt();
+                        }
+                    });
+                }
+
+                if (this.tableRoot) {
+                    this.tableRoot.addEventListener('table:updated', () => {
+                        const scopeKey = this.getSelectionScopeKey();
+                        if (this.selectAllEl?.checked && scopeKey !== this.lastSelectionScopeKey) {
+                            this.lastSelectionScopeKey = scopeKey;
+                            this.clearSelection();
+                        } else {
+                            this.lastSelectionScopeKey = scopeKey;
+                        }
+                        this.syncSelectAllState();
+                        this.updateBulkBar();
+                        this.refreshPillPalettes();
+                    });
+                }
+            }
+
+            initSorting() {
+                this.sortHeaders = Array.from(document.querySelectorAll('#facultyTable thead th[data-sort-key]'));
+                this.sortHeaders.forEach((header) => {
+                    header.dataset.sortState = 'none';
+                    header.addEventListener('click', () => {
+                        const sortKey = header.dataset.sortKey;
+                        if (!sortKey) {
+                            return;
+                        }
+
+                        if (this.sortState.key === sortKey) {
+                            this.sortState.direction = this.sortState.direction === 'asc' ? 'desc' : 'asc';
+                        } else {
+                            this.sortState.key = sortKey;
+                            this.sortState.direction = 'asc';
+                        }
+
+                        this.updateSortIndicators();
+                        this.renderTable();
+                    });
+                });
+                this.updateSortIndicators();
+            }
+
+            initSearchInput() {
+                if (!this.searchInput || !this.searchClear) {
+                    return;
+                }
+
+                const toggleClear = () => {
+                    if (this.searchInput.value.trim() === '') {
+                        this.searchClear.classList.remove('is-visible');
+                    } else {
+                        this.searchClear.classList.add('is-visible');
+                    }
+                };
+
+                this.searchInput.addEventListener('input', toggleClear);
+                this.searchClear.addEventListener('click', () => {
+                    this.searchInput.value = '';
+                    toggleClear();
+                    this.searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+                });
+
+                toggleClear();
+            }
+
+            updateSortIndicators() {
+                if (!Array.isArray(this.sortHeaders)) {
+                    return;
+                }
+
+                this.sortHeaders.forEach((header) => {
+                    header.classList.remove('sorted-asc', 'sorted-desc');
+                    header.dataset.sortState = 'none';
+
+                    if (header.dataset.sortKey === this.sortState.key) {
+                        const direction = this.sortState.direction === 'asc' ? 'sorted-asc' : 'sorted-desc';
+                        header.classList.add(direction);
+                        header.dataset.sortState = this.sortState.direction;
+                    }
+                });
+            }
+
+            renderTable() {
+                if (!this.tableBody) {
+                    return;
+                }
+
+                const data = this.getFilteredFaculties();
+                const availableIds = new Set(data.map((faculty) => String(faculty.id)));
+                Array.from(this.selection).forEach((id) => {
+                    if (!availableIds.has(String(id))) {
+                        this.selection.delete(String(id));
+                    }
+                });
+
+                const tableHtml = data.length === 0
+                    ? this.buildEmptyStateRow()
+                    : data.map((faculty) => this.buildRowHTML(faculty)).join('');
+
+                this.tableBody.innerHTML = tableHtml + this.buildSearchEmptyRow();
+
+                this.attachRowEventListeners();
+                this.attachRowSelectionHandlers();
+                this.syncSelectAllState();
+                this.updateBulkBar();
+                this.refreshPillPalettes();
+
+                if (this.controller) {
+                    this.controller.refresh();
+                } else if (this.tableRoot && window.TableController) {
+                    this.controller = new TableController(this.tableRoot);
+                    window.tableControllers = window.tableControllers || {};
+                    window.tableControllers.facultyTable = this.controller;
+                }
+                this.updateFilterToggleState();
+            }
+
+            refreshPillPalettes() {
+                if (!this.tableRoot) {
+                    return;
+                }
+                applyPillPalettes(this.tableRoot);
+            }
+
+            getFilteredFaculties() {
+                const data = this.getSortedFaculties();
+                return data.filter((faculty) => this.matchesFilters(faculty));
+            }
+
+            getSortedFaculties() {
+                const data = Array.isArray(this.faculties) ? [...this.faculties] : [];
+                if (!this.sortState.key) {
+                    const getIdValue = (item) => {
+                        if (!item || typeof item.id === 'undefined' || item.id === null) {
+                            return 0;
+                        }
+                        return item.id;
+                    };
+                    return data.sort((a, b) => Number(getIdValue(b)) - Number(getIdValue(a)));
+                }
+
+                const multiplier = this.sortState.direction === 'asc' ? 1 : -1;
+                return data.sort((a, b) => {
+                    const valueA = this.getSortValue(a, this.sortState.key);
+                    const valueB = this.getSortValue(b, this.sortState.key);
+
+                    return String(valueA ?? '').localeCompare(String(valueB ?? ''), undefined, { sensitivity: 'base' }) * multiplier;
+                });
+            }
+
+            initFilters() {
+                this.refreshFilterOptions();
+
+                Object.entries(this.filterControls).forEach(([key, select]) => {
+                    if (!select) return;
+                    select.addEventListener('change', (event) => {
+                        this.filters[key] = event.target.value || 'all';
+                        this.renderTable();
+                    });
+                });
+
+                if (this.filterResetBtn) {
+                    this.filterResetBtn.addEventListener('click', () => {
+                        Object.keys(this.filters).forEach((key) => {
+                            this.filters[key] = 'all';
+                            if (this.filterControls[key]) {
+                                this.filterControls[key].value = 'all';
+                            }
+                        });
+                        this.renderTable();
+                    });
+                }
+            }
+
+            refreshFilterOptions() {
+                const departmentOptions = this.getUniqueValues(this.faculties, (faculty) => {
+                    if (!faculty || typeof faculty !== 'object') {
+                        return [];
+                    }
+                    return this.parseDepartments(faculty.department);
+                });
+                const jobOptions = this.getUniqueValues(this.faculties, (faculty) => {
+                    if (!faculty || typeof faculty !== 'object') {
+                        return '';
+                    }
+                    if (faculty.job_title) {
+                        return faculty.job_title;
+                    }
+                    return faculty.user && faculty.user.job_title ? faculty.user.job_title : '';
+                });
+
+                this.populateFilterSelect(this.filterControls.department, departmentOptions);
+                this.populateFilterSelect(this.filterControls.job, jobOptions);
+                this.updateFilterToggleState();
+            }
+
+            getUniqueValues(items, accessor) {
+                const seen = new Map();
+                (items || []).forEach((item) => {
+                    const raw = accessor(item);
+                    if (Array.isArray(raw)) {
+                        raw.forEach((value) => {
+                            const normalised = this.normaliseValue(value);
+                            if (!normalised || seen.has(normalised)) {
+                                return;
+                            }
+                            seen.set(normalised, this.formatDisplayText(value));
+                        });
+                        return;
+                    }
+                    const value = raw ?? '';
+                    const normalised = this.normaliseValue(value);
+                    if (!normalised || seen.has(normalised)) {
+                        return;
+                    }
+                    seen.set(normalised, this.formatDisplayText(value));
+                });
+                return Array.from(seen.entries())
+                    .sort((a, b) => a[1].localeCompare(b[1]))
+                    .map(([value, label]) => ({ value, label }));
+            }
+
+            populateFilterSelect(select, options) {
+                if (!select) return;
+                const previous = select.value;
+                const opts = ['<option value="all">All</option>']
+                    .concat(options.map((option) => `<option value="${option.value}">${option.label}</option>`));
+                select.innerHTML = opts.join('');
+                select.value = options.some((option) => option.value === previous) ? previous : 'all';
+            }
+
+            matchesFilters(faculty) {
+                if (!faculty) {
+                    return false;
+                }
+                const facultyUser = faculty && faculty.user ? faculty.user : null;
+                if (this.filters.department !== 'all') {
+                    const departments = this.parseDepartments(faculty && faculty.department ? faculty.department : '');
+                    const normalizedDepartments = departments.map((value) => this.normaliseValue(value));
+                    if (!normalizedDepartments.includes(this.filters.department)) {
+                        return false;
+                    }
+                }
+                if (this.filters.job !== 'all') {
+                    let jobValue = '';
+                    if (faculty && faculty.job_title) {
+                        jobValue = faculty.job_title;
+                    } else if (facultyUser && facultyUser.job_title) {
+                        jobValue = facultyUser.job_title;
+                    }
+                    const job = this.normaliseValue(jobValue);
+                    if (job !== this.filters.job) {
+                        return false;
+                    }
+                }
+                return true;
+            }
+
+            updateFilterToggleState() {
+                if (!this.filterToggle) return;
+                const isActive = Object.values(this.filters).some((value) => value !== 'all');
+                this.filterToggle.classList.toggle('is-active', isActive);
+            }
+
+            getSortValue(faculty, key) {
+                const facultyUser = faculty && faculty.user ? faculty.user : null;
+                switch (key) {
+                    case 'name':
+                        return facultyUser && facultyUser.name ? facultyUser.name : '';
+                    case 'employee':
+                        return faculty && faculty.employee_no ? faculty.employee_no : '';
+                    case 'department':
+                        return faculty && faculty.department ? faculty.department : '';
+                    case 'job':
+                        if (faculty && faculty.job_title) {
+                            return faculty.job_title;
+                        }
+                        return facultyUser && facultyUser.job_title ? facultyUser.job_title : '';
+                    default:
+                        return '';
+                }
+            }
+
+            buildEmptyStateRow() {
+                return `
+                    <tr data-empty>
+                        <td colspan="{{ ($canDelete || $showDeleteDisabled) ? 6 : 5 }}" class="text-center py-5">
+                            <div class="empty-state">
+                                <i class="fa-solid fa-user-group display-4 text-muted mb-3"></i>
+                                <h5 class="mb-2">No faculty members found</h5>
+                                <p class="text-muted mb-0">Add your first faculty member using the actions above.</p>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }
+
+            buildSearchEmptyRow() {
+                return `
+                    <tr data-empty-search style="display: none;">
+                        <td colspan="{{ ($canDelete || $showDeleteDisabled) ? 6 : 5 }}" class="text-center py-5">
+                            <div class="empty-state">
+                                <i class="fa-solid fa-magnifying-glass display-4 text-muted mb-3"></i>
+                                <h5 class="mb-2">No results found</h5>
+                                <p class="text-muted mb-0">Try adjusting your search or filters.</p>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }
+
+            buildRowHTML(faculty) {
+                const rowId = String(faculty.id);
+                const isSelected = this.selection.has(rowId);
+
+                const facultyUser = faculty && faculty.user ? faculty.user : null;
+                const rawName = facultyUser && facultyUser.name ? facultyUser.name : 'N/A';
+                const displayName = this.formatDisplayText(rawName);
+                const emailRaw = facultyUser && facultyUser.email ? facultyUser.email : '';
+                const email = this.escapeHtml(emailRaw);
+                const employeeNo = this.escapeHtml(faculty && faculty.employee_no ? faculty.employee_no : 'N/A');
+                const departmentList = this.parseDepartments(faculty && faculty.department ? faculty.department : '')
+                    .map((value) => this.formatDisplayText(value))
+                    .filter((value) => value !== '');
+                if (departmentList.length === 0) {
+                    departmentList.push('N/A');
+                }
+                let rawJobTitle = 'N/A';
+                if (faculty && faculty.job_title) {
+                    rawJobTitle = faculty.job_title;
+                } else if (facultyUser && facultyUser.job_title) {
+                    rawJobTitle = facultyUser.job_title;
+                }
+                const jobTitle = this.formatDisplayText(rawJobTitle);
+                const nameCellTitle = [displayName, emailRaw].filter(Boolean).join(' • ');
+                const employeeAttr = 'employee';
+                const jobTitleAttr = this.escapeAttribute(jobTitle);
+
+                const searchTerms = [
+                    rawName,
+                    employeeNo,
+                    faculty && faculty.department ? faculty.department : '',
+                    faculty && faculty.job_title ? faculty.job_title : '',
+                    facultyUser && facultyUser.job_title ? facultyUser.job_title : '',
+                    email,
+                ].join(' ').toLowerCase();
+
+                const selectionCell = (facultyPermissions.canDelete || facultyPermissions.showDeleteDisabled)
+                    ? `
+                        <td class="text-center">
+                            <input type="checkbox" class="form-check-input evaluation-checkbox" data-row-select value="${rowId}" ${isSelected ? 'checked' : ''}>
+                        </td>
+                    `
+                    : '';
+
+                const actionItems = `
+                    ${facultyPermissions.canEdit ? `
+                        <li>
+                            <button type="button" class="dropdown-item" data-action="edit" data-id="${rowId}">Edit</button>
+                        </li>
+                    ` : ''}
+                    ${facultyPermissions.canEdit && (facultyPermissions.canDelete || facultyPermissions.showDeleteDisabled) ? '<li><hr class="dropdown-divider"></li>' : ''}
+                    ${facultyPermissions.canDelete ? `
+                        <li>
+                            <button type="button" class="dropdown-item text-danger" data-action="delete" data-id="${rowId}">Delete</button>
+                        </li>
+                    ` : ''}
+                    ${(!facultyPermissions.canDelete && facultyPermissions.showDeleteDisabled) ? `
+                        <li>
+                            <button type="button" class="dropdown-item disabled text-muted" disabled aria-disabled="true">Delete</button>
+                        </li>
+                    ` : ''}
+                `;
+
+                const actionsCell = (facultyPermissions.canEdit || facultyPermissions.canDelete || facultyPermissions.showDeleteDisabled)
+                    ? `
+                        <td class="actions-cell">
+                            <div class="dropdown evaluation-actions">
+                                <button class="evaluation-icon-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i class="bx bx-dots-horizontal-rounded"></i>
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end">
+                                    ${actionItems}
+                                </ul>
+                            </div>
+                        </td>
+                    `
+                    : '<td class="text-muted">—</td>';
+
+                return `
+                    <tr data-faculty-id="${rowId}" class="${isSelected ? 'is-selected' : ''}" data-search="${this.escapeAttribute(searchTerms)}">
+                        ${selectionCell}
+                        <td>
+                            <div class="table-cell-stack is-wide" title="${this.escapeAttribute(nameCellTitle)}">
+                                <span class="faculty-name text-dark d-block">${this.escapeHtml(displayName)}</span>
+                                ${email ? `<small class="text-muted">${email}</small>` : ''}
+                            </div>
+                        </td>
+                        <td class="evaluation-pill-cell">
+                            <span class="evaluation-pill"
+                                  data-pill-palette="purple"
+                                  data-pill-value="${employeeAttr}">${employeeNo}</span>
+                        </td>
+                        <td class="evaluation-pill-cell">
+                            <div class="evaluation-pill-group">
+                                ${departmentList.map((department) => {
+                                    const departmentAttr = this.escapeAttribute(department);
+                                    return `
+                                        <span class="evaluation-pill"
+                                              data-pill-palette="blue"
+                                              data-pill-value="${departmentAttr}">${this.escapeHtml(department)}</span>
+                                    `;
+                                }).join('')}
+                            </div>
+                        </td>
+                        <td>
+                            <span class="table-text-truncate is-wide" title="${jobTitleAttr}">${this.escapeHtml(jobTitle)}</span>
+                        </td>
+                        ${actionsCell}
+                    </tr>
+                `;
+            }
+
+            attachRowEventListeners() {
+                if (!this.tableBody) {
+                    return;
+                }
+
+                this.tableBody.querySelectorAll('[data-action="edit"]').forEach((button) => {
+                    button.addEventListener('click', () => {
+                        const id = Number(button.dataset.id);
+                        if (!Number.isNaN(id)) {
+                            this.openEditModal(id);
+                        }
+                    });
+                });
+
+                this.tableBody.querySelectorAll('[data-action="delete"]').forEach((button) => {
+                    button.addEventListener('click', () => {
+                        const id = Number(button.dataset.id);
+                        if (!Number.isNaN(id)) {
+                            this.openDeleteModal(id);
+                        }
+                    });
+                });
+            }
+
+            attachRowSelectionHandlers() {
+                if (!this.tableBody) {
+                    return;
+                }
+
+                const checkboxes = this.tableBody.querySelectorAll('[data-row-select]');
+                checkboxes.forEach((checkbox) => {
+                    checkbox.addEventListener('change', () => {
+                        const id = checkbox.value;
+                        const row = checkbox.closest('tr');
+                        if (!row) {
+                            return;
+                        }
+
+                        if (checkbox.checked) {
+                            this.selection.add(String(id));
+                        } else {
+                            this.selection.delete(String(id));
+                        }
+
+                        row.classList.toggle('is-selected', checkbox.checked);
+                        this.syncSelectAllState();
+                        this.updateBulkBar();
+                    });
+                });
+            }
+
+            getSelectableRows() {
+                if (this.controller && Array.isArray(this.controller.filteredRows)) {
+                    return this.controller.filteredRows;
+                }
+                if (!this.tableBody) {
+                    return [];
+                }
+                return Array.from(this.tableBody.querySelectorAll('tr[data-faculty-id]'));
+            }
+
+            getSelectionScopeKey() {
+                const searchTerm = this.controller?.searchTerm ?? '';
+                const filterKey = JSON.stringify(this.filters);
+                return `${searchTerm}|${filterKey}`;
+            }
+
+            handleSelectAll(shouldSelect) {
+                const rows = this.getSelectableRows();
+                rows.forEach((row) => {
+                    const checkbox = row.querySelector('[data-row-select]');
+                    if (!checkbox) {
+                        return;
+                    }
+                    checkbox.checked = shouldSelect;
+                    if (shouldSelect) {
+                        this.selection.add(String(checkbox.value));
+                    } else {
+                        this.selection.delete(String(checkbox.value));
+                    }
+                    row.classList.toggle('is-selected', shouldSelect);
+                });
+
+                this.syncSelectAllState();
+                this.updateBulkBar();
+            }
+
+            handleCreate(form) {
+                const data = this.extractFormData(form);
+                if (!this.validateForm(data)) {
+                    return;
+                }
+
+                const submitBtn = form.querySelector('[type="submit"]');
+                this.toggleButtonLoading(submitBtn, true, 'Save', 'Saving...');
+
+                fetch('{{ route('dm.faculties.store') }}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                    },
+                    body: JSON.stringify(data)
+                })
+                    .then(async (response) => {
+                        const payload = await response.json();
+                        if (!response.ok || !payload.success) {
+                            throw new Error(payload.message || 'Failed to add faculty member.');
+                        }
+                        return payload;
+                    })
+                    .then((payload) => {
+                        if (Array.isArray(this.faculties)) {
+                            this.faculties.push(payload.data);
+                        } else {
+                            this.faculties = [payload.data];
+                        }
+                        this.renderTable();
+                        this.refreshFilterOptions();
+                        this.removeUserOption(payload.data && payload.data.user_id ? payload.data.user_id : data.user_id);
+                        if (this.createModal) {
+                            this.createModal.hide();
+                        }
+                        form.reset();
+                        this.showAlert('success', payload.message || 'Faculty member added successfully.');
+                    })
+                    .catch((error) => {
+                        this.showAlert('error', error.message || 'Failed to add faculty member.');
+                    })
+                    .finally(() => {
+                        this.toggleButtonLoading(submitBtn, false, 'Save');
+                    });
+            }
+
+            handleUpdate(form) {
+                if (this.currentEditId === null) {
+                    return;
+                }
+
+                const data = this.extractFormData(form);
+                if (!this.validateForm(data)) {
+                    return;
+                }
+
+                const submitBtn = form.querySelector('[type="submit"]');
+                this.toggleButtonLoading(submitBtn, true, 'Save Changes', 'Saving...');
+
+                fetch(`{{ route('dm.faculties.update', ':id') }}`.replace(':id', this.currentEditId), {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                    },
+                    body: JSON.stringify(data)
+                })
+                    .then(async (response) => {
+                        const payload = await response.json();
+                        if (!response.ok || !payload.success) {
+                            throw new Error(payload.message || 'Failed to update faculty member.');
+                        }
+                        return payload;
+                    })
+                    .then((payload) => {
+                        const index = this.faculties.findIndex((item) => item.id === this.currentEditId);
+                        if (index !== -1) {
+                            this.faculties[index] = payload.data;
+                        }
+                        this.renderTable();
+                        this.refreshFilterOptions();
+                        if (this.editModal) {
+                            this.editModal.hide();
+                        }
+                        this.showAlert('success', payload.message || 'Faculty member updated successfully.');
+                    })
+                    .catch((error) => {
+                        this.showAlert('error', error.message || 'Failed to update faculty member.');
+                    })
+                    .finally(() => {
+                        this.toggleButtonLoading(submitBtn, false, 'Save Changes');
+                    });
+            }
+
+            handleDelete(facultyId) {
+                const targetFaculty = this.faculties.find((item) => Number(item.id) === Number(facultyId));
+                const confirmBtn = document.getElementById('confirmFacultyDeleteBtn');
+                this.toggleButtonLoading(confirmBtn, true, 'Delete', 'Deleting...');
+
+                fetch(`{{ route('dm.faculties.destroy', ':id') }}`.replace(':id', facultyId), {
+                    method: 'DELETE',
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                    }
+                })
+                    .then(async (response) => {
+                        const payload = await response.json();
+                        if (!response.ok || !payload.success) {
+                            throw new Error(payload.message || 'Failed to delete faculty member.');
+                        }
+                        return payload;
+                    })
+                    .then((payload) => {
+                        this.faculties = this.faculties.filter((faculty) => faculty.id !== facultyId);
+                        this.selection.delete(String(facultyId));
+                        this.renderTable();
+                        this.refreshFilterOptions();
+                        this.restoreUserOptionFromFaculty(targetFaculty);
+                        if (this.deleteModal) {
+                            this.deleteModal.hide();
+                        }
+                        this.showAlert('success', payload.message || 'Faculty member deleted successfully.');
+                    })
+                    .catch((error) => {
+                        this.showAlert('error', error.message || 'Failed to delete faculty member.');
+                    })
+                    .finally(() => {
+                        this.toggleButtonLoading(confirmBtn, false, 'Delete');
+                        this.pendingDeleteId = null;
+                    });
+            }
+
+            handleBulkDeletePrompt() {
+                if (this.selection.size === 0) {
+                    return;
+                }
+
+                const ids = Array.from(this.selection)
+                    .map((id) => Number(id))
+                    .filter((id) => !Number.isNaN(id));
+
+                if (!ids.length) {
+                    return;
+                }
+
+                this.pendingBulkIds = ids;
+
+                const countEl = document.getElementById('facultyBulkDeleteCount');
+                if (countEl) {
+                    countEl.textContent = ids.length;
+                }
+
+                if (this.bulkDeleteModal) {
+                    this.bulkDeleteModal.show();
+                }
+            }
+
+            executeBulkDelete(ids) {
+                const targetIds = Array.isArray(ids)
+                    ? ids.map((id) => Number(id)).filter((id) => !Number.isNaN(id))
+                    : [];
+                const confirmBtn = document.getElementById('confirmFacultyBulkDeleteBtn');
+                this.toggleButtonLoading(confirmBtn, true, 'Delete Selected', 'Deleting...');
+
+                fetch('{{ route('dm.faculties.bulk-destroy') }}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                    },
+                    body: JSON.stringify({ ids })
+                })
+                    .then(async (response) => {
+                        const payload = await response.json();
+                        if (!response.ok || !payload.success) {
+                            throw new Error(payload.message || 'Failed to delete selected faculty members.');
+                        }
+                        return payload;
+                    })
+                    .then((payload) => {
+                        const idSet = new Set(targetIds);
+                        const removedFaculties = this.faculties.filter((faculty) => idSet.has(Number(faculty.id)));
+                        this.faculties = this.faculties.filter((faculty) => !idSet.has(Number(faculty.id)));
+                        ids.forEach((id) => this.selection.delete(String(id)));
+                        this.renderTable();
+                        this.refreshFilterOptions();
+                        removedFaculties.forEach((faculty) => this.restoreUserOptionFromFaculty(faculty));
+                        if (this.bulkDeleteModal) {
+                            this.bulkDeleteModal.hide();
+                        }
+                        this.showAlert('success', payload.message || 'Selected faculty members deleted successfully.');
+                    })
+                    .catch((error) => {
+                        this.showAlert('error', error.message || 'Failed to delete selected faculty members.');
+                    })
+                    .finally(() => {
+                        this.toggleButtonLoading(confirmBtn, false, 'Delete Selected');
+                        this.pendingBulkIds = null;
+                    });
+            }
+
+            openEditModal(facultyId) {
+                const faculty = this.faculties.find((item) => item.id === facultyId);
+                if (!faculty) {
+                    this.showAlert('error', 'Selected faculty record was not found.');
+                    return;
+                }
+
+                this.currentEditId = facultyId;
+                const facultyUser = faculty && faculty.user ? faculty.user : null;
+                const form = document.getElementById('editFacultyForm');
+                if (!form) {
+                    return;
+                }
+
+                form.querySelector('[name="faculty_id"]').value = faculty.id;
+                form.querySelector('[name="user_id"]').value = faculty.user_id ?? '';
+                form.querySelector('[name="employee_no"]').value = faculty.employee_no ?? '';
+                const departmentValue = this.formatDisplayText(faculty.department ?? '');
+                const departmentMultiselect = form.querySelector('[data-department-multiselect]');
+                if (departmentMultiselect?.departmentMultiselectApi) {
+                    departmentMultiselect.departmentMultiselectApi.setSelected(departmentValue);
+                } else {
+                    form.querySelector('[name="department"]').value = departmentValue;
+                }
+                let editJobValue = '';
+                if (faculty.job_title) {
+                    editJobValue = faculty.job_title;
+                } else if (facultyUser && facultyUser.job_title) {
+                    editJobValue = facultyUser.job_title;
+                }
+                form.querySelector('[name="job_title"]').value = this.formatDisplayText(editJobValue);
+
+                const nameInput = document.getElementById('editFacultyName');
+                if (nameInput) {
+                    const editName = facultyUser && facultyUser.name ? facultyUser.name : '';
+                    nameInput.value = this.formatDisplayText(editName);
+                }
+
+                if (this.editModal) {
+                    this.editModal.show();
+                }
+            }
+
+            openDeleteModal(facultyId) {
+                const faculty = this.faculties.find((item) => item.id === facultyId);
+                if (!faculty) {
+                    this.showAlert('error', 'Selected faculty record was not found.');
+                    return;
+                }
+
+                this.pendingDeleteId = facultyId;
+                const facultyUser = faculty && faculty.user ? faculty.user : null;
+
+                const nameEl = document.getElementById('facultyDeleteName');
+                if (nameEl) {
+                    const deleteName = facultyUser && facultyUser.name ? facultyUser.name : 'this faculty member';
+                    nameEl.textContent = this.formatDisplayText(deleteName);
+                }
+
+                if (this.deleteModal) {
+                    this.deleteModal.show();
+                }
+            }
+
+            clearSelection() {
+                this.selection.clear();
+
+                if (this.tableBody) {
+                    this.tableBody.querySelectorAll('[data-row-select]').forEach((checkbox) => {
+                        checkbox.checked = false;
+                    });
+
+                    this.tableBody.querySelectorAll('tr').forEach((row) => {
+                        row.classList.remove('is-selected');
+                    });
+                }
+
+                if (this.selectAllEl) {
+                    this.selectAllEl.checked = false;
+                    this.selectAllEl.indeterminate = false;
+                }
+
+                this.updateBulkBar();
+            }
+
+            syncSelectAllState() {
+                if (!this.selectAllEl) {
+                    return;
+                }
+
+                const rows = this.getSelectableRows();
+                if (rows.length === 0) {
+                    this.selectAllEl.checked = false;
+                    this.selectAllEl.indeterminate = false;
+                    return;
+                }
+
+                const selectedVisible = rows.filter((row) => this.selection.has(row.dataset.facultyId)).length;
+
+                if (selectedVisible === 0) {
+                    this.selectAllEl.checked = false;
+                    this.selectAllEl.indeterminate = false;
+                } else if (selectedVisible === rows.length) {
+                    this.selectAllEl.checked = true;
+                    this.selectAllEl.indeterminate = false;
+                } else {
+                    this.selectAllEl.checked = false;
+                    this.selectAllEl.indeterminate = true;
+                }
+            }
+
+            updateBulkBar() {
+                if (!this.bulkBar || !this.selectedCountEl) {
+                    return;
+                }
+
+                const count = this.selection.size;
+                this.selectedCountEl.textContent = `${count} Selected`;
+                this.bulkBar.classList.toggle('d-none', count === 0);
+            }
+
+            extractFormData(form) {
+                const formData = new FormData(form);
+                const data = {};
+                formData.forEach((value, key) => {
+                    data[key] = value;
+                });
+                return data;
+            }
+
+            validateForm(data) {
+                const required = ['employee_no', 'department', 'job_title'];
+                const missing = required.filter((field) => !data[field] || String(data[field]).trim() === '');
+                const hasName = data.user_name && String(data.user_name).trim() !== '';
+                const hasUserId = data.user_id && String(data.user_id).trim() !== '';
+
+                if (!hasName && !hasUserId) {
+                    this.showAlert('error', 'Please enter a faculty name or select a registered user.');
+                    return false;
+                }
+
+                if (missing.length > 0) {
+                    this.showAlert('error', 'Please complete all required fields.');
+                    return false;
+                }
+
+                return true;
+            }
+
+            toggleButtonLoading(button, isLoading, defaultText = null, loadingText = null) {
+                if (!button) {
+                    return;
+                }
+
+                const idleText = defaultText ?? button.dataset.defaultText ?? button.textContent.trim();
+                const busyText = loadingText ?? button.dataset.loadingText ?? 'Saving...';
+
+                if (isLoading) {
+                    button.dataset.defaultText = idleText;
+                    button.dataset.loadingText = busyText;
+                    button.disabled = true;
+                    button.textContent = busyText;
+                } else {
+                    const original = button.dataset.defaultText || idleText;
+                    button.disabled = false;
+                    button.textContent = original;
+                }
+            }
+
+            showAlert(type, message) {
+                if (window.dmToast && typeof window.dmToast.show === 'function') {
+                    const toastType = type === 'error' ? 'danger' : type;
+                    window.dmToast.show({ type: toastType, message });
+                    return;
+                }
+
+                if (!this.alertContainer) {
+                    return;
+                }
+
+                const alertClass = type === 'success' ? 'alert-success' : 'alert-danger';
+                this.alertContainer.innerHTML = `
+                    <div class="alert ${alertClass} alert-dismissible fade show" role="alert">
+                        ${this.escapeHtml(message)}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                `;
+            }
+
+            escapeHtml(value) {
+                if (value === null || value === undefined) {
+                    return '';
+                }
+
+                return String(value).replace(/[&<>"']/g, (char) => ({
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    '"': '&quot;',
+                    "'": '&#39;',
+                }[char] || char));
+            }
+
+            escapeAttribute(value) {
+                return this.escapeHtml(value).replace(/"/g, '&quot;');
+            }
+
+            formatDisplayText(value) {
+                if (value === null || value === undefined) {
+                    return '';
+                }
+
+                return String(value);
+            }
+
+            parseDepartments(value) {
+                if (value === null || value === undefined) {
+                    return [];
+                }
+                const text = String(value).trim();
+                if (text === '') {
+                    return [];
+                }
+                return text
+                    .split(',')
+                    .map((item) => item.trim())
+                    .filter((item) => item !== '');
+            }
+
+            normaliseValue(value) {
+                return String(value ?? '')
+                    .trim()
+                    .toLowerCase();
+            }
+
+            normaliseUserOption(user) {
+                if (!user || typeof user !== 'object') {
+                    return null;
+                }
+                const id = Number(user.id);
+                if (Number.isNaN(id)) {
+                    return null;
+                }
+                const rawName = user.name ?? user.displayName ?? '';
+                const displayName = this.formatDisplayText(rawName) || 'Unknown';
+                const email = user.email ?? '';
+                return {
+                    id,
+                    displayName,
+                    email,
+                    searchName: String(rawName ?? '').toLowerCase(),
+                    searchEmail: String(email ?? '').toLowerCase(),
+                };
+            }
+
+            sortUserOptions() {
+                if (!Array.isArray(this.users)) {
+                    this.users = [];
+                    return;
+                }
+                this.users.sort((a, b) => {
+                    const nameA = (a?.displayName || '').toLowerCase();
+                    const nameB = (b?.displayName || '').toLowerCase();
+                    return nameA.localeCompare(nameB);
+                });
+            }
+
+            buildUserOptionHTML(option) {
+                if (!option) {
+                    return '';
+                }
+                const id = this.escapeAttribute(String(option.id ?? ''));
+                const nameAttr = this.escapeAttribute(option.displayName || 'Unknown');
+                const nameDisplay = this.escapeHtml(option.displayName || 'Unknown');
+                const searchName = this.escapeAttribute(option.searchName || '');
+                const searchEmail = this.escapeAttribute(option.searchEmail || '');
+                const emailMarkup = option.email ? `<small>${this.escapeHtml(option.email)}</small>` : '';
+
+                return `
+                    <button type="button"
+                            class="dropdown-item"
+                            data-user-option
+                            data-user-id="${id}"
+                            data-user-name="${nameAttr}"
+                            data-user-name-lower="${searchName}"
+                            data-user-email-lower="${searchEmail}">
+                        <span>${nameDisplay}</span>
+                        ${emailMarkup}
+                    </button>
+                `;
+            }
+
+            refreshUserDropdownOptions({ preserveSelection = false } = {}) {
+                if (!this.userDropdownEl) {
+                    return;
+                }
+
+                const list = this.userDropdownEl.querySelector('[data-user-list]');
+                if (!list) {
+                    return;
+                }
+
+                if (!this.users.length) {
+                    list.innerHTML = '<div class="text-muted small px-2 py-1">No available users</div>';
+                } else {
+                    list.innerHTML = this.users.map((option) => this.buildUserOptionHTML(option)).join('');
+                }
+
+                const controller = this.userDropdownEl.__userDropdown;
+                controller?.applyFilter?.();
+
+                const hiddenInput = this.userDropdownEl.querySelector('input[name="user_id"]');
+                if (!hiddenInput) {
+                    return;
+                }
+
+                if (preserveSelection && hiddenInput.value) {
+                    const selectedOption = Array.from(this.userDropdownEl.querySelectorAll('[data-user-option]'))
+                        .find((option) => option.dataset.userId === hiddenInput.value);
+                    if (selectedOption) {
+                        controller?.setName?.(selectedOption.dataset.userName || '');
+                        return;
+                    }
+                }
+
+                hiddenInput.value = '';
+                controller?.resetSelection?.();
+            }
+
+            removeUserOption(userId) {
+                if (userId === null || userId === undefined || !Array.isArray(this.users) || !this.users.length) {
+                    return;
+                }
+                const targetId = Number(userId);
+                if (Number.isNaN(targetId)) {
+                    return;
+                }
+                const originalLength = this.users.length;
+                this.users = this.users.filter((option) => Number(option.id) !== targetId);
+                if (this.users.length !== originalLength) {
+                    this.refreshUserDropdownOptions();
+                }
+            }
+
+            restoreUserOptionFromFaculty(faculty) {
+                if (!faculty) {
+                    return;
+                }
+                const baseUser = faculty.user
+                    ? faculty.user
+                    : {
+                        id: faculty.user_id,
+                        name: faculty.name || 'Unknown',
+                        email: faculty.email || '',
+                    };
+                const option = this.normaliseUserOption(baseUser);
+                if (!option) {
+                    return;
+                }
+                const exists = this.users.some((user) => Number(user.id) === Number(option.id));
+                if (exists) {
+                    return;
+                }
+                this.users.push(option);
+                this.sortUserOptions();
+                this.refreshUserDropdownOptions({ preserveSelection: true });
+            }
+
+        }
+    </script>
+@endsection
+
+@section('content')
+    @php
+        $flashSuccess = session('success');
+        $flashError = session('error');
+        $pageToasts = [];
+        if ($flashSuccess) {
+            $pageToasts[] = ['type' => 'success', 'message' => $flashSuccess];
+        }
+        if ($flashError) {
+            $pageToasts[] = ['type' => 'danger', 'message' => $flashError];
+        }
+    @endphp
+    @include('components.dm-toast', ['messages' => $pageToasts])
+
+    <div class="container-fluid">
+
+        <div id="alertContainer" class="evaluation-alert-container"></div>
+
+        <div class="card evaluation-card evaluation-card--table mb-4 mt-0 faculty-action-card">
+            <div class="card-body d-flex flex-column flex-lg-row align-items-center justify-content-between gap-3">
+                <div class="text-center text-lg-start">
+                    <h5 class="card-title mb-1 d-flex align-items-center gap-2 justify-content-center justify-content-lg-start" style="font-size: 1.2rem;">
+                        <i class="fa-solid fa-user-group" style="font-size: 1.5rem;"></i>
+                        Faculty Actions
+                    </h5>
+                    <p class="text-muted mb-0">Use the actions above to add, update, or import faculty records.</p>
+                </div>
+                <div class="d-flex align-items-center gap-3 flex-wrap justify-content-center">
+                    @if ($canAdd)
+                        <button type="button" class="btn btn-faculty-action evaluation-modal-trigger" data-bs-toggle="modal" data-bs-target="#facultyCreateModal">
+                            <i class="fa-solid fa-user-plus me-2"></i> Add Faculty
+                        </button>
+                    @endif
+                    @if ($canImport)
+                        <button type="button" class="btn btn-faculty-action evaluation-modal-trigger" data-bs-toggle="modal" data-bs-target="#facultyImportModal">
+                            <i class="fa-solid fa-upload me-2"></i> Import
+                        </button>
+                    @endif
+                </div>
+            </div>
+        </div>
+
+        <div class="card evaluation-card evaluation-card--table mt-0" data-table-controller data-table-id="facultyTable">
+            <div class="card-body border-0 evaluation-controls">
+                <div class="row g-3 align-items-center">
+                    <div class="col-md-6">
+                        <div class="d-flex align-items-center gap-2 flex-wrap">
+                            <label for="facultyRowsPerPage" class="text-muted small">Lines per page</label>
+                            <select id="facultyRowsPerPage" class="form-select evaluation-page-size fw-bold" style="width: auto;" data-table-length>
+                                <option value="10">10</option>
+                                <option value="25">25</option>
+                                <option value="50">50</option>
+                                <option value="100">100</option>
+                                <option value="all">All</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="d-flex justify-content-end align-items-center gap-2 flex-wrap">
+                            <div class="dropdown table-filter-dropdown">
+                                <button class="filter-toggle" type="button" id="facultyFilterToggle" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <span>Filters</span>
+                                    <i class="bx bx-filter"></i>
+                                </button>
+                                <div class="dropdown-menu dropdown-menu-end p-3">
+                                    <div class="mb-3">
+                                        <label class="form-label text-uppercase small">Department</label>
+                                        <select id="facultyFilterDepartment" class="form-select">
+                                            <option value="all">All</option>
+                                        </select>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label text-uppercase small">Job Title</label>
+                                        <select id="facultyFilterJob" class="form-select">
+                                            <option value="all">All</option>
+                                        </select>
+                                    </div>
+                                    <div class="d-flex justify-content-end">
+                                        <button type="button" class="btn btn-link p-0 table-filter-reset" id="facultyFilterReset">Reset Filters</button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="evaluation-search-wrapper">
+                                <i class="bx bx-search evaluation-search-icon"></i>
+                                <input type="text" id="facultySearch" class="evaluation-search-input" data-table-search placeholder="Search...">
+                                <button type="button" class="evaluation-search-clear" id="facultySearchClear">&times;</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card-body pt-0">
+                <div class="table-responsive">
+                    <table class="table align-middle mb-0 evaluation-table" id="facultyTable">
+                        <thead>
+                            <tr>
+                                @if ($canDelete || $showDeleteDisabled)
+                                    <th class="evaluation-col-selection text-center">
+                                        <input type="checkbox" class="form-check-input evaluation-checkbox" id="facultySelectAll">
+                                    </th>
+                                @endif
+                                <th data-sort-key="name" class="sortable" data-sort-state="none">
+                                    <span class="evaluation-sort-wrapper">
+                                        <span class="evaluation-sort-label">Faculty Name</span>
+                                        <span class="evaluation-sort-indicator">
+                                            <i class="bx bx-chevron-up icon-up"></i>
+                                            <i class="bx bx-chevron-down icon-down"></i>
+                                        </span>
+                                    </span>
+                                </th>
+                                <th data-sort-key="employee" data-sort-state="none" class="sortable">
+                                    <span class="evaluation-sort-wrapper">
+                                        <span class="evaluation-sort-label">Employee No.</span>
+                                        <span class="evaluation-sort-indicator">
+                                            <i class="bx bx-chevron-up icon-up"></i>
+                                            <i class="bx bx-chevron-down icon-down"></i>
+                                        </span>
+                                    </span>
+                                </th>
+                                <th data-sort-key="department" data-sort-state="none" class="sortable">
+                                    <span class="evaluation-sort-wrapper">
+                                        <span class="evaluation-sort-label">Department</span>
+                                        <span class="evaluation-sort-indicator">
+                                            <i class="bx bx-chevron-up icon-up"></i>
+                                            <i class="bx bx-chevron-down icon-down"></i>
+                                        </span>
+                                    </span>
+                                </th>
+                                <th data-sort-key="job" data-sort-state="none" class="sortable">
+                                    <span class="evaluation-sort-wrapper">
+                                        <span class="evaluation-sort-label">Job Title</span>
+                                        <span class="evaluation-sort-indicator">
+                                            <i class="bx bx-chevron-up icon-up"></i>
+                                            <i class="bx bx-chevron-down icon-down"></i>
+                                        </span>
+                                    </span>
+                                </th>
+                                <th>
+                                    <span class="evaluation-sort-label">Actions</span>
+                                </th>
+                        </tr>
+                    </thead>
+                    <tbody id="facultyTableBody"></tbody>
+                </table>
+            </div>
+
+            @if ($canDelete || $showDeleteDisabled)
+                <div class="evaluation-bulk-bar d-none" id="facultyBulkBar">
+                    <span class="fw-semibold" id="facultySelectedCount">0 Selected</span>
+                    @if ($canDelete)
+                        <button type="button" class="evaluation-bulk-btn evaluation-bulk-btn--danger" data-bulk-action="delete">
+                            <i class="bx bx-trash"></i> Delete
+                        </button>
+                    @else
+                        <button type="button" class="evaluation-bulk-btn evaluation-bulk-btn--danger disabled" disabled aria-disabled="true">
+                            <i class="bx bx-trash"></i> Delete
+                        </button>
+                    @endif
+                    <button type="button" class="evaluation-bulk-close" data-bulk-action="clear" title="Clear selection">
+                        <i class="bx bx-x"></i>
+                    </button>
+                </div>
+            @endif
+
+            <div class="row mt-4 align-items-center">
+                <div class="col-md-6 d-flex align-items-center">
+                    <div class="text-muted" data-table-info></div>
+                </div>
+                <div class="col-md-6 d-flex justify-content-end align-items-center">
+                    <nav aria-label="Table pagination">
+                        <ul class="pagination justify-content-end mb-0" data-table-pagination></ul>
+                    </nav>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@if ($canAdd)
+    {{-- Add Faculty Modal --}}
+    <div class="modal fade" id="facultyCreateModal" tabindex="-1" aria-labelledby="facultyCreateModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered evaluation-modal-dialog evaluation-modal-dialog--narrow">
+            <div class="modal-content evaluation-card">
+                <form id="addFacultyForm">
+                    @csrf
+                    <div class="modal-header evaluation-modal-header">
+                        <h5 class="modal-title mb-0" id="facultyCreateModalLabel">Add Faculty Member</h5>
+                        <button type="button" class="evaluation-modal-close" data-bs-dismiss="modal" aria-label="Close">×</button>
+                    </div>
+                    <div class="modal-body evaluation-modal-body">
+                        <div class="mb-3">
+                            <label class="form-label" for="createUserName">Faculty Name</label>
+                            <div class="user-dropdown w-100" data-user-dropdown>
+                                <input type="text" name="user_name" id="createUserName" class="form-control user-dropdown-input" placeholder="Faculty Name" autocomplete="off" data-user-name-input required>
+                                <div class="dropdown-menu p-2">
+                                    <div class="user-dropdown-list" data-user-list>
+                                        @foreach($eligibleUsers as $user)
+                                            @php
+                                                $rawUserName = $user->name ?? '';
+                                                $userDisplayName = trim($rawUserName) === '' ? 'Unknown' : $rawUserName;
+                                            @endphp
+                                            <button type="button"
+                                                    class="dropdown-item"
+                                                    data-user-option
+                                                    data-user-id="{{ $user->id }}"
+                                                    data-user-name="{{ $userDisplayName }}"
+                                                    data-user-name-lower="{{ strtolower($user->name ?? '') }}"
+                                                    data-user-email-lower="{{ strtolower($user->email ?? '') }}">
+                                                <span>{{ $userDisplayName }}</span>
+                                                @if($user->email)
+                                                    <small>{{ $user->email }}</small>
+                                                @endif
+                                            </button>
+                                        @endforeach
+                                    </div>
+                                </div>
+                                <input type="hidden" name="user_id" id="createUserId">
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label" for="createEmployeeNo">Employee Number</label>
+                            <input type="text" name="employee_no" id="createEmployeeNo" class="form-control" placeholder="EMP-0001" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label" for="createDepartment">Department</label>
+                            <div class="dropdown w-100 department-multiselect" data-department-multiselect>
+                                <button class="department-multiselect-toggle w-100 d-flex align-items-center text-start"
+                                        type="button"
+                                        data-bs-toggle="dropdown"
+                                        data-bs-display="static"
+                                        data-bs-auto-close="outside">
+                                    <div class="department-multiselect-content flex-grow-1">
+                                        <div class="department-multiselect-chips" data-department-selected></div>
+                                        <span class="department-multiselect-placeholder" data-department-placeholder>-- Select Department --</span>
+                                    </div>
+                                    <i class="bx bx-chevron-down fs-5 ms-2 text-muted"></i>
+                                </button>
+                                <div class="dropdown-menu p-3">
+                                    <div class="department-multiselect-search">
+                                        <input type="text" class="form-control" placeholder="Search departments..." data-department-search>
+                                    </div>
+                                    <div class="department-multiselect-list" data-department-list>
+                                        @foreach ($departmentSelectOptions as $department)
+                                            <label class="department-multiselect-option"
+                                                   data-department-option
+                                                   data-value="{{ $department }}"
+                                                   data-label="{{ $department }}"
+                                                   data-search="{{ strtolower($department) }}">
+                                                <input type="checkbox" class="form-check-input" data-department-checkbox value="{{ $department }}">
+                                                <span>{{ $department }}</span>
+                                            </label>
+                                        @endforeach
+                                    </div>
+                                </div>
+                                <input type="hidden" name="department" id="createDepartment" data-department-input required>
+                            </div>
+                        </div>
+                        <div class="mb-0">
+                            <label class="form-label" for="createJobTitle">Job Title</label>
+                            <div class="user-dropdown w-100" data-user-dropdown data-job-dropdown>
+                                <input type="text"
+                                       name="job_title"
+                                       id="createJobTitle"
+                                       class="form-control user-dropdown-input"
+                                       placeholder="Job Title"
+                                       autocomplete="off"
+                                       data-user-name-input
+                                       required>
+                                <div class="dropdown-menu p-2">
+                                    <div class="user-dropdown-list" data-user-list>
+                                        @foreach($jobTitleOptions as $jobTitle)
+                                            <button type="button"
+                                                    class="dropdown-item"
+                                                    data-user-option
+                                                    data-user-name="{{ $jobTitle }}"
+                                                    data-user-name-lower="{{ strtolower($jobTitle) }}"
+                                                    data-user-email-lower="">
+                                                <span>{{ $jobTitle }}</span>
+                                            </button>
+                                        @endforeach
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer evaluation-modal-footer">
+                        <button type="button" class="btn btn-tertiary evaluation-modal-btn" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-faculty-primary evaluation-modal-btn" data-default-text="Save" data-loading-text="Saving...">Save</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+@endif
+
+@if ($canEdit)
+    {{-- Edit Faculty Modal --}}
+    <div class="modal fade" id="facultyEditModal" tabindex="-1" aria-labelledby="facultyEditModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered evaluation-modal-dialog evaluation-modal-dialog--narrow">
+            <div class="modal-content evaluation-card">
+                <form id="editFacultyForm">
+                    @csrf
+                    <input type="hidden" name="faculty_id" value="">
+                    <div class="modal-header evaluation-modal-header">
+                        <h5 class="modal-title mb-0" id="facultyEditModalLabel">Edit Faculty Member</h5>
+                        <button type="button" class="evaluation-modal-close" data-bs-dismiss="modal" aria-label="Close">×</button>
+                    </div>
+                    <div class="modal-body evaluation-modal-body">
+                        <div class="mb-3">
+                            <label class="form-label" for="editFacultyName">Faculty Name</label>
+                            <input type="text" id="editFacultyName" class="form-control" readonly tabindex="-1">
+                            <input type="hidden" name="user_id" id="editUserId">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label" for="editEmployeeNo">Employee Number</label>
+                            <input type="text" name="employee_no" id="editEmployeeNo" class="form-control" readonly tabindex="-1" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label" for="editDepartment">Department</label>
+                            <div class="dropdown w-100 department-multiselect" data-department-multiselect>
+                                <button class="department-multiselect-toggle w-100 d-flex align-items-center text-start"
+                                        type="button"
+                                        data-bs-toggle="dropdown"
+                                        data-bs-display="static"
+                                        data-bs-auto-close="outside">
+                                    <div class="department-multiselect-content flex-grow-1">
+                                        <div class="department-multiselect-chips" data-department-selected></div>
+                                        <span class="department-multiselect-placeholder" data-department-placeholder>-- Select Department --</span>
+                                    </div>
+                                    <i class="bx bx-chevron-down fs-5 ms-2 text-muted"></i>
+                                </button>
+                                <div class="dropdown-menu p-3">
+                                    <div class="department-multiselect-search">
+                                        <input type="text" class="form-control" placeholder="Search departments..." data-department-search>
+                                    </div>
+                                    <div class="department-multiselect-list" data-department-list>
+                                        @foreach ($departmentSelectOptions as $department)
+                                            <label class="department-multiselect-option"
+                                                   data-department-option
+                                                   data-value="{{ $department }}"
+                                                   data-label="{{ $department }}"
+                                                   data-search="{{ strtolower($department) }}">
+                                                <input type="checkbox" class="form-check-input" data-department-checkbox value="{{ $department }}">
+                                                <span>{{ $department }}</span>
+                                            </label>
+                                        @endforeach
+                                    </div>
+                                </div>
+                                <input type="hidden" name="department" id="editDepartment" data-department-input required>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label" for="editJobTitle">Job Title</label>
+                            <div class="user-dropdown w-100" data-user-dropdown data-job-dropdown>
+                                <input type="text"
+                                       name="job_title"
+                                       id="editJobTitle"
+                                       class="form-control user-dropdown-input"
+                                       placeholder="Job Title"
+                                       autocomplete="off"
+                                       data-user-name-input
+                                       required>
+                                <div class="dropdown-menu p-2">
+                                    <div class="user-dropdown-list" data-user-list>
+                                        @foreach($jobTitleOptions as $jobTitle)
+                                            <button type="button"
+                                                    class="dropdown-item"
+                                                    data-user-option
+                                                    data-user-name="{{ $jobTitle }}"
+                                                    data-user-name-lower="{{ strtolower($jobTitle) }}"
+                                                    data-user-email-lower="">
+                                                <span>{{ $jobTitle }}</span>
+                                            </button>
+                                        @endforeach
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer evaluation-modal-footer">
+                        <button type="button" class="btn btn-tertiary evaluation-modal-btn" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-faculty-primary evaluation-modal-btn" data-default-text="Save Changes" data-loading-text="Saving...">Save Changes</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+@endif
+
+@if ($canDelete)
+    {{-- Delete Faculty Modal --}}
+    <div class="modal fade" id="facultyDeleteModal" tabindex="-1" aria-labelledby="facultyDeleteModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered evaluation-modal-dialog evaluation-modal-dialog--narrow">
+            <div class="modal-content evaluation-card">
+                <div class="modal-header evaluation-modal-header">
+                    <h5 class="modal-title mb-0" id="facultyDeleteModalLabel">Delete Faculty Member</h5>
+                    <button type="button" class="evaluation-modal-close" data-bs-dismiss="modal" aria-label="Close">×</button>
+                </div>
+                <div class="modal-body evaluation-modal-body">
+                    <p class="mb-0">Are you sure you want to delete <span class="fw-semibold" id="facultyDeleteName">this faculty member</span>? This action cannot be undone.</p>
+                </div>
+                <div class="modal-footer evaluation-modal-footer">
+                    <button type="button" class="btn btn-tertiary evaluation-modal-btn" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-delete-action evaluation-modal-btn" id="confirmFacultyDeleteBtn">Delete</button>
+                </div>
+            </div>
+        </div>
+    </div>
+@endif
+
+@if ($canDelete)
+    {{-- Bulk Delete Modal --}}
+    <div class="modal fade" id="facultyBulkDeleteModal" tabindex="-1" aria-labelledby="facultyBulkDeleteModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered evaluation-modal-dialog evaluation-modal-dialog--narrow">
+            <div class="modal-content evaluation-card">
+                <div class="modal-header evaluation-modal-header">
+                    <h5 class="modal-title mb-0" id="facultyBulkDeleteModalLabel">Delete Selected Faculty</h5>
+                    <button type="button" class="evaluation-modal-close" data-bs-dismiss="modal" aria-label="Close">×</button>
+                </div>
+                <div class="modal-body evaluation-modal-body">
+                    <p class="mb-0">You are about to delete <span class="fw-semibold" id="facultyBulkDeleteCount">0</span> faculty record(s). This action cannot be undone. Continue?</p>
+                </div>
+                <div class="modal-footer evaluation-modal-footer">
+                    <button type="button" class="btn btn-tertiary evaluation-modal-btn" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-delete-action evaluation-modal-btn" id="confirmFacultyBulkDeleteBtn">Delete Selected</button>
+                </div>
+            </div>
+        </div>
+    </div>
+@endif
+
+@if ($canImport)
+    {{-- Import Faculty Modal --}}
+    <div class="modal fade" id="facultyImportModal" tabindex="-1" aria-labelledby="facultyImportModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered evaluation-modal-dialog evaluation-modal-dialog--narrow">
+            <div class="modal-content evaluation-card">
+                <form method="POST" action="{{ route('faculties.import') }}" enctype="multipart/form-data" id="facultyImportForm">
+                    @csrf
+                    <div class="modal-header evaluation-modal-header">
+                        <h5 class="modal-title mb-0" id="facultyImportModalLabel">Import Faculty Records</h5>
+                        <button type="button" class="evaluation-modal-close" data-bs-dismiss="modal" aria-label="Close">×</button>
+                    </div>
+                    <div class="modal-body evaluation-modal-body">
+                        <div class="mb-0">
+                            <label class="form-label" for="facultyImportFile">Select File</label>
+                            <input type="file" name="file" id="facultyImportFile" class="form-control" accept=".csv,.xlsx" required>
+                            <small class="text-muted d-block mt-2">Headers: employeeno, name, department, jobtitle, role, status</small>
+                        </div>
+                    </div>
+                    <div class="modal-footer evaluation-modal-footer">
+                        <button type="button" class="btn btn-tertiary evaluation-modal-btn" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-faculty-primary evaluation-modal-btn" data-default-text="Import" data-loading-text="Importing...">Import</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+@endif
+@endsection

@@ -1,0 +1,3 @@
+employeeno,classcode,section,academicyear,semester,time,day,subjectcode,status,name,department,jobtitle
+EMP0055,216001,BSN 4 - 6,2025 - 2026,Summer,12:00a - 5:30p,MTW,FRE 102,scheduled,Test1,"College of Nursing, College of IT, College of Marine",Faculty
+EMP0056,216000,BSCS  5 - 6,2025 - 2026,Summer,11:00a - 5:30p,TTH,FRE 102,scheduled,Test2,College of Nursing,Faculty

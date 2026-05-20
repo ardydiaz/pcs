@@ -1,0 +1,3466 @@
+@extends('layouts/contentNavbarLayout')
+
+@php
+    $scheduleItems = $schedules
+        ->sortByDesc(function ($schedule) {
+            return $schedule->created_at ?? $schedule->id ?? 0;
+        })
+        ->map(function ($schedule) {
+            $course = optional($schedule->facultyCourse)->course;
+            $faculty = optional($schedule->facultyCourse)->faculty;
+
+            return [
+                'id' => $schedule->id,
+                'faculty_course_id' => $schedule->faculty_course_id,
+                'course_code' => optional($course)->class_code,
+                'course_subject' => $course->subject_code ?? '',
+                'section' => optional($schedule->facultyCourse)->section ?? '',
+                'faculty_name' => optional(optional($faculty)->user)->name ?? $faculty->name ?? '',
+                'time' => $schedule->time,
+                'day' => $schedule->day,
+            ];
+        })->values();
+
+    $facultyCourseOptions = $facultyCourses->map(function ($facultyCourse) {
+        $course = optional($facultyCourse->course);
+        $faculty = optional($facultyCourse->faculty);
+        $courseCodeRaw = $course->class_code ?? '';
+        $courseSubjectRaw = $course->subject_code ?? '';
+        $facultyRawName = optional(optional($faculty)->user)->name ?? $faculty->name ?? '';
+        $facultyName = trim($facultyRawName) === '' ? '' : $facultyRawName;
+        $academicYear = trim($facultyCourse->academic_year ?? '');
+        $semesterRaw = trim($facultyCourse->semester ?? '');
+        $sectionRaw = trim($facultyCourse->section ?? '');
+        $formattedAcademicYear = $academicYear;
+        $semesterDisplay = $semesterRaw;
+        $sectionDisplay = $sectionRaw;
+        $courseCode = trim($courseCodeRaw ?? '');
+        $courseSubject = trim($courseSubjectRaw ?? '');
+        $label = $course ? trim($courseCode . ($courseSubject ? ' - ' . $courseSubject : '')) : 'Course #' . $facultyCourse->id;
+        $termParts = array_filter([$formattedAcademicYear, $semesterDisplay], function ($value) {
+            return trim($value ?? '') !== '';
+        });
+        $termLabel = implode(' • ', $termParts);
+        $searchTokens = array_filter([$label, $facultyRawName, $academicYear, $formattedAcademicYear, $semesterRaw, $semesterDisplay, $sectionRaw], function ($value) {
+            return trim($value ?? '') !== '';
+        });
+        $searchValue = strtolower($searchTokens ? implode(' ', $searchTokens) : $label);
+
+        return [
+            'id' => $facultyCourse->id,
+            'label' => $label,
+            'code' => $courseCode !== '' ? $courseCode : 'N/A',
+            'subject' => $courseSubject,
+            'section' => $sectionDisplay,
+            'faculty' => $facultyName,
+            'academic_year' => $academicYear,
+            'academic_year_display' => $formattedAcademicYear,
+            'semester' => $semesterDisplay,
+            'term' => $termLabel,
+            'search' => $searchValue,
+        ];
+    })->values();
+
+    $dayOptions = [
+        ['value' => 'M', 'label' => 'Monday'],
+        ['value' => 'T', 'label' => 'Tuesday'],
+        ['value' => 'W', 'label' => 'Wednesday'],
+        ['value' => 'TH', 'label' => 'Thursday'],
+        ['value' => 'F', 'label' => 'Friday'],
+        ['value' => 'S', 'label' => 'Saturday'],
+        ['value' => 'SU', 'label' => 'Sunday'],
+    ];
+
+    $generateTimeOptions = function ($intervalMinutes = 30) {
+        $times = [];
+        $totalMinutes = 24 * 60;
+        for ($minutes = 0; $minutes < $totalMinutes; $minutes += $intervalMinutes) {
+            $hour24 = intdiv($minutes, 60);
+            $minute = $minutes % 60;
+            $hour12 = $hour24 % 12;
+            if ($hour12 === 0) {
+                $hour12 = 12;
+            }
+            $period = $hour24 < 12 ? 'a' : 'p';
+            $times[] = sprintf('%02d:%02d%s', $hour12, $minute, $period);
+        }
+        return $times;
+    };
+
+    $timeOptions = collect($generateTimeOptions());
+
+    $container = 'container-xxl';
+    $accessLevels = collect(auth()->user()?->access_level ?? []);
+    $isAdmin = auth()->user()?->role === 'Admin';
+    $canManageSchedules = $isAdmin || $accessLevels->contains('Manage Schedules');
+    $canAdd = $canManageSchedules;
+    $canEdit = $canManageSchedules;
+    $canDelete = $isAdmin;
+    $showDeleteDisabled = !$isAdmin && $canManageSchedules;
+    $canImport = $canManageSchedules;
+@endphp
+
+@section('title', 'Data Management - Schedules')
+
+@section('page-style')
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <style>
+        :root {
+            --dm-pill-max: clamp(5.5rem, 16vw, 10rem);
+            --dm-cell-max: clamp(8.5rem, 22vw, 13.5rem);
+            --dm-stack-max: clamp(10.5rem, 28vw, 18rem);
+        }
+
+        .container-fluid {
+            padding-left: 1.5rem;
+            padding-right: 1.5rem;
+            max-width: 100%;
+        }
+
+        .layout-page .content-wrapper > .container-xxl.container-p-y {
+            padding-top: 1.5rem !important;
+            padding-bottom: 1.5rem !important;
+        }
+
+        .layout-page .content-wrapper > .container-xxl.container-p-y > .container-fluid {
+            padding-left: 0;
+            padding-right: 0;
+        }
+
+        #scheduleAlertContainer,
+        #scheduleAlertContainer + .card {
+            margin-top: 0 !important;
+        }
+
+        #scheduleAlertContainer:not(:empty) {
+            margin-bottom: 1.5rem;
+        }
+
+        .schedule-card {
+            background-color: var(--bs-card-bg);
+            border: var(--bs-card-border-width) solid var(--bs-card-border-color);
+            border-radius: var(--bs-card-border-radius);
+            box-shadow: var(--bs-card-box-shadow, 0 2px 6px rgba(67, 89, 113, 0.12));
+        }
+
+        .schedule-action-card {
+            background-color: #5c297c;
+            color: #ffffff;
+        }
+
+        .schedule-action-card .card-title,
+        .schedule-action-card .card-title i {
+            color: #ffb736;
+        }
+
+        .schedule-action-card p,
+        .schedule-action-card .text-muted {
+            color: #ffffff !important;
+        }
+
+        .schedule-action-card .btn-schedule-action {
+            background-color: #ffb736;
+            color: #5c297c;
+            border: none;
+            font-weight: 600;
+            transition: none;
+            box-shadow: none;
+        }
+
+        .schedule-action-card .btn-schedule-action i {
+            color: #5c297c;
+        }
+
+        .schedule-action-card .btn-schedule-action:hover,
+        .schedule-action-card .btn-schedule-action:focus {
+            background-color: #e6a431;
+            color: #5c297c;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .time-range-group {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .time-range-separator {
+            font-weight: 600;
+            color: #6c757d;
+            letter-spacing: 0.04em;
+        }
+
+        .time-dropdown {
+            position: relative;
+        }
+
+        .time-dropdown-toggle {
+            border: 1px solid #d9dee3;
+            border-radius: 0.6rem;
+            padding: 0.6rem 0.85rem;
+            background-color: #ffffff;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+            color: #0f172a;
+            font-weight: 500;
+            box-shadow: none;
+            transition: border-color 0.2s ease;
+        }
+
+        .time-dropdown-toggle:hover,
+        .time-dropdown-toggle:focus,
+        .time-dropdown.show .time-dropdown-toggle {
+            border-color: #94a3b8;
+            background-color: #ffffff;
+            box-shadow: none;
+        }
+
+        .time-dropdown-toggle:focus {
+            outline: none;
+        }
+
+        .time-dropdown-label {
+            font-weight: 500;
+            color: var(--bs-body-color, #4b5563);
+            font-size: 0.95rem;
+        }
+
+        .time-dropdown-label.is-placeholder {
+            color: #94a3b8;
+            font-weight: 400;
+        }
+
+        .time-dropdown .dropdown-menu {
+            width: 100%;
+            border-radius: 0.75rem;
+            box-shadow: 0 15px 30px rgba(15, 23, 42, 0.15);
+            padding: 0.75rem 0.85rem;
+            top: calc(100% + 0.35rem) !important;
+            left: 0 !important;
+            right: 0 !important;
+            transform: none !important;
+            margin-top: 0 !important;
+            z-index: 1085;
+        }
+
+        .time-dropdown .dropdown-menu::before {
+            display: none;
+        }
+
+        .time-dropdown-search {
+            margin-bottom: 0.5rem;
+        }
+
+        .time-dropdown-list {
+            max-height: 13rem;
+            overflow-y: auto;
+        }
+
+        .time-dropdown-list.is-unlimited {
+            max-height: none;
+        }
+
+        .time-dropdown .dropdown-item {
+            border-radius: 0.45rem;
+            font-weight: 500;
+            color: #111827;
+            padding: 0.5rem 0.75rem;
+            min-height: 3.25rem;
+            display: flex;
+            align-items: center;
+            background-color: #ffffff;
+            border: 1px solid transparent;
+            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+        }
+
+        .time-dropdown .dropdown-item:hover,
+        .time-dropdown .dropdown-item:focus {
+            background-color: #f8fafc;
+            border-color: #e2e8f0;
+        }
+
+        .time-range-group .time-dropdown {
+            flex: 1;
+        }
+
+        .course-dropdown {
+            position: relative;
+        }
+
+        .course-dropdown-toggle {
+            border: 1px solid #d9dee3;
+            border-radius: 0.6rem;
+            padding: 0.6rem 0.85rem;
+            background-color: #ffffff;
+            width: 100%;
+            cursor: pointer;
+            color: #0f172a;
+            font-weight: 500;
+            box-shadow: none;
+            transition: border-color 0.2s ease;
+        }
+
+        .course-dropdown-toggle:hover,
+        .course-dropdown-toggle:focus,
+        .course-dropdown-toggle:active,
+        .course-dropdown.show .course-dropdown-toggle {
+            border-color: #94a3b8;
+            background-color: #ffffff;
+            box-shadow: none;
+        }
+
+        .course-dropdown-toggle:focus {
+            outline: none;
+        }
+
+        .course-dropdown-toggle i {
+            color: #94a3b8;
+        }
+
+        .course-dropdown-label {
+            font-weight: 500;
+            color: var(--bs-body-color, #4b5563);
+            font-size: 0.95rem;
+        }
+
+        .course-dropdown-label.is-placeholder {
+            color: #94a3b8;
+            font-weight: 400;
+        }
+
+        .course-dropdown .dropdown-menu {
+            width: 100%;
+            border-radius: 0.75rem;
+            box-shadow: 0 15px 30px rgba(15, 23, 42, 0.15);
+            padding: 0.75rem 0.85rem;
+            top: calc(100% + 0.4rem) !important;
+            left: 0 !important;
+            right: 0 !important;
+            transform: none !important;
+            margin-top: 0 !important;
+            z-index: 1085;
+        }
+
+        .course-dropdown .dropdown-menu::before {
+            display: none;
+        }
+
+        .course-dropdown-list {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.45rem 0.65rem;
+            max-height: calc((2 * 3.25rem) + 0.75rem);
+            overflow-y: auto;
+            padding-right: 0.25rem;
+        }
+
+        .course-dropdown-list.is-unlimited {
+            max-height: calc((2 * 3.25rem) + 0.75rem);
+        }
+
+        .course-dropdown .dropdown-item {
+            border-radius: 0.45rem;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.25rem;
+            font-weight: 500;
+            color: #111827;
+            width: 100%;
+            padding: 0.6rem 0.75rem;
+            background-color: #ffffff;
+            border: 1px solid transparent;
+            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+            min-height: 3.25rem;
+        }
+
+        .course-dropdown .dropdown-item:hover,
+        .course-dropdown .dropdown-item:focus {
+            background-color: #f8fafc;
+            border-color: #e2e8f0;
+        }
+
+        .course-dropdown .dropdown-item .course-dropdown-title {
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-weight: 600;
+            color: #0f172a;
+        }
+
+        .course-dropdown .dropdown-item small {
+            font-size: 0.75rem;
+            color: #94a3b8;
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            display: block;
+            line-height: 1.2;
+            font-weight: 400;
+        }
+
+        .course-dropdown-title {
+            font-size: 0.95rem;
+        }
+
+        .course-dropdown .dropdown-item small + small {
+            margin-top: 0.15rem;
+        }
+
+        .course-dropdown-info {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.15rem 0.35rem;
+            font-weight: 500;
+            color: #94a3b8;
+        }
+
+        .course-dropdown-info span {
+            display: inline-flex;
+            align-items: center;
+        }
+
+        .course-dropdown-info span + span::before {
+            content: '|';
+            margin: 0 0.25rem 0 0;
+            color: #94a3b8;
+            font-weight: 600;
+        }
+
+        .course-dropdown-search {
+            border-radius: 0.5rem;
+            margin-bottom: 0.6rem;
+        }
+
+        .day-multiselect {
+            position: relative;
+        }
+
+        .day-multiselect-toggle {
+            border: 1px solid #d9dee3;
+            border-radius: 0.6rem;
+            padding: 0.6rem 0.85rem;
+            background-color: #ffffff;
+            min-height: 3.1rem;
+            cursor: pointer;
+            color: #0f172a;
+            font-weight: 500;
+            box-shadow: none;
+            gap: 0.4rem;
+        }
+
+        .day-multiselect-toggle:hover,
+        .day-multiselect-toggle:focus,
+        .day-multiselect.show .day-multiselect-toggle {
+            border-color: #94a3b8;
+            background-color: #ffffff;
+            box-shadow: none;
+        }
+
+        .day-multiselect-toggle:focus {
+            outline: none;
+        }
+
+        .day-multiselect-content {
+            min-height: 1.5rem;
+        }
+
+        .day-multiselect-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.4rem;
+        }
+
+        .day-multiselect-placeholder {
+            color: #94a3b8;
+            font-weight: 400;
+        }
+
+        .day-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            padding: 0.2rem 0.5rem;
+            border-radius: 999px;
+            background-color: #e3e8f1;
+            color: #475569;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .day-chip button {
+            border: none;
+            background: transparent;
+            color: inherit;
+            font-size: 0.85rem;
+            padding: 0;
+            line-height: 1;
+        }
+
+        .day-multiselect-search {
+            position: relative;
+            margin-bottom: 0.75rem;
+        }
+
+        .day-multiselect-search input {
+            padding-left: 0.85rem;
+            border-radius: 0.6rem;
+        }
+
+        .day-multiselect .dropdown-menu {
+            width: 100%;
+            border-radius: 0.85rem;
+            box-shadow: 0 12px 28px rgba(15, 23, 42, 0.2);
+            padding: 1rem;
+            top: calc(100% + 0.5rem) !important;
+            bottom: auto !important;
+            transform: none !important;
+            left: 0 !important;
+            right: 0 !important;
+            z-index: 1105;
+        }
+
+        .day-multiselect-list {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.45rem 0.5rem;
+            max-height: calc((2 * 3rem) + 0.5rem);
+            overflow-y: auto;
+        }
+
+        .day-multiselect-option {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.65rem;
+            padding: 0.5rem 0.85rem;
+            cursor: pointer;
+            transition: border-color 0.2s ease, background-color 0.2s ease;
+        }
+
+        .day-multiselect-option:hover,
+        .day-multiselect-option:focus-within {
+            border-color: #c7d2fe;
+            background-color: #eef2ff;
+        }
+
+        .day-multiselect-option span {
+            font-weight: 600;
+            color: #0f172a;
+        }
+
+        .schedule-card--table {
+            border-radius: var(--bs-card-border-radius);
+            padding: 0;
+        }
+
+        .modal-content.schedule-card {
+            background-color: #ffffff;
+            border-radius: 0.75rem;
+            border: var(--bs-card-border-width) solid var(--bs-card-border-color);
+            box-shadow: var(--bs-card-box-shadow, 0 2px 6px rgba(67, 89, 113, 0.12));
+            overflow: visible;
+        }
+
+        .schedule-card--table .card-body {
+            padding: var(--bs-card-spacer-y, 1.5rem) var(--bs-card-spacer-x, 1.5rem);
+        }
+
+        .schedule-card--table .card-body.pt-0 {
+            padding-top: 0 !important;
+        }
+
+        .schedule-card--table .card-body.border-0,
+        .schedule-card--table .card-body.pt-0,
+        .schedule-card--table .card-body.pb-0 {
+            padding-left: var(--bs-card-spacer-x, 1.5rem) !important;
+            padding-right: var(--bs-card-spacer-x, 1.5rem) !important;
+        }
+
+        .schedule-controls label {
+            font-size: 0.75rem;
+            letter-spacing: 0.08em;
+            color: #64748b;
+        }
+
+        .schedule-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            table-layout: auto;
+        }
+
+        .schedule-table thead th {
+            font-size: 0.7rem;
+            letter-spacing: 0.08em;
+            font-weight: 600;
+            color: #94a3b8;
+            border-bottom: 1px solid #eef2f6;
+            padding: 0.85rem 0.75rem 0.7rem;
+            background-color: #ffffff;
+            vertical-align: middle;
+            text-align: left;
+            line-height: 1.2;
+        }
+
+        .schedule-table thead th,
+        .schedule-table tbody td {
+            white-space: nowrap;
+        }
+
+        .table-text-truncate {
+            display: inline-block;
+            vertical-align: middle;
+            min-width: 0;
+            max-width: var(--dm-cell-max);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .table-text-truncate.is-wide {
+            max-width: var(--dm-stack-max);
+        }
+
+        .table-cell-stack {
+            display: flex;
+            flex-direction: column;
+            gap: 0.15rem;
+            min-width: 0;
+            max-width: var(--dm-stack-max);
+            align-items: flex-start;
+        }
+
+        .table-cell-stack > * {
+            display: block;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            max-width: 100%;
+        }
+
+        .table-cell-stack.is-wide {
+            max-width: var(--dm-stack-max);
+        }
+
+        .schedule-table thead th.sortable {
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .schedule-table thead th.sortable .sort-indicator {
+            display: inline-flex;
+            flex-direction: column;
+            margin-left: 0.3rem;
+            color: #cbd5f5;
+            font-size: 0.65rem;
+        }
+
+        .schedule-table thead th.sortable .sort-indicator .icon-up,
+        .schedule-table thead th.sortable .sort-indicator .icon-down {
+            display: none;
+        }
+
+        .schedule-table thead th.sortable[data-sort-state="asc"] .sort-indicator .icon-up,
+        .schedule-table thead th.sortable[data-sort-state="desc"] .sort-indicator .icon-down {
+            display: inline-flex;
+            color: #4f46e5;
+        }
+
+        .schedule-table thead th:first-child,
+        .schedule-table tbody td:first-child {
+            width: 48px;
+            white-space: normal;
+        }
+
+        .schedule-table tbody tr {
+            border-bottom: 1px solid #f1f5f9;
+            transition: background-color 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .schedule-table tbody tr:hover {
+            background-color: #f8fafc;
+        }
+
+        .schedule-table tbody tr.is-selected {
+            background-color: #eef2ff;
+            box-shadow: inset 0 0 0 1px #c7d2fe;
+        }
+
+        .schedule-table tbody td {
+            padding: 1rem 0.75rem;
+            color: #1f2937;
+            font-size: 0.85rem;
+            vertical-align: middle;
+            text-align: left;
+        }
+
+        .schedule-table tbody td.actions-cell {
+            text-align: left;
+        }
+
+        .schedule-pill {
+            display: inline-block;
+            padding: 0.25rem 0.85rem;
+            border-radius: 999px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            background-color: var(--pill-bg, #e2e8f0);
+            color: var(--pill-color, #475569);
+            max-width: var(--dm-pill-max);
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            text-align: center;
+        }
+
+        .schedule-pill--course {
+        }
+
+        .schedule-pill-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.4rem;
+            max-width: var(--dm-stack-max);
+        }
+
+        .schedule-icon-btn {
+            border: none;
+            background-color: #f8fafc;
+            color: #475569;
+            border-radius: 0.75rem;
+            width: 2.25rem;
+            height: 2.25rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+        }
+
+        .schedule-icon-btn:hover {
+            background-color: #e2e8f0;
+            color: #1f2937;
+        }
+
+        .schedule-search-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background-color: #ffffff;
+            border: 1px solid #d1d5db;
+            border-radius: 0.375rem;
+            min-height: calc(2.25rem + 2px);
+            padding: 0 0.75rem;
+            max-width: 340px;
+            width: 100%;
+            transition: border-color 0.2s ease;
+        }
+
+        .schedule-search-wrapper:focus-within {
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.1);
+        }
+
+        .schedule-search-icon {
+            color: #94a3b8;
+            font-size: 1.1rem;
+        }
+
+        .schedule-search-input {
+            border: none;
+            outline: none;
+            flex: 1;
+            font-size: 0.95rem;
+            background: transparent;
+            height: 100%;
+            padding-top: 0;
+            padding-bottom: 0;
+        }
+
+        .schedule-search-input::placeholder {
+            color: #9ca3af;
+        }
+
+        .schedule-search-clear {
+            border: none;
+            background: transparent;
+            color: #94a3b8;
+            font-size: 1.2rem;
+            line-height: 1;
+            padding: 0;
+            cursor: pointer;
+            display: none;
+            width: 1.5rem;
+            height: 1.5rem;
+            border-radius: 999px;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .schedule-search-clear.is-visible {
+            display: inline-flex;
+        }
+
+        .schedule-search-clear:hover {
+            color: #1f2937;
+            background-color: rgba(148, 163, 184, 0.15);
+        }
+
+        .schedule-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            flex-wrap: nowrap;
+            margin-bottom: 2.5rem;
+        }
+
+        .schedule-toolbar-title {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #111827;
+        }
+
+        .schedule-toolbar-title i {
+            font-size: 1.8rem;
+            color: #111827;
+        }
+
+        .schedule-modal-dialog {
+            max-width: 42%;
+        }
+
+        .schedule-modal-dialog--narrow {
+            max-width: 42%;
+        }
+
+        .schedule-modal-header {
+            background-color: #f5f7fb;
+            border-bottom: 1px solid #e2e8f0;
+            padding: 1rem 1.5rem;
+        }
+
+        .schedule-modal-body {
+            padding: 1.5rem;
+        }
+
+        .schedule-modal-footer {
+            border-top: none;
+            justify-content: flex-end;
+            gap: 1rem;
+            padding: 1rem 1.5rem;
+        }
+
+        .schedule-modal-footer .btn {
+            min-width: 120px;
+        }
+
+        .schedule-modal-close {
+            position: absolute;
+            right: 1.25rem;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: #475569;
+            font-size: 1.35rem;
+            line-height: 1;
+            padding: 0;
+        }
+
+        .schedule-modal-close:focus {
+            outline: none;
+            box-shadow: none;
+        }
+
+        .schedule-modal-body .form-label {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #475569;
+            letter-spacing: normal;
+        }
+
+        .schedule-modal-body .form-select,
+        .schedule-modal-body .form-control {
+            border-radius: 0.6rem;
+            padding: 0.6rem 0.85rem;
+        }
+
+        .schedule-modal-btn {
+            transition: none;
+        }
+
+        .schedule-modal-btn:hover,
+        .schedule-modal-btn:focus,
+        .schedule-modal-btn:active {
+            transform: none;
+            box-shadow: none;
+        }
+
+        @media (max-width: 992px) {
+            .schedule-modal-dialog--narrow {
+                max-width: 70%;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .schedule-modal-dialog--narrow {
+                max-width: 90%;
+            }
+        }
+
+        .schedule-bulk-bar {
+            position: fixed;
+            left: 50%;
+            transform: translateX(-50%);
+            bottom: 24px;
+            display: inline-flex;
+            align-items: center;
+            gap: 1rem;
+            background-color: #ffffff;
+            color: #1f2937;
+            padding: 0.85rem 1.5rem;
+            border-radius: 999px;
+            box-shadow: 0 20px 45px rgba(15, 23, 42, 0.12);
+            border: 1px solid #e2e8f0;
+            z-index: 1040;
+        }
+
+        .schedule-bulk-bar.d-none {
+            display: none !important;
+        }
+
+        .schedule-bulk-btn {
+            border: none;
+            background: transparent;
+            color: inherit;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.25rem 0.75rem;
+            border-radius: 999px;
+            cursor: pointer;
+        }
+
+        .schedule-bulk-btn--danger {
+            background-color: rgba(220, 38, 38, 0.08);
+            color: #dc2626 !important;
+            border: 1px solid rgba(220, 38, 38, 0.25);
+        }
+
+        .schedule-bulk-btn--danger i {
+            color: #dc2626 !important;
+        }
+
+        .schedule-bulk-close {
+            border: none;
+            background: transparent;
+            color: #475569;
+            font-size: 1.2rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 2rem;
+            height: 2rem;
+            border-radius: 999px;
+            cursor: pointer;
+        }
+
+        .schedule-checkbox {
+            width: 1.05rem;
+            height: 1.05rem;
+            border-radius: 6px;
+            border: 1px solid #cbd5e1;
+            cursor: pointer;
+        }
+
+        .schedule-checkbox:checked {
+            background-color: #4f46e5;
+            border-color: #4f46e5;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 0.5rem;
+            padding: 0.55rem 1.4rem;
+            font-weight: 600;
+            font-size: 0.9rem;
+            transition: none;
+            box-shadow: none;
+        }
+
+        .btn.btn-primary {
+            background-color: #2563eb;
+            border: none;
+            color: #ffffff;
+        }
+
+        .btn.btn-primary:hover,
+        .btn.btn-primary:focus,
+        .btn.btn-primary:active {
+            background-color: #2563eb;
+            border-color: #2563eb;
+            color: #ffffff;
+        }
+
+        .btn.btn-secondary {
+            background-color: #dc2626;
+            border: none;
+            color: #ffffff;
+        }
+
+        .btn.btn-secondary:hover,
+        .btn.btn-secondary:focus,
+        .btn.btn-secondary:active {
+            background-color: #dc2626;
+            border-color: #dc2626;
+            color: #ffffff;
+        }
+
+        .btn.btn-tertiary {
+            background: transparent;
+            border: none;
+            color: #64748b;
+            padding: 0.55rem 1.2rem;
+        }
+
+        .btn.btn-tertiary:hover,
+        .btn.btn-tertiary:focus,
+        .btn.btn-tertiary:active {
+            background: transparent;
+            color: #64748b;
+            box-shadow: none;
+        }
+
+        .btn-schedule-primary {
+            background-color: #5c297c;
+            border: 1px solid #5c297c;
+            color: #ffffff;
+            font-weight: 600;
+            transition: none;
+        }
+
+        .btn-schedule-primary:hover,
+        .btn-schedule-primary:focus,
+        .btn-schedule-primary:active {
+            background-color: #4b2266;
+            border-color: #4b2266;
+            color: #ffffff;
+            box-shadow: none;
+        }
+
+        .btn-schedule-primary:active {
+            background-color: #ffffff;
+            color: #4b2266;
+            border-color: #4b2266;
+        }
+
+        .btn-schedule-danger {
+            background-color: #dc3545;
+            border: 1px solid #dc3545;
+            color: #ffffff;
+            font-weight: 600;
+            transition: none;
+        }
+
+        .btn-schedule-danger:hover,
+        .btn-schedule-danger:focus,
+        .btn-schedule-danger:active {
+            background-color: #b92c39;
+            border-color: #b92c39;
+            color: #ffffff;
+            box-shadow: none;
+        }
+
+        .btn-schedule-danger:active {
+            background-color: #ffffff;
+            color: #b92c39;
+            border-color: #b92c39;
+        }
+
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            padding: 1.5rem 0;
+            color: #64748b;
+        }
+
+        .empty-state h5 {
+            font-weight: 600;
+            color: #111827;
+        }
+
+        .empty-state p {
+            color: #6b7280;
+        }
+
+        div[data-table-id="schedulesTable"] [data-table-info] {
+            color: #6b7280;
+            font-size: 0.875rem;
+        }
+
+        div[data-table-id="schedulesTable"] .pagination .page-link {
+            border: none;
+            border-radius: 0.5rem;
+            padding: 0.5rem 0.9rem;
+            margin: 0 0.1rem;
+            color: #64748b;
+            background-color: #e2e8f0;
+            font-weight: 600;
+            transition: background-color 0.15s ease;
+            box-shadow: none;
+        }
+
+        div[data-table-id="schedulesTable"] .pagination .page-link:hover:not(.disabled) {
+            background-color: #cbd5e1;
+            color: #475569;
+        }
+
+        div[data-table-id="schedulesTable"] .pagination .page-item.active .page-link {
+            background-color: #5c297c;
+            color: #ffffff;
+        }
+
+        div[data-table-id="schedulesTable"] .pagination .page-item.active .page-link:hover {
+            background-color: #4b2266;
+            color: #ffffff;
+        }
+
+        div[data-table-id="schedulesTable"] .pagination .page-link span {
+            color: inherit;
+        }
+
+        div[data-table-id="schedulesTable"] .pagination .page-item.disabled .page-link {
+            background-color: #e2e8f0;
+            color: #94a3b8;
+        }
+
+        @media (max-width: 992px) {
+            .schedule-card--table {
+                padding: 1.25rem;
+            }
+
+            .schedule-table tbody td {
+                padding: 0.85rem 0.6rem;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .schedule-table tbody td {
+                padding: 0.75rem;
+            }
+
+            .schedule-bulk-bar {
+                bottom: 90px;
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+        }
+        .table-filter-dropdown .filter-toggle {
+            border: 1px solid #d1d5db;
+            border-radius: 0.375rem;
+            padding: 0 0.75rem;
+            background-color: #ffffff;
+            font-weight: 600;
+            font-size: 0.95rem;
+            color: #0f172a;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            line-height: 1.2;
+            min-height: calc(2.25rem + 2px);
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .table-filter-dropdown .filter-toggle i {
+            color: #94a3b8;
+            font-size: 1rem;
+        }
+
+        .table-filter-dropdown .filter-toggle:focus,
+        .table-filter-dropdown .filter-toggle:focus-visible {
+            outline: none;
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.1);
+        }
+
+        .table-filter-dropdown .filter-toggle.is-active {
+            border-color: #5c297c;
+            color: #5c297c;
+        }
+
+        .table-filter-dropdown .dropdown-menu {
+            min-width: 260px;
+            border-radius: 0.75rem;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 10px 35px rgba(15, 23, 42, 0.1);
+        }
+
+        .table-filter-dropdown label {
+            font-size: 0.78rem;
+            font-weight: 600;
+            letter-spacing: 0.06em;
+            color: #94a3b8;
+        }
+
+        .table-filter-reset {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: #5c297c;
+        }
+    </style>
+@endsection
+
+@section('content')
+    @php
+        $flashSuccess = session('success');
+        $flashError = session('error');
+        $pageToasts = [];
+        if ($flashSuccess) {
+            $pageToasts[] = ['type' => 'success', 'message' => $flashSuccess];
+        }
+        if ($flashError) {
+            $pageToasts[] = ['type' => 'danger', 'message' => $flashError];
+        }
+    @endphp
+    @include('components.dm-toast', ['messages' => $pageToasts])
+
+    <div class="container-fluid">
+
+        <div id="scheduleAlertContainer"></div>
+
+        <div class="card schedule-card schedule-card--table mb-4 schedule-action-card">
+            <div class="card-body d-flex flex-column flex-lg-row align-items-center justify-content-between gap-3">
+                <div class="text-center text-lg-start">
+                    <h5 class="card-title mb-1 d-flex align-items-center gap-2 justify-content-center justify-content-lg-start" style="font-size: 1.2rem;">
+                        <i class="fa-solid fa-calendar-days" style="font-size: 1.5rem;"></i>
+                        Schedule Actions
+                    </h5>
+                    <p class="text-muted mb-0">Use the actions above to add, update, or import schedules.</p>
+                </div>
+                <div class="d-flex align-items-center gap-3 flex-wrap justify-content-center">
+                    @if ($canAdd)
+                        <button type="button" class="btn btn-schedule-action" data-bs-toggle="modal" data-bs-target="#scheduleCreateModal">
+                            <i class="fa-solid fa-calendar-plus me-2"></i>Add Schedule
+                        </button>
+                    @endif
+                    @if ($canImport)
+                        <button type="button" class="btn btn-schedule-action" data-bs-toggle="modal" data-bs-target="#scheduleImportModal">
+                            <i class="fa-solid fa-upload me-2"></i>Import
+                        </button>
+                    @endif
+                </div>
+            </div>
+        </div>
+
+        <div class="card schedule-card schedule-card--table" data-table-controller data-table-id="schedulesTable">
+            <div class="card-body border-0 schedule-controls">
+                <div class="row g-3 align-items-center">
+                    <div class="col-md-6">
+                        <div class="d-flex align-items-center gap-2 flex-wrap">
+                            <label for="schedulesRowsPerPage" class="text-muted small">Lines per page</label>
+                            <select id="schedulesRowsPerPage" class="form-select schedule-page-size fw-bold" style="width: auto;" data-table-length>
+                                <option value="10">10</option>
+                                <option value="25">25</option>
+                                <option value="50">50</option>
+                                <option value="100">100</option>
+                                <option value="all">All</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="d-flex justify-content-end align-items-center gap-2 flex-wrap">
+                            <div class="dropdown table-filter-dropdown">
+                                <button class="filter-toggle" type="button" id="scheduleFilterToggle" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <span>Filters</span>
+                                    <i class="bx bx-filter"></i>
+                                </button>
+                                <div class="dropdown-menu dropdown-menu-end p-3">
+                                    <div class="mb-3">
+                                        <label class="form-label text-uppercase small">Time</label>
+                                        <select id="scheduleFilterTime" class="form-select">
+                                            <option value="all">All</option>
+                                        </select>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label text-uppercase small">Day(s)</label>
+                                        <select id="scheduleFilterDay" class="form-select">
+                                            <option value="all">All</option>
+                                        </select>
+                                    </div>
+                                    <div class="d-flex justify-content-end">
+                                        <button type="button" class="btn btn-link p-0 table-filter-reset" id="scheduleFilterReset">Reset Filters</button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="schedule-search-wrapper">
+                                <i class="bx bx-search schedule-search-icon"></i>
+                                <input type="text" id="schedulesSearch" class="schedule-search-input" data-table-search placeholder="Search...">
+                                <button type="button" class="schedule-search-clear" id="schedulesSearchClear">&times;</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card-body pt-0">
+                <div class="table-responsive">
+                    <table class="table align-middle mb-0 schedule-table" id="schedulesTable">
+                        <thead>
+                            <tr>
+                                @if ($canDelete || $showDeleteDisabled)
+                                    <th class="text-center">
+                                        <input type="checkbox" class="form-check-input schedule-checkbox" id="scheduleSelectAll">
+                                    </th>
+                                @endif
+                                <th data-sort-key="course" class="sortable" data-sort-state="none">
+                                    <span class="d-inline-flex align-items-center">
+                                        Course
+                                        <span class="sort-indicator ms-1">
+                                            <i class="bx bx-chevron-up icon-up"></i>
+                                            <i class="bx bx-chevron-down icon-down"></i>
+                                        </span>
+                                    </span>
+                                </th>
+                                <th>Section</th>
+                                <th>Time</th>
+                                <th>Day(s)</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="schedulesTableBody"></tbody>
+                    </table>
+                </div>
+
+                @if ($canDelete || $showDeleteDisabled)
+                    <div class="schedule-bulk-bar d-none" id="scheduleBulkBar">
+                        <span class="fw-semibold" id="scheduleSelectedCount">0 Selected</span>
+                        @if ($canDelete)
+                            <button type="button" class="schedule-bulk-btn schedule-bulk-btn--danger" data-bulk-action="delete">
+                                <i class="bx bx-trash"></i> Delete
+                            </button>
+                        @else
+                            <button type="button" class="schedule-bulk-btn schedule-bulk-btn--danger disabled" disabled aria-disabled="true">
+                                <i class="bx bx-trash"></i> Delete
+                            </button>
+                        @endif
+                        <button type="button" class="schedule-bulk-close" data-bulk-action="clear" title="Clear selection">
+                            <i class="bx bx-x"></i>
+                        </button>
+                    </div>
+                @endif
+
+                <div class="row mt-4 align-items-center">
+                    <div class="col-md-6 d-flex align-items-center">
+                        <div class="text-muted" data-table-info></div>
+                    </div>
+                    <div class="col-md-6 d-flex justify-content-end align-items-center">
+                        <nav aria-label="Schedules pagination">
+                            <ul class="pagination justify-content-end mb-0" data-table-pagination></ul>
+                        </nav>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if ($canAdd)
+    {{-- Create Schedule Modal --}}
+    <div class="modal fade" id="scheduleCreateModal" tabindex="-1" aria-labelledby="scheduleCreateModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered schedule-modal-dialog schedule-modal-dialog--narrow">
+            <div class="modal-content schedule-card">
+                <form id="createScheduleForm">
+                    @csrf
+                    <div class="modal-header schedule-modal-header">
+                        <h5 class="modal-title mb-0" id="scheduleCreateModalLabel">Add Schedule</h5>
+                        <button type="button" class="schedule-modal-close" data-bs-dismiss="modal" aria-label="Close">×</button>
+                    </div>
+                    <div class="modal-body schedule-modal-body">
+                        <div class="mb-3">
+                            <label class="form-label" for="createFacultyCourse">Faculty Course</label>
+                            <div class="dropdown w-100 course-dropdown" data-course-dropdown>
+                                <button class="course-dropdown-toggle w-100 d-flex justify-content-between align-items-center text-start"
+                                        type="button"
+                                        data-bs-toggle="dropdown"
+                                        data-bs-display="static"
+                                        data-course-dropdown-toggle>
+                                    <span class="course-dropdown-label is-placeholder"
+                                          data-course-dropdown-label
+                                          data-placeholder-text="-- Select Course --">-- Select Course --</span>
+                                    <i class="bx bx-chevron-down fs-5"></i>
+                                </button>
+                                <div class="dropdown-menu p-2">
+                                    <input type="text" class="form-control course-dropdown-search" placeholder="Search courses..." data-course-search>
+                                    <div class="course-dropdown-list" data-course-list>
+                                        @foreach($facultyCourseOptions as $option)
+                                            <button type="button"
+                                                    class="dropdown-item"
+                                                    data-course-option
+                                                    data-course-id="{{ $option['id'] }}"
+                                                    data-course-label="{{ $option['label'] }}"
+                                                    data-course-search="{{ $option['search'] }}"
+                                                    data-faculty="{{ $option['faculty'] ?? '' }}"
+                                                    data-section="{{ $option['section'] ?? '' }}"
+                                                    data-academic-year="{{ $option['academic_year_display'] ?? '' }}"
+                                                    data-semester="{{ $option['semester'] ?? '' }}">
+                                                <span class="course-dropdown-title">
+                                                    {{ $option['code'] }}
+                                                    @if(!empty($option['subject']))
+                                                        - {{ $option['subject'] }}
+                                                    @endif
+                                                </span>
+                                                @if(!empty($option['faculty']) || !empty($option['academic_year_display']) || !empty($option['semester']) || !empty($option['section']))
+                                                    <small class="course-dropdown-info" title="{{ trim(implode(' | ', array_filter([$option['faculty'], $option['section'], $option['academic_year_display'], $option['semester']]))) }}">
+                                                        @if(!empty($option['faculty']))
+                                                            <span>{{ $option['faculty'] }}</span>
+                                                        @endif
+                                                        @if(!empty($option['section']))
+                                                            <span>Section. {{ $option['section'] }}</span>
+                                                        @endif
+                                                        @if(!empty($option['academic_year_display']))
+                                                            <span>{{ $option['academic_year_display'] }}</span>
+                                                        @endif
+                                                        @if(!empty($option['semester']))
+                                                            <span>{{ $option['semester'] }}</span>
+                                                        @endif
+                                                    </small>
+                                                @endif
+                                            </button>
+                                            @endforeach
+                                    </div>
+                                </div>
+                                <input type="hidden" name="faculty_course_id" id="createFacultyCourse" required>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Faculty Information</label>
+                            <div id="createFacultyDisplay" class="card bg-light p-3" style="min-height: 80px;">
+                                <span class="text-muted text-center">Select a course to view faculty information</span>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label" for="createTimeStart">Time</label>
+                            <div class="time-range-group">
+                                <div class="dropdown time-dropdown" data-time-dropdown>
+                                    <button class="time-dropdown-toggle"
+                                            type="button"
+                                            id="createTimeStartToggle"
+                                            data-bs-toggle="dropdown"
+                                            data-bs-display="static"
+                                            data-time-dropdown-toggle>
+                                        <span class="time-dropdown-label is-placeholder"
+                                              data-time-label
+                                              data-placeholder-text="-- Select Time --">-- Select Time --</span>
+                                        <i class="bx bx-chevron-down fs-5 text-muted"></i>
+                                    </button>
+                                    <div class="dropdown-menu p-2">
+                                        <input type="text" class="form-control time-dropdown-search" placeholder="Search time..." data-time-search>
+                                        <div class="time-dropdown-list" data-time-list>
+                                            @foreach($timeOptions as $time)
+                                                <button type="button"
+                                                        class="dropdown-item"
+                                                        data-time-option
+                                                        data-option-value="{{ $time }}"
+                                                        data-option-label="{{ $time }}"
+                                                        data-option-filter="{{ strtolower($time) }}">
+                                                    <span>{{ $time }}</span>
+                                                </button>
+                                            @endforeach
+                                        </div>
+                                    </div>
+                                    <input type="hidden" name="time_start" id="createTimeStart" required>
+                                </div>
+                                <span class="time-range-separator">to</span>
+                                <div class="dropdown time-dropdown" data-time-dropdown>
+                                    <button class="time-dropdown-toggle"
+                                            type="button"
+                                            id="createTimeEndToggle"
+                                            data-bs-toggle="dropdown"
+                                            data-bs-display="static"
+                                            data-time-dropdown-toggle>
+                                        <span class="time-dropdown-label is-placeholder"
+                                              data-time-label
+                                              data-placeholder-text="-- Select Time --">-- Select Time --</span>
+                                        <i class="bx bx-chevron-down fs-5 text-muted"></i>
+                                    </button>
+                                    <div class="dropdown-menu p-2">
+                                        <input type="text" class="form-control time-dropdown-search" placeholder="Search time..." data-time-search>
+                                        <div class="time-dropdown-list" data-time-list>
+                                            @foreach($timeOptions as $time)
+                                                <button type="button"
+                                                        class="dropdown-item"
+                                                        data-time-option
+                                                        data-option-value="{{ $time }}"
+                                                        data-option-label="{{ $time }}"
+                                                        data-option-filter="{{ strtolower($time) }}">
+                                                    <span>{{ $time }}</span>
+                                                </button>
+                                            @endforeach
+                                        </div>
+                                    </div>
+                                    <input type="hidden" name="time_end" id="createTimeEnd" required>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Day(s)</label>
+                            <div class="dropdown w-100 day-multiselect" data-day-multiselect>
+                                <button class="day-multiselect-toggle w-100 d-flex align-items-center text-start"
+                                        type="button"
+                                        data-bs-toggle="dropdown"
+                                        data-bs-display="static"
+                                        data-bs-auto-close="outside">
+                                    <div class="day-multiselect-content flex-grow-1">
+                                        <div class="day-multiselect-chips" data-day-selected></div>
+                                        <span class="day-multiselect-placeholder" data-day-placeholder>-- Select Day(s) --</span>
+                                    </div>
+                                    <i class="bx bx-chevron-down fs-5 ms-2 text-muted"></i>
+                                </button>
+                                <div class="dropdown-menu p-3">
+                                    <div class="day-multiselect-search">
+                                        <input type="text" class="form-control" placeholder="Search days..." data-day-search>
+                                    </div>
+                                    <div class="day-multiselect-list" data-day-list>
+                                        @foreach($dayOptions as $day)
+                                            <label class="day-multiselect-option"
+                                                   data-day-option
+                                                   data-value="{{ $day['value'] }}"
+                                                   data-label="{{ $day['label'] }}"
+                                                   data-search="{{ strtolower($day['label']) }}">
+                                                <input type="checkbox" class="form-check-input" data-day-checkbox value="{{ $day['value'] }}">
+                                                <span>{{ $day['label'] }}</span>
+                                            </label>
+                                        @endforeach
+                                    </div>
+                                </div>
+                                <div data-day-inputs class="d-none"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer schedule-modal-footer">
+                        <button type="button" class="btn btn-tertiary schedule-modal-btn" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-schedule-primary schedule-modal-btn" data-default-text="Save" data-loading-text="Saving...">Save</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    @if ($canEdit)
+    {{-- Edit Schedule Modal --}}
+    <div class="modal fade" id="scheduleEditModal" tabindex="-1" aria-labelledby="scheduleEditModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered schedule-modal-dialog schedule-modal-dialog--narrow">
+            <div class="modal-content schedule-card">
+                <form id="editScheduleForm">
+                    @csrf
+                    <input type="hidden" name="schedule_id" value="">
+                    <div class="modal-header schedule-modal-header">
+                        <h5 class="modal-title mb-0" id="scheduleEditModalLabel">Edit Schedule</h5>
+                        <button type="button" class="schedule-modal-close" data-bs-dismiss="modal" aria-label="Close">×</button>
+                    </div>
+                    <div class="modal-body schedule-modal-body">
+                        <div class="mb-3">
+                            <label class="form-label" for="editFacultyCourse">Faculty Course</label>
+                            <div class="dropdown w-100 course-dropdown" data-course-dropdown>
+                                <button class="course-dropdown-toggle w-100 d-flex justify-content-between align-items-center text-start"
+                                        type="button"
+                                        data-bs-toggle="dropdown"
+                                        data-bs-display="static"
+                                        data-course-dropdown-toggle>
+                                    <span class="course-dropdown-label is-placeholder"
+                                          data-course-dropdown-label
+                                          data-placeholder-text="-- Select Course --">-- Select Course --</span>
+                                    <i class="bx bx-chevron-down fs-5"></i>
+                                </button>
+                                <div class="dropdown-menu p-2">
+                                    <input type="text" class="form-control course-dropdown-search" placeholder="Search courses..." data-course-search>
+                                    <div class="course-dropdown-list" data-course-list>
+                                        @foreach($facultyCourseOptions as $option)
+                                            <button type="button"
+                                                    class="dropdown-item"
+                                                    data-course-option
+                                                    data-course-id="{{ $option['id'] }}"
+                                                    data-course-label="{{ $option['label'] }}"
+                                                    data-course-search="{{ $option['search'] }}"
+                                                    data-faculty="{{ $option['faculty'] ?? '' }}"
+                                                    data-section="{{ $option['section'] ?? '' }}"
+                                                    data-academic-year="{{ $option['academic_year_display'] ?? '' }}"
+                                                    data-semester="{{ $option['semester'] ?? '' }}">
+                                                <span class="course-dropdown-title">
+                                                    {{ $option['code'] }}
+                                                    @if(!empty($option['subject']))
+                                                        - {{ $option['subject'] }}
+                                                    @endif
+                                                </span>
+                                                @if(!empty($option['faculty']) || !empty($option['academic_year_display']) || !empty($option['semester']) || !empty($option['section']))
+                                                    <small class="course-dropdown-info" title="{{ trim(implode(' | ', array_filter([$option['faculty'], $option['section'], $option['academic_year_display'], $option['semester']]))) }}">
+                                                        @if(!empty($option['faculty']))
+                                                            <span>{{ $option['faculty'] }}</span>
+                                                        @endif
+                                                        @if(!empty($option['section']))
+                                                            <span>Section. {{ $option['section'] }}</span>
+                                                        @endif
+                                                        @if(!empty($option['academic_year_display']))
+                                                            <span>{{ $option['academic_year_display'] }}</span>
+                                                        @endif
+                                                        @if(!empty($option['semester']))
+                                                            <span>{{ $option['semester'] }}</span>
+                                                        @endif
+                                                    </small>
+                                                @endif
+                                            </button>
+                                            @endforeach
+                                    </div>
+                                </div>
+                                <input type="hidden" name="faculty_course_id" id="editFacultyCourse" required>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Faculty Information</label>
+                            <div id="editFacultyDisplay" class="card bg-light p-3" style="min-height: 80px; display: flex; align-items: center; justify-content: center;">
+                                <span class="text-muted text-center">Select a course to view faculty information</span>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label" for="editTimeStart">Time</label>
+                            <div class="time-range-group">
+                                <div class="dropdown time-dropdown" data-time-dropdown>
+                                    <button class="time-dropdown-toggle"
+                                            type="button"
+                                            id="editTimeStartToggle"
+                                            data-bs-toggle="dropdown"
+                                            data-bs-display="static"
+                                            data-time-dropdown-toggle>
+                                        <span class="time-dropdown-label is-placeholder"
+                                              data-time-label
+                                              data-placeholder-text="-- Select Time --">-- Select Time --</span>
+                                        <i class="bx bx-chevron-down fs-5 text-muted"></i>
+                                    </button>
+                                    <div class="dropdown-menu p-2">
+                                        <input type="text" class="form-control time-dropdown-search" placeholder="Search time..." data-time-search>
+                                        <div class="time-dropdown-list" data-time-list>
+                                            @foreach($timeOptions as $time)
+                                                <button type="button"
+                                                        class="dropdown-item"
+                                                        data-time-option
+                                                        data-option-value="{{ $time }}"
+                                                        data-option-label="{{ $time }}"
+                                                        data-option-filter="{{ strtolower($time) }}">
+                                                    <span>{{ $time }}</span>
+                                                </button>
+                                            @endforeach
+                                        </div>
+                                    </div>
+                                    <input type="hidden" name="time_start" id="editTimeStart" required>
+                                </div>
+                                <span class="time-range-separator">to</span>
+                                <div class="dropdown time-dropdown" data-time-dropdown>
+                                    <button class="time-dropdown-toggle"
+                                            type="button"
+                                            id="editTimeEndToggle"
+                                            data-bs-toggle="dropdown"
+                                            data-bs-display="static"
+                                            data-time-dropdown-toggle>
+                                        <span class="time-dropdown-label is-placeholder"
+                                              data-time-label
+                                              data-placeholder-text="-- Select Time --">-- Select Time --</span>
+                                        <i class="bx bx-chevron-down fs-5 text-muted"></i>
+                                    </button>
+                                    <div class="dropdown-menu p-2">
+                                        <input type="text" class="form-control time-dropdown-search" placeholder="Search time..." data-time-search>
+                                        <div class="time-dropdown-list" data-time-list>
+                                            @foreach($timeOptions as $time)
+                                                <button type="button"
+                                                        class="dropdown-item"
+                                                        data-time-option
+                                                        data-option-value="{{ $time }}"
+                                                        data-option-label="{{ $time }}"
+                                                        data-option-filter="{{ strtolower($time) }}">
+                                                    <span>{{ $time }}</span>
+                                                </button>
+                                            @endforeach
+                                        </div>
+                                    </div>
+                                    <input type="hidden" name="time_end" id="editTimeEnd" required>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Day(s)</label>
+                            <div class="dropdown w-100 day-multiselect" data-day-multiselect>
+                                <button class="day-multiselect-toggle w-100 d-flex align-items-center text-start"
+                                        type="button"
+                                        data-bs-toggle="dropdown"
+                                        data-bs-display="static"
+                                        data-bs-auto-close="outside">
+                                    <div class="day-multiselect-content flex-grow-1">
+                                        <div class="day-multiselect-chips" data-day-selected></div>
+                                        <span class="day-multiselect-placeholder" data-day-placeholder>-- Select Day(s) --</span>
+                                    </div>
+                                    <i class="bx bx-chevron-down fs-5 ms-2 text-muted"></i>
+                                </button>
+                                <div class="dropdown-menu p-3">
+                                    <div class="day-multiselect-search">
+                                        <input type="text" class="form-control" placeholder="Search days..." data-day-search>
+                                    </div>
+                                    <div class="day-multiselect-list" data-day-list>
+                                        @foreach($dayOptions as $day)
+                                            <label class="day-multiselect-option"
+                                                   data-day-option
+                                                   data-value="{{ $day['value'] }}"
+                                                   data-label="{{ $day['label'] }}"
+                                                   data-search="{{ strtolower($day['label']) }}">
+                                                <input type="checkbox" class="form-check-input" data-day-checkbox value="{{ $day['value'] }}">
+                                                <span>{{ $day['label'] }}</span>
+                                            </label>
+                                        @endforeach
+                                    </div>
+                                </div>
+                                <div data-day-inputs class="d-none"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer schedule-modal-footer">
+                        <button type="button" class="btn btn-tertiary schedule-modal-btn" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-schedule-primary schedule-modal-btn" data-default-text="Save Changes" data-loading-text="Saving...">Save Changes</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    @if ($canDelete)
+    {{-- Delete Schedule Modal --}}
+    <div class="modal fade" id="scheduleDeleteModal" tabindex="-1" aria-labelledby="scheduleDeleteModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered schedule-modal-dialog schedule-modal-dialog--narrow">
+            <div class="modal-content schedule-card">
+                <div class="modal-header schedule-modal-header">
+                    <h5 class="modal-title mb-0" id="scheduleDeleteModalLabel">Delete Schedule</h5>
+                    <button type="button" class="schedule-modal-close" data-bs-dismiss="modal" aria-label="Close">×</button>
+                </div>
+                <div class="modal-body schedule-modal-body">
+                    <p class="mb-0">Are you sure you want to delete <span class="fw-semibold" id="scheduleDeleteName">this schedule</span>? This action cannot be undone.</p>
+                </div>
+                <div class="modal-footer schedule-modal-footer">
+                    <button type="button" class="btn btn-tertiary schedule-modal-btn" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-schedule-danger schedule-modal-btn" id="confirmScheduleDeleteBtn">Delete</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {{-- Bulk Delete Modal --}}
+    <div class="modal fade" id="scheduleBulkDeleteModal" tabindex="-1" aria-labelledby="scheduleBulkDeleteModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered schedule-modal-dialog schedule-modal-dialog--narrow">
+            <div class="modal-content schedule-card">
+                <div class="modal-header schedule-modal-header">
+                    <h5 class="modal-title mb-0" id="scheduleBulkDeleteModalLabel">Delete Selected Schedules</h5>
+                    <button type="button" class="schedule-modal-close" data-bs-dismiss="modal" aria-label="Close">×</button>
+                </div>
+                <div class="modal-body schedule-modal-body">
+                    <p class="mb-0">You are about to delete <span class="fw-semibold" id="scheduleBulkDeleteCount">0</span> schedule(s). This action cannot be undone. Continue?</p>
+                </div>
+                <div class="modal-footer schedule-modal-footer">
+                    <button type="button" class="btn btn-tertiary schedule-modal-btn" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-schedule-danger schedule-modal-btn" id="confirmScheduleBulkDeleteBtn">Delete Selected</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    @if ($canImport)
+    {{-- Import Modal --}}
+    <div class="modal fade" id="scheduleImportModal" tabindex="-1" aria-labelledby="scheduleImportModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered schedule-modal-dialog schedule-modal-dialog--narrow">
+            <div class="modal-content schedule-card">
+                <form method="POST" action="{{ route('dm.schedules.import') }}" enctype="multipart/form-data" id="scheduleImportForm">
+                    @csrf
+                    <div class="modal-header schedule-modal-header">
+                        <h5 class="modal-title mb-0" id="scheduleImportModalLabel">Import Schedules</h5>
+                        <button type="button" class="schedule-modal-close" data-bs-dismiss="modal" aria-label="Close">×</button>
+                    </div>
+                    <div class="modal-body schedule-modal-body">
+                        <div class="mb-0">
+                            <label class="form-label" for="scheduleImportFile">Select File</label>
+                            <input type="file" name="file" id="scheduleImportFile" class="form-control" accept=".csv,.txt,.xlsx" required>
+                            <small class="text-muted d-block mt-2">Headers: employeeno, classcode, section, time, day, status</small>
+                        </div>
+                    </div>
+                    <div class="modal-footer schedule-modal-footer">
+                        <button type="button" class="btn btn-tertiary schedule-modal-btn" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-schedule-primary schedule-modal-btn" data-default-text="Import" data-loading-text="Importing...">Import</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    @endif
+@endsection
+
+@section('page-script')
+    @include('components.table-controller-script')
+    <script>
+        const PILL_PALETTES = {
+            purple: [{ bg: '#e4c7ff', color: '#4c1d95' }],
+            blue: [{ bg: '#d3e2ff', color: '#1d4ed8' }],
+            green: [{ bg: '#d1f9e0', color: '#047857' }],
+            gray: [{ bg: '#e3e8f1', color: '#475569' }],
+        };
+        const PILL_COLOR_CACHE = new Map();
+
+        function getPillColor(value, paletteName) {
+            const palette = PILL_PALETTES[paletteName];
+            if (!palette || !palette.length) {
+                return null;
+            }
+            const key = `${paletteName}::${String(value ?? '').toLowerCase()}`;
+            if (PILL_COLOR_CACHE.has(key)) {
+                return PILL_COLOR_CACHE.get(key);
+            }
+            const valueString = String(value ?? '').toLowerCase();
+            const hash = valueString
+                ? Array.from(valueString).reduce((acc, char) => acc + char.charCodeAt(0), 0)
+                : 0;
+            const color = palette[hash % palette.length];
+            PILL_COLOR_CACHE.set(key, color);
+            return color;
+        }
+
+        function stylePillElement(element) {
+            const paletteName = element.dataset.pillPalette;
+            if (!paletteName) {
+                return;
+            }
+            const color = getPillColor(element.dataset.pillValue || element.textContent, paletteName);
+            if (!color) {
+                return;
+            }
+            element.style.setProperty('--pill-bg', color.bg);
+            element.style.setProperty('--pill-color', color.color);
+        }
+
+        function applyPillPalettes(root = document) {
+            const scope = root instanceof Element ? root : document.body;
+            scope.querySelectorAll('[data-pill-palette]').forEach(stylePillElement);
+        }
+
+        const schedulePermissions = {
+            canAdd: @json($canAdd),
+            canEdit: @json($canEdit),
+            canDelete: @json($canDelete),
+            showDeleteDisabled: @json($showDeleteDisabled),
+            canImport: @json($canImport),
+        };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initScheduleCourseDropdowns();
+            initScheduleDayMultiselects();
+            initScheduleTimeDropdowns();
+            window.schedulePage = new SchedulePage({
+                schedules: @json($scheduleItems),
+                facultyCourses: @json($facultyCourseOptions),
+                tableRoot: document.querySelector('[data-table-id="schedulesTable"]'),
+            });
+        });
+
+        function initScheduleCourseDropdowns() {
+            const dropdowns = document.querySelectorAll('[data-course-dropdown]');
+            dropdowns.forEach((dropdown) => {
+                if (dropdown.courseDropdownApi) {
+                    return;
+                }
+                setupScheduleCourseDropdown(dropdown);
+            });
+        }
+
+        function setupScheduleCourseDropdown(dropdown) {
+            const label = dropdown.querySelector('[data-course-dropdown-label]');
+            const hiddenInput = dropdown.querySelector('input[name="faculty_course_id"]');
+            const searchInput = dropdown.querySelector('[data-course-search]');
+            const optionButtons = Array.from(dropdown.querySelectorAll('[data-course-option]'));
+            const listWrapper = dropdown.querySelector('[data-course-list]');
+            const placeholderText = label?.dataset.placeholderText?.trim() || '-- Select Course --';
+
+            const setLabel = (text, isPlaceholder = false) => {
+                if (!label) {
+                    return;
+                }
+                label.textContent = text;
+                label.classList.toggle('is-placeholder', isPlaceholder);
+            };
+
+            const resetSelection = () => {
+                if (hiddenInput) {
+                    hiddenInput.value = '';
+                }
+                setLabel(placeholderText, true);
+            };
+
+            const applySearchFilter = () => {
+                const term = searchInput ? searchInput.value.trim().toLowerCase() : '';
+                const hasTerm = term !== '';
+                optionButtons.forEach((option) => {
+                    const searchValue = option.dataset.courseSearch || '';
+                    const matches = !hasTerm || searchValue.includes(term);
+                    option.classList.toggle('d-none', !matches);
+                });
+                if (listWrapper) {
+                    listWrapper.classList.toggle('is-unlimited', hasTerm);
+                }
+            };
+
+            const setValueById = (courseId, fallbackLabel = '') => {
+                const targetId = courseId ? String(courseId) : '';
+                if (!hiddenInput) {
+                    return;
+                }
+
+                if (!targetId) {
+                    resetSelection();
+                    return;
+                }
+
+                const match = optionButtons.find((option) => option.dataset.courseId === targetId);
+                if (match) {
+                    hiddenInput.value = match.dataset.courseId;
+                    setLabel(match.dataset.courseLabel || match.textContent.trim(), false);
+                    return;
+                }
+
+                hiddenInput.value = targetId;
+                const fallback = fallbackLabel || `Course #${targetId}`;
+                setLabel(fallback, false);
+            };
+
+            if (!hiddenInput || !hiddenInput.value) {
+                setLabel(placeholderText, true);
+            } else {
+                setValueById(hiddenInput.value);
+            }
+
+            if (searchInput) {
+                searchInput.addEventListener('input', applySearchFilter);
+            }
+
+            optionButtons.forEach((option) => {
+                option.addEventListener('click', () => {
+                    setValueById(option.dataset.courseId);
+                    // Update faculty display for both Edit and Create modals
+                    const form = dropdown.closest('form');
+                    const facultyDisplay = form?.querySelector('#editFacultyDisplay') || form?.querySelector('#createFacultyDisplay');
+                    if (facultyDisplay) {
+                        const faculty = option.dataset.faculty || '';
+                        const section = option.dataset.section || '';
+                        const academicYear = option.dataset.academicYear || '';
+                        const semester = option.dataset.semester || '';
+                        
+                        if (faculty || section || academicYear || semester) {
+                            let html = '<div class="row g-2">';
+                            if (faculty) {
+                                html += `<div class="col-12"><strong>Faculty:</strong> <span>${faculty}</span></div>`;
+                            }
+                            if (section) {
+                                html += `<div class="col-12"><strong>Section:</strong> <span>${section}</span></div>`;
+                            }
+                            if (academicYear) {
+                                html += `<div class="col-12"><strong>Academic Year:</strong> <span>${academicYear}</span></div>`;
+                            }
+                            if (semester) {
+                                html += `<div class="col-12"><strong>Semester:</strong> <span>${semester}</span></div>`;
+                            }
+                            html += '</div>';
+                            facultyDisplay.innerHTML = html;
+                        } else {
+                            facultyDisplay.innerHTML = '<span class="text-muted text-center">No faculty information available</span>';
+                        }
+                    }
+                });
+            });
+
+            dropdown.addEventListener('shown.bs.dropdown', () => {
+                if (searchInput) {
+                    searchInput.value = '';
+                    applySearchFilter();
+                    searchInput.focus();
+                } else {
+                    applySearchFilter();
+                }
+            });
+
+            const parentForm = dropdown.closest('form');
+            if (parentForm) {
+                parentForm.addEventListener('reset', () => {
+                    resetSelection();
+                    if (searchInput) {
+                        searchInput.value = '';
+                    }
+                    applySearchFilter();
+                });
+            }
+
+            applySearchFilter();
+
+            dropdown.courseDropdownApi = {
+                reset: resetSelection,
+                setValueById,
+            };
+        }
+
+        function initScheduleDayMultiselects() {
+            const multiselects = document.querySelectorAll('[data-day-multiselect]');
+            multiselects.forEach((multiselect) => {
+                if (multiselect.dayMultiselectApi) {
+                    return;
+                }
+                setupScheduleDayMultiselect(multiselect);
+            });
+        }
+
+        function setupScheduleDayMultiselect(multiselect) {
+            const placeholder = multiselect.querySelector('[data-day-placeholder]');
+            const chipsContainer = multiselect.querySelector('[data-day-selected]');
+            const inputsContainer = multiselect.querySelector('[data-day-inputs]');
+            const searchInput = multiselect.querySelector('[data-day-search]');
+            const optionElements = Array.from(multiselect.querySelectorAll('[data-day-option]'));
+
+            const options = optionElements.map((element) => {
+                const value = element.dataset.value ?? '';
+                const label = element.dataset.label ?? value;
+                const searchValue = element.dataset.search ?? label.toLowerCase();
+                const checkbox = element.querySelector('[data-day-checkbox]');
+                return { element, value, label, searchValue, checkbox };
+            });
+
+            const selected = new Set();
+
+            const getLabel = (value) => {
+                const code = (value || '').toUpperCase();
+                const mapping = {
+                    M: 'Mon',
+                    T: 'Tue',
+                    W: 'Wed',
+                    TH: 'Thu',
+                    F: 'Fri',
+                    S: 'Sat',
+                    SU: 'Sun',
+                };
+                if (mapping[code]) {
+                    return mapping[code];
+                }
+                return options.find((option) => option.value === value)?.label || value;
+            };
+
+            const syncHiddenInputs = () => {
+                if (!inputsContainer) {
+                    return;
+                }
+                inputsContainer.innerHTML = '';
+                selected.forEach((value) => {
+                    const input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = 'day[]';
+                    input.value = value;
+                    inputsContainer.appendChild(input);
+                });
+            };
+
+            const syncChips = () => {
+                if (!chipsContainer) {
+                    return;
+                }
+                chipsContainer.innerHTML = '';
+                selected.forEach((value) => {
+                    const chip = document.createElement('span');
+                    chip.className = 'day-chip';
+                    chip.innerHTML = `
+                        <span>${getLabel(value)}</span>
+                        <button type="button" class="day-chip-remove" data-day-remove="${value}" aria-label="Remove ${getLabel(value)}">&times;</button>
+                    `;
+                    chipsContainer.appendChild(chip);
+                });
+
+                if (placeholder) {
+                    placeholder.classList.toggle('d-none', selected.size > 0);
+                }
+            };
+
+            const syncCheckboxes = () => {
+                options.forEach(({ value, checkbox, element }) => {
+                    const isSelected = selected.has(value);
+                    if (checkbox) {
+                        checkbox.checked = isSelected;
+                    }
+                    element.classList.toggle('is-selected', isSelected);
+                });
+            };
+
+            const setSelectedValues = (values) => {
+                selected.clear();
+                (Array.isArray(values) ? values : []).forEach((value) => {
+                    if (value) {
+                        selected.add(String(value));
+                    }
+                });
+                syncHiddenInputs();
+                syncChips();
+                syncCheckboxes();
+            };
+
+            const toggleValue = (value) => {
+                if (!value) {
+                    return;
+                }
+                const key = String(value);
+                if (selected.has(key)) {
+                    selected.delete(key);
+                } else {
+                    selected.add(key);
+                }
+                syncHiddenInputs();
+                syncChips();
+                syncCheckboxes();
+            };
+
+            const applySearchFilter = () => {
+                const term = (searchInput?.value || '').trim().toLowerCase();
+                const hasTerm = term !== '';
+                options.forEach(({ element, searchValue }) => {
+                    const matches = !hasTerm || (searchValue || '').includes(term);
+                    element.classList.toggle('d-none', !matches);
+                });
+            };
+
+            options.forEach(({ element, value, checkbox }) => {
+                element.addEventListener('click', (event) => {
+                    if (event.target instanceof HTMLInputElement) {
+                        return;
+                    }
+                    event.preventDefault();
+                    event.stopPropagation();
+                    toggleValue(value);
+                });
+
+                if (checkbox) {
+                    checkbox.addEventListener('change', (event) => {
+                        event.stopPropagation();
+                        if (event.target.checked) {
+                            selected.add(String(value));
+                        } else {
+                            selected.delete(String(value));
+                        }
+                        syncHiddenInputs();
+                        syncChips();
+                        syncCheckboxes();
+                    });
+                }
+            });
+
+            const handleChipRemoval = (event) => {
+                const removeBtn = event.target.closest('[data-day-remove]');
+                if (!removeBtn) {
+                    return;
+                }
+                event.preventDefault();
+                event.stopImmediatePropagation();
+                const value = removeBtn.dataset.dayRemove;
+                if (value) {
+                    selected.delete(value);
+                    syncHiddenInputs();
+                    syncChips();
+                    syncCheckboxes();
+                }
+            };
+
+            chipsContainer?.addEventListener('click', handleChipRemoval);
+            chipsContainer?.addEventListener('mousedown', handleChipRemoval);
+
+            if (searchInput) {
+                searchInput.addEventListener('input', applySearchFilter);
+            }
+
+            multiselect.addEventListener('shown.bs.dropdown', () => {
+                if (searchInput) {
+                    searchInput.value = '';
+                    applySearchFilter();
+                    searchInput.focus();
+                }
+            });
+
+            applySearchFilter();
+            syncChips();
+            syncCheckboxes();
+
+            multiselect.dayMultiselectApi = {
+                setSelected: setSelectedValues,
+                getSelected: () => Array.from(selected),
+                reset: () => setSelectedValues([]),
+            };
+        }
+
+        function initScheduleTimeDropdowns(context = document) {
+            const scope = context || document;
+            const dropdowns = scope.querySelectorAll('[data-time-dropdown]');
+            dropdowns.forEach((dropdown) => {
+                if (dropdown.timeDropdownApi) {
+                    return;
+                }
+                setupScheduleTimeDropdown(dropdown);
+            });
+        }
+
+        function setupScheduleTimeDropdown(dropdown) {
+            const label = dropdown.querySelector('[data-time-label]');
+            const hiddenInput = dropdown.querySelector('input[type="hidden"]');
+            const searchInput = dropdown.querySelector('[data-time-search]');
+            const listWrapper = dropdown.querySelector('[data-time-list]');
+            const placeholderText = label?.dataset.placeholderText?.trim() || '-- Select Time --';
+            const optionButtons = [];
+
+            const registerOption = (option) => {
+                optionButtons.push(option);
+                option.addEventListener('click', () => {
+                    setValue(option.dataset.optionValue || '');
+                });
+            };
+
+            dropdown.querySelectorAll('[data-time-option]').forEach(registerOption);
+
+            const setLabel = (text, isPlaceholder = false) => {
+                if (!label) {
+                    return;
+                }
+                label.textContent = text;
+                label.classList.toggle('is-placeholder', isPlaceholder);
+            };
+
+            const resetSelection = () => {
+                if (hiddenInput) {
+                    hiddenInput.value = '';
+                    hiddenInput.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+                setLabel(placeholderText, true);
+            };
+
+            const ensureOptionButton = (value) => {
+                if (!value || !listWrapper) {
+                    return null;
+                }
+                const existing = optionButtons.find((option) => option.dataset.optionValue === value);
+                if (existing) {
+                    return existing;
+                }
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'dropdown-item';
+                button.setAttribute('data-time-option', '');
+                button.dataset.optionValue = value;
+                button.dataset.optionFilter = value.toLowerCase();
+                const span = document.createElement('span');
+                span.textContent = value;
+                button.appendChild(span);
+                listWrapper.appendChild(button);
+                registerOption(button);
+                return button;
+            };
+
+            const setValue = (value) => {
+                const target = (value || '').trim();
+                if (!target) {
+                    resetSelection();
+                    return;
+                }
+                ensureOptionButton(target);
+                if (hiddenInput) {
+                    hiddenInput.value = target;
+                    hiddenInput.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+                const match = optionButtons.find((option) => option.dataset.optionValue === target);
+                const displayLabel = match?.dataset.optionLabel || target;
+                setLabel(displayLabel, false);
+            };
+
+            const applySearchFilter = () => {
+                const term = (searchInput?.value || '').trim().toLowerCase();
+                const hasTerm = term !== '';
+                optionButtons.forEach((option) => {
+                    const filter = option.dataset.optionFilter || option.textContent || '';
+                    const matches = !hasTerm || filter.toLowerCase().includes(term);
+                    option.classList.toggle('d-none', !matches);
+                });
+                if (listWrapper) {
+                    listWrapper.classList.toggle('is-unlimited', hasTerm);
+                }
+            };
+
+            dropdown.addEventListener('shown.bs.dropdown', () => {
+                if (searchInput) {
+                    searchInput.value = '';
+                    applySearchFilter();
+                    searchInput.focus();
+                } else {
+                    applySearchFilter();
+                }
+            });
+
+            const parentForm = dropdown.closest('form');
+            if (parentForm) {
+                parentForm.addEventListener('reset', () => {
+                    setTimeout(() => {
+                        resetSelection();
+                        if (searchInput) {
+                            searchInput.value = '';
+                        }
+                        applySearchFilter();
+                    }, 0);
+                });
+            }
+
+            if (searchInput) {
+                searchInput.addEventListener('input', applySearchFilter);
+            }
+
+            if (hiddenInput && hiddenInput.value) {
+                setValue(hiddenInput.value);
+            } else {
+                resetSelection();
+            }
+
+            applySearchFilter();
+
+            dropdown.timeDropdownApi = {
+                reset: resetSelection,
+                setValue,
+            };
+        }
+
+        class SchedulePage {
+            constructor({ schedules, facultyCourses, tableRoot }) {
+                this.schedules = Array.isArray(schedules) ? schedules : [];
+                this.facultyCourses = Array.isArray(facultyCourses) ? facultyCourses : [];
+                this.tableRoot = tableRoot || null;
+                this.tableBody = document.getElementById('schedulesTableBody');
+                this.selectAllEl = document.getElementById('scheduleSelectAll');
+                this.bulkBar = document.getElementById('scheduleBulkBar');
+                this.selectedCountEl = document.getElementById('scheduleSelectedCount');
+                this.filters = { time: 'all', day: 'all' };
+                this.lastSelectionScopeKey = this.getSelectionScopeKey();
+                this.filterControls = {
+                    time: document.getElementById('scheduleFilterTime'),
+                    day: document.getElementById('scheduleFilterDay'),
+                };
+                this.filterResetBtn = document.getElementById('scheduleFilterReset');
+                this.filterToggle = document.getElementById('scheduleFilterToggle');
+
+                this.createModalEl = document.getElementById('scheduleCreateModal');
+                this.editModalEl = document.getElementById('scheduleEditModal');
+                this.deleteModalEl = document.getElementById('scheduleDeleteModal');
+                this.bulkDeleteModalEl = document.getElementById('scheduleBulkDeleteModal');
+
+                const hasBootstrap = typeof bootstrap !== 'undefined' && bootstrap?.Modal;
+                this.createModal = this.createModalEl && hasBootstrap ? new bootstrap.Modal(this.createModalEl) : null;
+                this.editModal = this.editModalEl && hasBootstrap ? new bootstrap.Modal(this.editModalEl) : null;
+                this.deleteModal = this.deleteModalEl && hasBootstrap ? new bootstrap.Modal(this.deleteModalEl) : null;
+                this.bulkDeleteModal = this.bulkDeleteModalEl && hasBootstrap ? new bootstrap.Modal(this.bulkDeleteModalEl) : null;
+
+                this.alertContainer = document.getElementById('scheduleAlertContainer');
+
+                this.selection = new Set();
+                this.sortState = { key: null, direction: 'asc' };
+                this.pendingDeleteId = null;
+                this.pendingBulkIds = null;
+                this.currentEditId = null;
+
+                this.controller = null;
+
+                this.csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ?? '';
+
+                this.init();
+            }
+
+            init() {
+                this.bindForms();
+                this.bindSearchInputs();
+                this.bindBulkBar();
+                this.initSorting();
+                this.initFilters();
+                this.renderTable();
+            }
+
+            bindForms() {
+                const createForm = document.getElementById('createScheduleForm');
+                if (createForm) {
+                    createForm.addEventListener('submit', (event) => {
+                        event.preventDefault();
+                        const data = this.collectScheduleFormData(createForm);
+                        if (!data) return;
+                        this.handleCreateSchedule(createForm, data);
+                    });
+                    this.createModalEl?.addEventListener('hidden.bs.modal', () => {
+                        createForm.reset();
+                    });
+                    createForm.addEventListener('reset', () => {
+                        this.resetCourseDropdowns(createForm);
+                        this.resetDayMultiselects(createForm);
+                        this.setTimeFields(createForm, '');
+                        // Reset faculty display
+                        const facultyDisplay = createForm.querySelector('#createFacultyDisplay');
+                        if (facultyDisplay) {
+                            facultyDisplay.innerHTML = '<span class="text-muted text-center">Select a course to view faculty information</span>';
+                        }
+                    });
+                }
+
+                const editForm = document.getElementById('editScheduleForm');
+                if (editForm) {
+                    editForm.addEventListener('submit', (event) => {
+                        event.preventDefault();
+                        const data = this.collectScheduleFormData(editForm);
+                        if (!data || !this.currentEditId) return;
+                        this.handleUpdateSchedule(editForm, this.currentEditId, data);
+                    });
+                    editForm.addEventListener('reset', () => {
+                        this.resetCourseDropdowns(editForm);
+                        this.resetDayMultiselects(editForm);
+                        this.setTimeFields(editForm, '');
+                    });
+                }
+
+                const importForm = document.getElementById('scheduleImportForm');
+                if (importForm) {
+                    importForm.addEventListener('submit', () => {
+                        const submitBtn = importForm.querySelector('[type="submit"]');
+                        this.toggleButtonLoading(submitBtn, true, 'Import', 'Importing...');
+                    });
+                }
+
+                const confirmDeleteBtn = document.getElementById('confirmScheduleDeleteBtn');
+                if (confirmDeleteBtn) {
+                    confirmDeleteBtn.addEventListener('click', () => {
+                        if (this.pendingDeleteId !== null) {
+                            this.executeDeleteSchedule(confirmDeleteBtn, this.pendingDeleteId);
+                        }
+                    });
+                }
+
+                const confirmBulkBtn = document.getElementById('confirmScheduleBulkDeleteBtn');
+                if (confirmBulkBtn) {
+                    confirmBulkBtn.addEventListener('click', () => {
+                        if (Array.isArray(this.pendingBulkIds) && this.pendingBulkIds.length) {
+                            this.executeBulkDelete(confirmBulkBtn, this.pendingBulkIds.slice());
+                        }
+                    });
+                }
+            }
+
+            bindSearchInputs() {
+                const searchInput = document.getElementById('schedulesSearch');
+                const clearBtn = document.getElementById('schedulesSearchClear');
+                if (!searchInput || !clearBtn) return;
+
+                const toggle = () => {
+                    clearBtn.classList.toggle('is-visible', searchInput.value.trim() !== '');
+                };
+
+                searchInput.addEventListener('input', toggle);
+                clearBtn.addEventListener('click', () => {
+                    searchInput.value = '';
+                    toggle();
+                    searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+                });
+
+                toggle();
+            }
+
+            bindBulkBar() {
+                if (!this.bulkBar) return;
+
+                this.bulkBar.addEventListener('click', (event) => {
+                    const button = event.target.closest('[data-bulk-action]');
+                    if (!button) return;
+
+                    const action = button.dataset.bulkAction;
+                    if (action === 'clear') {
+                        this.clearSelection();
+                    } else if (action === 'delete') {
+                        this.promptBulkDelete();
+                    }
+                });
+            }
+
+            renderTable() {
+                if (!this.tableBody) return;
+
+                const data = this.getFilteredSchedules();
+                const availableIds = new Set(data.map((schedule) => String(schedule.id)));
+                Array.from(this.selection).forEach((id) => {
+                    if (!availableIds.has(String(id))) {
+                        this.selection.delete(String(id));
+                    }
+                });
+
+                const bodyHtml = !Array.isArray(data) || data.length === 0
+                    ? this.buildEmptyStateRow()
+                    : data.map((schedule) => this.buildRow(schedule)).join('');
+
+                this.tableBody.innerHTML = bodyHtml + this.buildSearchEmptyRow();
+
+                this.attachRowEvents();
+                this.bindSelectionHandlers();
+                this.syncSelectAllState();
+                this.updateBulkBar();
+                this.ensureController();
+                this.updateFilterToggleState();
+                this.refreshPillPalettes();
+            }
+
+            initSorting() {
+                this.sortHeaders = Array.from(document.querySelectorAll('#schedulesTable thead th[data-sort-key]'));
+                this.sortHeaders.forEach((header) => {
+                    header.dataset.sortState = header.dataset.sortState || 'none';
+                    header.addEventListener('click', () => {
+                        const sortKey = header.dataset.sortKey;
+                        if (!sortKey) {
+                            return;
+                        }
+                        if (this.sortState.key === sortKey) {
+                            this.sortState.direction = this.sortState.direction === 'asc' ? 'desc' : 'asc';
+                        } else {
+                            this.sortState.key = sortKey;
+                            this.sortState.direction = 'asc';
+                        }
+                        this.updateSortIndicators();
+                        this.renderTable();
+                    });
+                });
+                this.updateSortIndicators();
+            }
+
+            updateSortIndicators() {
+                if (!Array.isArray(this.sortHeaders)) {
+                    return;
+                }
+                this.sortHeaders.forEach((header) => {
+                    header.dataset.sortState = 'none';
+                    if (header.dataset.sortKey === this.sortState.key) {
+                        header.dataset.sortState = this.sortState.direction;
+                    }
+                });
+            }
+
+            getFilteredSchedules() {
+                const data = this.getSortedSchedules();
+                return data.filter((schedule) => this.matchesFilters(schedule));
+            }
+
+            getSortedSchedules() {
+                const data = Array.isArray(this.schedules) ? [...this.schedules] : [];
+                if (!this.sortState.key) {
+                    return data.sort((a, b) => Number(b?.id ?? 0) - Number(a?.id ?? 0));
+                }
+                const multiplier = this.sortState.direction === 'asc' ? 1 : -1;
+                return data.sort((a, b) => {
+                    const valueA = this.getScheduleSortValue(a, this.sortState.key);
+                    const valueB = this.getScheduleSortValue(b, this.sortState.key);
+                    return String(valueA ?? '').localeCompare(String(valueB ?? ''), undefined, { sensitivity: 'base' }) * multiplier;
+                });
+            }
+
+            getScheduleSortValue(schedule, key) {
+                switch (key) {
+                    case 'course':
+                        return schedule?.course_code ?? '';
+                    default:
+                        return '';
+                }
+            }
+
+            initFilters() {
+                this.refreshFilterOptions();
+
+                Object.entries(this.filterControls).forEach(([key, select]) => {
+                    if (!select) return;
+                    select.addEventListener('change', (event) => {
+                        this.filters[key] = event.target.value || 'all';
+                        this.renderTable();
+                    });
+                });
+
+                if (this.filterResetBtn) {
+                    this.filterResetBtn.addEventListener('click', () => {
+                        Object.keys(this.filters).forEach((key) => {
+                            this.filters[key] = 'all';
+                            if (this.filterControls[key]) {
+                                this.filterControls[key].value = 'all';
+                            }
+                        });
+                        this.renderTable();
+                    });
+                }
+            }
+
+            refreshFilterOptions() {
+                const timeOptions = this.getUniqueFilterValues(
+                    this.schedules,
+                    (schedule) => schedule?.time ?? '',
+                    (value) => value || 'N/A'
+                );
+                const dayOptions = this.getUniqueFilterValues(
+                    this.schedules,
+                    (schedule) => schedule?.day ?? '',
+                    (value) => {
+                        const labels = this.formatDayDisplay(value);
+                        return labels.length ? labels.join(', ') : 'N/A';
+                    }
+                );
+
+                this.populateFilterSelect(this.filterControls.time, timeOptions);
+                this.populateFilterSelect(this.filterControls.day, dayOptions);
+                this.updateFilterToggleState();
+            }
+
+            getUniqueFilterValues(items, accessor, formatter) {
+                const seen = new Map();
+                const list = Array.isArray(items) ? items : [];
+                list.forEach((item) => {
+                    const raw = accessor(item) ?? '';
+                    const value = this.normaliseValue(raw);
+                    if (!value || seen.has(value)) {
+                        return;
+                    }
+                    const label = formatter ? formatter(raw, item) : raw;
+                    seen.set(value, label);
+                });
+                return Array.from(seen.entries())
+                    .sort((a, b) => a[1].localeCompare(b[1]))
+                    .map(([value, label]) => ({ value, label }));
+            }
+
+            populateFilterSelect(select, options) {
+                if (!select) return;
+                const previous = select.value;
+                const entries = ['<option value="all">All</option>']
+                    .concat(options.map((option) => `<option value="${option.value}">${option.label}</option>`));
+                select.innerHTML = entries.join('');
+                select.value = options.some((option) => option.value === previous) ? previous : 'all';
+            }
+
+            matchesFilters(schedule) {
+                if (!schedule) return false;
+                if (this.filters.time !== 'all') {
+                    const timeValue = this.normaliseValue(schedule.time ?? '');
+                    if (timeValue !== this.filters.time) {
+                        return false;
+                    }
+                }
+                if (this.filters.day !== 'all') {
+                    const dayValue = this.normaliseValue(schedule.day ?? '');
+                    if (dayValue !== this.filters.day) {
+                        return false;
+                    }
+                }
+                return true;
+            }
+
+            updateFilterToggleState() {
+                if (!this.filterToggle) return;
+                const isActive = Object.values(this.filters).some((value) => value !== 'all');
+                this.filterToggle.classList.toggle('is-active', isActive);
+            }
+
+            buildRow(schedule) {
+                const id = String(schedule.id);
+                const isSelected = this.selection.has(id);
+                const courseCodeSource = schedule.course_code ?? '';
+                const courseCodeRaw = this.formatCourseText(courseCodeSource, 'N/A');
+                const courseCode = this.escapeHtml(courseCodeRaw);
+                const courseSubjectSource = schedule.course_subject ?? '';
+                const subtitleSource = courseSubjectSource !== '' ? courseSubjectSource : schedule.faculty_name ?? '';
+                const courseSubtitleRaw = courseSubjectSource !== ''
+                    ? this.formatCourseText(courseSubjectSource, '')
+                    : this.formatDisplayText(subtitleSource);
+                const courseSubtitle = this.escapeHtml(courseSubtitleRaw);
+                const timeParts = this.splitTimeRange(schedule.time);
+                const dayDisplay = this.formatDayDisplay(schedule.day);
+                const daySearch = dayDisplay.join(' ');
+                const searchTerms = [
+                    courseCodeSource,
+                    subtitleSource,
+                    schedule.time ?? '',
+                    timeParts.join(' '),
+                    daySearch,
+                    schedule.day ?? '',
+                ].join(' ').toLowerCase();
+
+                const courseValueAttr = 'schedule-course';
+                const courseContent = courseCode
+                    ? `
+                        <div class="table-cell-stack is-wide" title="${this.escapeAttribute([courseCodeSource || '', subtitleSource].filter(Boolean).join(' — '))}">
+                            <span class="schedule-pill schedule-pill--course"
+                                  data-pill-palette="purple"
+                                  data-pill-value="${courseValueAttr}">${courseCode}</span>
+                            ${courseSubtitle ? `<small class="d-block mt-1 text-muted">${courseSubtitle}</small>` : ''}
+                        </div>
+                      `
+                    : '<span class="text-muted">N/A</span>';
+
+                const timeContent = timeParts.length
+                    ? timeParts
+                        .map((part) => `<span class="schedule-pill"
+                                              data-pill-palette="blue"
+                                              data-pill-value="schedule-time">${this.escapeHtml(part)}</span>`)
+                        .join('')
+                    : '<span class="text-muted">N/A</span>';
+
+                const dayContent = dayDisplay.length
+                    ? dayDisplay
+                        .map((label) => `<span class="schedule-pill"
+                                              data-pill-palette="gray"
+                                              data-pill-value="schedule-day">${this.escapeHtml(label)}</span>`)
+                        .join('')
+                    : '<span class="text-muted">N/A</span>';
+
+                const sectionSource = schedule.section ?? '';
+                const sectionDisplay = sectionSource
+                    ? `<span class="schedule-pill"
+                            data-pill-palette="green"
+                            data-pill-value="schedule-section">${this.escapeHtml(sectionSource)}</span>`
+                    : '<span class="text-muted">—</span>';
+
+                const selectionCell = (schedulePermissions.canDelete || schedulePermissions.showDeleteDisabled)
+                    ? `
+                        <td class="text-center">
+                            <input type="checkbox" class="form-check-input schedule-checkbox" data-row-select value="${id}" ${isSelected ? 'checked' : ''}>
+                        </td>
+                    `
+                    : '';
+
+                const actionItems = `
+                    ${schedulePermissions.canEdit ? `
+                        <li>
+                            <button type="button" class="dropdown-item" data-action="edit" data-id="${id}">Edit</button>
+                        </li>
+                    ` : ''}
+                    ${schedulePermissions.canEdit && (schedulePermissions.canDelete || schedulePermissions.showDeleteDisabled) ? '<li><hr class="dropdown-divider"></li>' : ''}
+                    ${schedulePermissions.canDelete ? `
+                        <li>
+                            <button type="button" class="dropdown-item text-danger" data-action="delete" data-id="${id}" data-name="${this.escapeAttribute(courseCodeRaw)}">Delete</button>
+                        </li>
+                    ` : ''}
+                    ${(!schedulePermissions.canDelete && schedulePermissions.showDeleteDisabled) ? `
+                        <li>
+                            <button type="button" class="dropdown-item disabled text-muted" disabled aria-disabled="true">Delete</button>
+                        </li>
+                    ` : ''}
+                `;
+
+                const actionsCell = (schedulePermissions.canEdit || schedulePermissions.canDelete || schedulePermissions.showDeleteDisabled)
+                    ? `
+                        <td class="actions-cell">
+                            <div class="dropdown">
+                                <button class="schedule-icon-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i class="bx bx-dots-horizontal-rounded"></i>
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end">
+                                    ${actionItems}
+                                </ul>
+                            </div>
+                        </td>
+                    `
+                    : '<td class="text-muted">—</td>';
+
+                return `
+                    <tr data-schedule-id="${id}" class="${isSelected ? 'is-selected' : ''}" data-search="${this.escapeAttribute(searchTerms)}">
+                        ${selectionCell}
+                        <td>
+                            ${courseContent}
+                        </td>
+                        <td>
+                            ${sectionDisplay}
+                        </td>
+                        <td>
+                            <div class="schedule-pill-group">${timeContent}</div>
+                        </td>
+                        <td>
+                            <div class="schedule-pill-group">${dayContent}</div>
+                        </td>
+                        ${actionsCell}
+                    </tr>
+                `;
+            }
+
+            buildEmptyStateRow() {
+                return `
+                    <tr data-empty>
+                        <td colspan="{{ ($canDelete || $showDeleteDisabled) ? 6 : 5 }}" class="text-center py-5">
+                            <div class="empty-state">
+                                <i class="fa-solid fa-calendar-days display-4 text-muted mb-3"></i>
+                                <h5 class="mb-2">No schedules found</h5>
+                                <p class="text-muted mb-0">Add a schedule using the button above.</p>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }
+
+            buildSearchEmptyRow() {
+                return `
+                    <tr data-empty-search style="display: none;">
+                        <td colspan="{{ ($canDelete || $showDeleteDisabled) ? 6 : 5 }}" class="text-center py-5">
+                            <div class="empty-state">
+                                <i class="fa-solid fa-magnifying-glass display-4 text-muted mb-3"></i>
+                                <h5 class="mb-2">No results found</h5>
+                                <p class="text-muted mb-0">Try adjusting your search or filters.</p>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }
+
+            attachRowEvents() {
+                if (!this.tableBody) return;
+
+                this.tableBody.querySelectorAll('[data-action="edit"]').forEach((button) => {
+                    if (button.dataset.bound === 'true') return;
+                    button.dataset.bound = 'true';
+                    button.addEventListener('click', () => {
+                        const id = Number(button.dataset.id);
+                        this.openEditModal(id);
+                    });
+                });
+
+                this.tableBody.querySelectorAll('[data-action="delete"]').forEach((button) => {
+                    if (button.dataset.bound === 'true') return;
+                    button.dataset.bound = 'true';
+                    button.addEventListener('click', () => {
+                        const id = Number(button.dataset.id);
+                        const name = button.dataset.name || 'this schedule';
+                        this.openDeleteModal(id, name);
+                    });
+                });
+            }
+
+            bindSelectionHandlers() {
+                if (!this.tableBody) return;
+
+                const checkboxes = Array.from(this.tableBody.querySelectorAll('[data-row-select]'));
+                checkboxes.forEach((checkbox) => {
+                    const id = checkbox.value;
+                    checkbox.checked = this.selection.has(id);
+                    const row = checkbox.closest('tr');
+                    if (row) {
+                        row.classList.toggle('is-selected', checkbox.checked);
+                    }
+
+                    checkbox.onchange = () => {
+                        if (checkbox.checked) {
+                            this.selection.add(id);
+                        } else {
+                            this.selection.delete(id);
+                        }
+                        if (row) {
+                            row.classList.toggle('is-selected', checkbox.checked);
+                        }
+                        this.syncSelectAllState();
+                        this.updateBulkBar();
+                    };
+                });
+
+                if (this.selectAllEl) {
+                    this.selectAllEl.onchange = () => {
+                        const shouldSelect = this.selectAllEl.checked;
+                        this.getSelectableRows().forEach((row) => {
+                            const checkbox = row.querySelector('[data-row-select]');
+                            if (!checkbox) {
+                                return;
+                            }
+                            checkbox.checked = shouldSelect;
+                            const id = checkbox.value;
+                            if (shouldSelect) {
+                                this.selection.add(id);
+                            } else {
+                                this.selection.delete(id);
+                            }
+                            row.classList.toggle('is-selected', shouldSelect);
+                        });
+                        this.syncSelectAllState();
+                        this.updateBulkBar();
+                    };
+                }
+            }
+
+            getSelectableRows() {
+                if (this.controller && Array.isArray(this.controller.filteredRows)) {
+                    return this.controller.filteredRows;
+                }
+                if (!this.tableBody) {
+                    return [];
+                }
+                return Array.from(this.tableBody.querySelectorAll('tr[data-schedule-id]'));
+            }
+
+            getSelectionScopeKey() {
+                const searchTerm = this.controller?.searchTerm ?? '';
+                const filterKey = JSON.stringify(this.filters);
+                return `${searchTerm}|${filterKey}`;
+            }
+
+            syncSelectAllState() {
+                if (!this.selectAllEl) return;
+
+                const rows = this.getSelectableRows();
+                if (!rows.length) {
+                    this.selectAllEl.checked = false;
+                    this.selectAllEl.indeterminate = false;
+                    return;
+                }
+
+                const selectedVisible = rows.filter((row) => this.selection.has(row.dataset.scheduleId)).length;
+                if (selectedVisible === 0) {
+                    this.selectAllEl.checked = false;
+                    this.selectAllEl.indeterminate = false;
+                } else if (selectedVisible === rows.length) {
+                    this.selectAllEl.checked = true;
+                    this.selectAllEl.indeterminate = false;
+                } else {
+                    this.selectAllEl.checked = false;
+                    this.selectAllEl.indeterminate = true;
+                }
+            }
+
+            updateBulkBar() {
+                if (!this.bulkBar || !this.selectedCountEl) return;
+
+                const count = this.selection.size;
+                this.selectedCountEl.textContent = `${count} Selected`;
+                this.bulkBar.classList.toggle('d-none', count === 0);
+            }
+
+            ensureController() {
+                if (!this.tableRoot || typeof TableController === 'undefined') return;
+
+                if (this.controller) {
+                    this.controller.refresh();
+                } else {
+                    this.controller = new TableController(this.tableRoot);
+                    window.tableControllers = window.tableControllers || {};
+                    window.tableControllers.schedulesTable = this.controller;
+                }
+
+                this.tableRoot.addEventListener('table:updated', () => {
+                    const scopeKey = this.getSelectionScopeKey();
+                    if (this.selectAllEl?.checked && scopeKey !== this.lastSelectionScopeKey) {
+                        this.lastSelectionScopeKey = scopeKey;
+                        this.clearSelection();
+                    } else {
+                        this.lastSelectionScopeKey = scopeKey;
+                    }
+                    this.attachRowEvents();
+                    this.bindSelectionHandlers();
+                    this.syncSelectAllState();
+                    this.updateBulkBar();
+                    this.refreshPillPalettes();
+                });
+            }
+
+            refreshPillPalettes() {
+                if (!this.tableRoot) {
+                    return;
+                }
+                applyPillPalettes(this.tableRoot);
+            }
+
+            openEditModal(scheduleId) { // Edit Schedule Modal functions and data population
+                const schedule = this.schedules.find((item) => Number(item.id) === Number(scheduleId));
+                if (!schedule) {
+                    this.showAlert('error', 'Selected schedule record was not found.');
+                    return;
+                }
+
+                this.currentEditId = scheduleId;
+                const form = document.getElementById('editScheduleForm');
+                if (!form) return;
+
+                form.querySelector('[name="schedule_id"]').value = schedule.id;
+                const courseCodeLabel = this.formatCourseText(schedule.course_code, '');
+                const courseSubjectLabel = this.formatCourseText(schedule.course_subject, '');
+                const fallbackCourseLabel = [courseCodeLabel, courseSubjectLabel]
+                    .filter((part) => part && part.trim() !== '')
+                    .join(' - ') || courseCodeLabel || `Course #${schedule.faculty_course_id ?? ''}`;
+                this.setCourseDropdownSelection(form, schedule.faculty_course_id ?? '', fallbackCourseLabel);
+                
+                // Update faculty information display
+                const courseOption = form.querySelector(`[data-course-option][data-course-id="${schedule.faculty_course_id}"]`);
+                if (courseOption) {
+                    const facultyDisplay = form.querySelector('#editFacultyDisplay');
+                    if (facultyDisplay) {
+                        const faculty = courseOption.dataset.faculty || '';
+                        const section = courseOption.dataset.section || '';
+                        const academicYear = courseOption.dataset.academicYear || '';
+                        const semester = courseOption.dataset.semester || '';
+                        
+                        if (faculty || section || academicYear || semester) {
+                            let html = '<div class="row g-2">';
+                            if (faculty) {
+                                html += `<div class="col-12"><strong>Faculty:</strong> <span>${faculty}</span></div>`;
+                            }
+                            if (section) {
+                                html += `<div class="col-12"><strong>Section:</strong> <span>${section}</span></div>`;
+                            }
+                            if (academicYear) {
+                                html += `<div class="col-12"><strong>Academic Year:</strong> <span>${academicYear}</span></div>`;
+                            }
+                            if (semester) {
+                                html += `<div class="col-12"><strong>Semester:</strong> <span>${semester}</span></div>`;
+                            }
+                            html += '</div>';
+                            facultyDisplay.innerHTML = html;
+                        } else {
+                            facultyDisplay.innerHTML = '<span class="text-muted text-center">No faculty information available</span>';
+                        }
+                    }
+                }
+                
+                this.setTimeFields(form, schedule.time ?? '');
+                this.setDaySelection(form, this.splitDayString(schedule.day));
+
+                this.editModal?.show();
+            }
+
+            openDeleteModal(scheduleId, courseCode) {
+                const label = document.getElementById('scheduleDeleteName');
+                if (label) {
+                    const rawLabel = this.formatCourseText(courseCode, '');
+                    label.textContent = rawLabel || 'this schedule';
+                }
+                this.pendingDeleteId = scheduleId;
+                this.deleteModal?.show();
+            }
+
+            promptBulkDelete() {
+                const ids = Array.from(this.selection).map((id) => Number(id)).filter((id) => !Number.isNaN(id));
+                if (!ids.length) return;
+
+                this.pendingBulkIds = ids;
+                const counter = document.getElementById('scheduleBulkDeleteCount');
+                if (counter) {
+                    counter.textContent = ids.length;
+                }
+                this.bulkDeleteModal?.show();
+            }
+
+            clearSelection() {
+                this.selection.clear();
+                if (this.tableBody) {
+                    this.tableBody.querySelectorAll('[data-row-select]').forEach((checkbox) => {
+                        checkbox.checked = false;
+                    });
+                    this.tableBody.querySelectorAll('tr').forEach((row) => {
+                        row.classList.remove('is-selected');
+                    });
+                }
+                if (this.selectAllEl) {
+                    this.selectAllEl.checked = false;
+                    this.selectAllEl.indeterminate = false;
+                }
+                this.updateBulkBar();
+            }
+
+            async handleCreateSchedule(form, data) {
+                const submitBtn = form.querySelector('[type="submit"]');
+                this.toggleButtonLoading(submitBtn, true, 'Save', 'Saving...');
+
+                try {
+                    const response = await fetch('{{ route('dm.schedules.store') }}', {
+                        method: 'POST',
+                        headers: this.defaultHeaders(),
+                        body: JSON.stringify(data),
+                    });
+                    const payload = await response.json().catch(() => ({}));
+                    if (!response.ok || !payload.success) {
+                        throw new Error(payload.message || 'Failed to add schedule.');
+                    }
+
+                    this.schedules.push(this.normaliseSchedule(payload.data));
+                    this.refreshFilterOptions();
+                    this.renderTable();
+                    this.createModal?.hide();
+                    form.reset();
+                    this.resetCourseDropdowns(form);
+                    this.resetDayMultiselects(form);
+                    this.showAlert('success', payload.message || 'Schedule added successfully.');
+                } catch (error) {
+                    this.showAlert('error', error.message || 'Failed to add schedule.');
+                } finally {
+                    this.toggleButtonLoading(submitBtn, false, 'Save');
+                }
+            }
+
+            async handleUpdateSchedule(form, scheduleId, data) {
+                const submitBtn = form.querySelector('[type="submit"]');
+                this.toggleButtonLoading(submitBtn, true, 'Save Changes', 'Saving...');
+
+                try {
+                    const response = await fetch(`{{ route('dm.schedules.update', ':id') }}`.replace(':id', scheduleId), {
+                        method: 'PUT',
+                        headers: this.defaultHeaders(),
+                        body: JSON.stringify(data),
+                    });
+                    const payload = await response.json().catch(() => ({}));
+                    if (!response.ok || !payload.success) {
+                        throw new Error(payload.message || 'Failed to update schedule.');
+                    }
+
+                    const normalised = this.normaliseSchedule(payload.data);
+                    const index = this.schedules.findIndex((item) => Number(item.id) === Number(scheduleId));
+                    if (index !== -1) {
+                        this.schedules[index] = normalised;
+                    }
+                    this.refreshFilterOptions();
+                    this.editModal?.hide();
+                    this.renderTable();
+                    this.showAlert('success', payload.message || 'Schedule updated successfully.');
+                } catch (error) {
+                    this.showAlert('error', error.message || 'Failed to update schedule.');
+                } finally {
+                    this.toggleButtonLoading(submitBtn, false, 'Save Changes');
+                    this.currentEditId = null;
+                }
+            }
+
+            async executeDeleteSchedule(button, scheduleId) {
+                this.toggleButtonLoading(button, true, 'Delete', 'Deleting...');
+
+                try {
+                    const response = await fetch(`{{ route('dm.schedules.destroy', ':id') }}`.replace(':id', scheduleId), {
+                        method: 'DELETE',
+                        headers: this.deleteHeaders(),
+                    });
+                    const payload = await response.json().catch(() => ({}));
+                    if (!response.ok || !payload.success) {
+                        throw new Error(payload.message || 'Failed to delete schedule.');
+                    }
+
+                    this.schedules = this.schedules.filter((schedule) => Number(schedule.id) !== Number(scheduleId));
+                    this.selection.delete(String(scheduleId));
+                    this.refreshFilterOptions();
+                    this.deleteModal?.hide();
+                    this.renderTable();
+                    this.showAlert('success', payload.message || 'Schedule deleted successfully.');
+                } catch (error) {
+                    this.showAlert('error', error.message || 'Failed to delete schedule.');
+                } finally {
+                    this.toggleButtonLoading(button, false, 'Delete');
+                    this.pendingDeleteId = null;
+                }
+            }
+
+            async executeBulkDelete(button, ids) {
+                this.toggleButtonLoading(button, true, 'Delete Selected', 'Deleting...');
+
+                try {
+                    const response = await fetch('{{ route('dm.schedules.bulk-destroy') }}', {
+                        method: 'POST',
+                        headers: this.defaultHeaders(),
+                        body: JSON.stringify({ ids }),
+                    });
+                    const payload = await response.json().catch(() => ({}));
+                    if (!response.ok || !payload.success) {
+                        throw new Error(payload.message || 'Failed to delete selected schedules.');
+                    }
+
+                    const idSet = new Set(ids.map((id) => Number(id)));
+                    this.schedules = this.schedules.filter((schedule) => !idSet.has(Number(schedule.id)));
+                    ids.forEach((id) => this.selection.delete(String(id)));
+                    this.refreshFilterOptions();
+                    this.bulkDeleteModal?.hide();
+                    this.renderTable();
+                    this.showAlert('success', payload.message || 'Selected schedules deleted successfully.');
+                } catch (error) {
+                    this.showAlert('error', error.message || 'Failed to delete selected schedules.');
+                } finally {
+                    this.toggleButtonLoading(button, false, 'Delete Selected');
+                    this.pendingBulkIds = null;
+                }
+            }
+
+            collectScheduleFormData(form) {
+                const formData = new FormData(form);
+                const data = {};
+                const dayValues = [];
+                let timeStart = '';
+                let timeEnd = '';
+                formData.forEach((value, key) => {
+                    if (key === 'day[]') {
+                        dayValues.push(value);
+                        return;
+                    }
+                    if (key === 'time_start') {
+                        timeStart = (value || '').trim();
+                        return;
+                    }
+                    if (key === 'time_end') {
+                        timeEnd = (value || '').trim();
+                        return;
+                    }
+                    data[key] = value;
+                });
+
+                if (dayValues.length) {
+                    data.day = dayValues;
+                }
+
+                if (!Array.isArray(data.day) || !data.day.length) {
+                    this.showAlert('error', 'Select at least one day.');
+                    return null;
+                }
+
+                if (!data.faculty_course_id || !timeStart || !timeEnd) {
+                    this.showAlert('error', 'Please complete all required fields.');
+                    return null;
+                }
+
+                data.time = `${timeStart} to ${timeEnd}`;
+
+                return data;
+            }
+
+            resetCourseDropdowns(form) {
+                if (!form) return;
+                form.querySelectorAll('[data-course-dropdown]').forEach((dropdown) => {
+                    dropdown.courseDropdownApi?.reset();
+                });
+            }
+
+            setCourseDropdownSelection(form, courseId, fallbackLabel = '') {
+                if (!form) return;
+                const dropdown = form.querySelector('[data-course-dropdown]');
+                if (dropdown?.courseDropdownApi) {
+                    dropdown.courseDropdownApi.setValueById(courseId, fallbackLabel);
+                } else {
+                    const input = form.querySelector('[name="faculty_course_id"]');
+                    if (input) {
+                        input.value = courseId ?? '';
+                    }
+                }
+            }
+
+            resetDayMultiselects(form) {
+                if (!form) return;
+                form.querySelectorAll('[data-day-multiselect]').forEach((multiselect) => {
+                    multiselect.dayMultiselectApi?.reset();
+                });
+            }
+
+            setDaySelection(form, codes) {
+                if (!form) return;
+                const values = Array.isArray(codes) ? codes.map(String) : [];
+                const multiselect = form.querySelector('[data-day-multiselect]');
+                if (multiselect?.dayMultiselectApi) {
+                    multiselect.dayMultiselectApi.setSelected(values);
+                    return;
+                }
+
+                const legacySelect = form.querySelector('select[name="day[]"]');
+                if (legacySelect) {
+                    Array.from(legacySelect.options).forEach((option) => {
+                        option.selected = values.includes(option.value);
+                    });
+                }
+            }
+
+            setTimeDropdownValue(form, fieldName, value) {
+                if (!form || !fieldName) {
+                    return;
+                }
+                const input = form.querySelector(`input[name="${fieldName}"]`);
+                if (!input) {
+                    return;
+                }
+                const dropdown = input.closest('[data-time-dropdown]');
+                if (dropdown?.timeDropdownApi) {
+                    dropdown.timeDropdownApi.setValue(value);
+                } else {
+                    input.value = value ?? '';
+                }
+            }
+
+            setTimeFields(form, timeString) {
+                if (!form) return;
+                const [start = '', end = ''] = this.splitTimeRange(timeString);
+                this.setTimeDropdownValue(form, 'time_start', start);
+                this.setTimeDropdownValue(form, 'time_end', end);
+            }
+
+            splitDayString(dayString) {
+                if (!dayString) return [];
+                const codes = [];
+                let index = 0;
+                const upper = String(dayString).toUpperCase();
+                while (index < upper.length) {
+                    if (upper.startsWith('TH', index)) {
+                        codes.push('TH');
+                        index += 2;
+                    } else if (upper.startsWith('SU', index)) {
+                        codes.push('SU');
+                        index += 2;
+                    } else {
+                        codes.push(upper.charAt(index));
+                        index += 1;
+                    }
+                }
+                return codes;
+            }
+
+            splitTimeRange(timeString) {
+                if (!timeString) {
+                    return [];
+                }
+                const normalized = String(timeString)
+                    .replace(/\s+/g, ' ')
+                    .trim();
+                if (!normalized) {
+                    return [];
+                }
+                const tokens = normalized
+                    .split(/(?:\bto\b|[-–—])/gi)
+                    .map((part) => part.replace(/\s+/g, ' ').trim())
+                    .filter((part) => part.length > 0);
+                return tokens.slice(0, 2);
+            }
+
+            formatDayDisplay(dayString) {
+                const mapping = {
+                    M: 'Mon',
+                    T: 'Tue',
+                    W: 'Wed',
+                    TH: 'Thu',
+                    F: 'Fri',
+                    S: 'Sat',
+                    SU: 'Sun',
+                };
+                return this.splitDayString(dayString).map((code) => mapping[code] || code);
+            }
+
+            normaliseSchedule(payload) {
+                if (!payload) return {};
+                const facultyCourse = payload.faculty_course;
+                const course = facultyCourse?.course;
+                const faculty = facultyCourse?.faculty;
+                return {
+                    id: payload.id,
+                    faculty_course_id: payload.faculty_course_id,
+                    course_code: course?.class_code,
+                    course_subject: course?.subject_code ?? '',
+                    faculty_name: faculty?.user?.name ?? faculty?.name ?? '',
+                    time: payload.time,
+                    day: payload.day,
+                };
+            }
+
+            toggleButtonLoading(button, isLoading, defaultText, loadingText = 'Saving...') {
+                if (!button) return;
+
+                const idleText = defaultText ?? button.dataset.defaultText ?? button.textContent.trim();
+                const busyText = loadingText ?? button.dataset.loadingText ?? 'Saving...';
+
+                if (isLoading) {
+                    button.dataset.defaultText = idleText;
+                    button.dataset.loadingText = busyText;
+                    button.disabled = true;
+                    button.textContent = busyText;
+                } else {
+                    const original = button.dataset.defaultText || idleText;
+                    button.disabled = false;
+                    button.textContent = original;
+                }
+            }
+
+            showAlert(type, message) {
+                if (window.dmToast && typeof window.dmToast.show === 'function') {
+                    const toastType = type === 'error' ? 'danger' : type;
+                    window.dmToast.show({ type: toastType, message });
+                    return;
+                }
+                if (!this.alertContainer) return;
+                const alertClass = type === 'success' ? 'alert-success' : 'alert-danger';
+                this.alertContainer.innerHTML = `
+                    <div class="alert ${alertClass} alert-dismissible fade show" role="alert">
+                        ${this.escapeHtml(message)}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                `;
+            }
+
+            defaultHeaders() {
+                return {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': this.csrfToken,
+                };
+            }
+
+            deleteHeaders() {
+                return {
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': this.csrfToken,
+                };
+            }
+
+            escapeHtml(value) {
+                if (value === null || value === undefined) return '';
+                return String(value).replace(/[&<>"']/g, (char) => ({
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    '"': '&quot;',
+                    "'": '&#39;',
+                }[char] || char));
+            }
+
+            escapeAttribute(value) {
+                return this.escapeHtml(value).replace(/"/g, '&quot;');
+            }
+
+            formatDisplayText(value) {
+                if (value === null || value === undefined) {
+                    return '';
+                }
+
+                return String(value);
+            }
+
+            formatCourseText(value, fallback = '') {
+                if (value === null || value === undefined) {
+                    return fallback;
+                }
+                const trimmed = String(value).trim();
+                return trimmed === '' ? fallback : trimmed;
+            }
+
+            normaliseValue(value) {
+                return String(value ?? '')
+                    .trim()
+                    .toLowerCase();
+            }
+        }
+    </script>
+@endsection

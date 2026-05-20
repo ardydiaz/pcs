@@ -1,0 +1,14 @@
+<svg width="640" height="360" viewBox="0 0 640 360" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="640" height="360" rx="24" fill="#F5F7FB"/>
+  <g opacity="0.12">
+    <circle cx="110" cy="90" r="56" fill="#7C3AED"/>
+    <circle cx="540" cy="80" r="40" fill="#22C55E"/>
+    <circle cx="520" cy="280" r="52" fill="#3B82F6"/>
+    <circle cx="140" cy="280" r="42" fill="#F59E0B"/>
+  </g>
+  <g>
+    <text x="90" y="210" font-family="Arial, sans-serif" font-size="120" font-weight="700" fill="#34D399">404</text>
+    <text x="260" y="214" font-family="Arial, sans-serif" font-size="44" font-weight="700" fill="#0F172A">Page Not Found</text>
+    <text x="260" y="252" font-family="Arial, sans-serif" font-size="18" fill="#64748B">The page you’re looking for can’t be accessed.</text>
+  </g>
+</svg>

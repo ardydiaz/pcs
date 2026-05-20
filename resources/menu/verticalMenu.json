@@ -1,0 +1,78 @@
+{
+  "menu": [
+    {
+      "url": "/dashboard",
+      "name": "Dashboard",
+      "icon": "menu-icon tf-icons bx bx-grid-alt",
+      "slug": "dashboard"
+    },
+    {
+      "url": "/reports",
+      "name": "Reports",
+      "icon": "menu-icon tf-icons bx bx-bar-chart-alt-2",
+      "slug": "reports"
+    },
+    {
+      "menuHeader": "Data Management"
+    },
+    {
+      "url": "/data-management/faculties",
+      "name": "Faculties",
+      "icon": "menu-icon tf-icons bx bx-user-voice",
+      "slug": "dm.faculties"
+    },
+    {
+      "name": "Courses",
+      "icon": "menu-icon icon-base bx bx-box",
+      "slug": "dm",
+      "submenu": [
+        {
+          "url": "/data-management/courses",
+          "name": "Major Subject",
+          "slug": "dm.courses"
+        },
+        {
+          "url": "data-management/minor-courses",
+          "name": "Minor Subject",
+          "slug": "dm.minor.courses"
+        }
+      ]
+    },
+    {
+      "url": "/data-management/schedules",
+      "name": "Schedules",
+      "icon": "menu-icon tf-icons bx bx-calendar-event",
+      "slug": "dm.schedules"
+    },
+    {
+      "url": "/data-management/evaluation",
+      "name": "Evaluation",
+      "icon": "menu-icon tf-icons bx bx-file-blank",
+      "slug": "dm.evaluation"
+    },
+    {
+      "menuHeader": "User Management"
+    },
+    {
+      "url": "/user-management/users",
+      "name": "Users",
+      "icon": "menu-icon tf-icons bx bx-group",
+      "slug": "um.users"
+    },
+    {
+      "url": "/audit-logs/audit-logs",
+      "name": "Audit Logs",
+      "icon": "menu-icon tf-icons bx bx-file",
+      "slug": "um.audit-logs"
+    },
+    {
+      "menuHeader": "Others"
+    },
+    {
+      "url": "/settings",
+      "name": "Settings",
+      "icon": "menu-icon tf-icons bx bx-cog",
+      "slug": "settings"
+    }
+  ]
+}
