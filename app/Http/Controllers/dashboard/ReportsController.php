@@ -79,10 +79,12 @@ class ReportsController extends Controller
             ->flatMap(function ($department) {
                 return $this->normalizeDepartmentList($department);
             })
-            ->unique()
             ->reject(function ($department) use ($excludedDepartments) {
                 return in_array($department, $excludedDepartments, true);
             })
+            // Deduplicate case-insensitively, prefer mixed-case over ALL-CAPS
+            ->groupBy(fn($d) => strtolower($d))
+            ->map(fn($group) => $group->first(fn($v) => $v !== strtoupper($v)) ?? $group->first())
             ->sort()
             ->values();
         if ($isDepartmentScoped) {
