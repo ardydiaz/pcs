@@ -1,0 +1,998 @@
+
+
+<?php $__env->startSection('title', 'Dashboard - Reports'); ?>
+
+<?php $__env->startSection('vendor-style'); ?>
+    <style>
+        .metric-card {
+            transition: transform 0.2s;
+        }
+
+        .metric-card:hover {
+            transform: translateY(-2px);
+        }
+
+        .rating-progress {
+            height: 6px;
+        }
+
+        .department-card {
+            border-left: 4px solid #696cff;
+        }
+
+        .recent-activity {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .filter-section {
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+    </style>
+<?php $__env->stopSection(); ?>
+
+<?php $__env->startSection('vendor-script'); ?>
+    <script>
+        // Enhanced functionality for the dashboard
+
+        // Export functionality
+        function exportData() {
+            const filters = {
+                department: '<?php echo e($selectedDepartment); ?>',
+                academic_year: '<?php echo e($selectedAcademicYear); ?>',
+                semester: '<?php echo e($selectedSemester); ?>'
+            };
+
+            // Create CSV content
+            let csvContent = "data:text/csv;charset=utf-8,";
+
+            // Add headers
+            csvContent += "Department,Faculty Count,Total Evaluations,Active Evaluations,Total Responses,Average Rating\n";
+
+            <?php $__currentLoopData = $departmentBreakdown; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $dept): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                csvContent += "<?php echo e($dept['department']); ?>,<?php echo e($dept['faculty_count']); ?>,<?php echo e($dept['total_evaluations']); ?>,<?php echo e($dept['active_evaluations']); ?>,<?php echo e($dept['total_responses']); ?>,<?php echo e($dept['average_rating']); ?>\n";
+            <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
+
+                                                            // Create and trigger download
+                                                            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `evaluation_report_${new Date().toISOString().split('T')[0]}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        // Real-time updates
+        function refreshData() {
+            fetch(window.location.href, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+                .then(response => response.text())
+                .then(html => {
+                    // Update only the metrics cards without full page reload
+                    const parser = new DOMParser();
+                    const newDoc = parser.parseFromString(html, 'text/html');
+
+                    // Update metric values
+                    document.querySelectorAll('.metric-card h3').forEach((element, index) => {
+                        const newValue = newDoc.querySelectorAll('.metric-card h3')[index];
+                        if (newValue && element.textContent !== newValue.textContent) {
+                            element.style.animation = 'pulse 0.5s';
+                            element.textContent = newValue.textContent;
+                        }
+                    });
+                })
+                .catch(error => console.log('Auto-refresh failed:', error));
+        }
+
+        // Form auto-submit on filter change
+        document.querySelectorAll('select[name="department"], select[name="academic_year"], select[name="semester"]').forEach(select => {
+            select.addEventListener('change', function () {
+                // Add loading state
+                const button = document.querySelector('button[type="submit"]');
+                const originalText = button.innerHTML;
+                button.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Loading...';
+                button.disabled = true;
+
+                // Submit form
+                this.form.submit();
+            });
+        });
+
+        // Tooltips for metrics
+        const tooltips = {
+            'Total Faculties': 'Number of faculty members in the selected filters',
+            'Total Responses': 'Total evaluation responses submitted by students',
+            'Average Rating': 'Overall average effectiveness rating across all evaluations',
+            'Courses Evaluated': 'Number of unique courses that have received evaluations'
+        };
+
+        // Add tooltips
+        document.querySelectorAll('.metric-card p').forEach(element => {
+            const text = element.textContent.trim();
+            if (tooltips[text]) {
+                element.setAttribute('title', tooltips[text]);
+                element.style.cursor = 'help';
+            }
+        });
+
+        // Progress bar animations
+        function animateProgressBars() {
+            document.querySelectorAll('.progress-bar').forEach(bar => {
+                const width = bar.style.width;
+                bar.style.width = '0%';
+                setTimeout(() => {
+                    bar.style.transition = 'width 1s ease-in-out';
+                    bar.style.width = width;
+                }, 100);
+            });
+        }
+
+        // Initialize animations on load
+        document.addEventListener('DOMContentLoaded', function () {
+            animateProgressBars();
+        });
+
+        // Auto-refresh every 5 minutes
+        setInterval(refreshData, 300000);
+
+        // Add CSS animations
+        const style = document.createElement('style');
+        style.textContent = `
+                                                            @keyframes pulse {
+                                                                0% { transform: scale(1); }
+                                                                50% { transform: scale(1.05); }
+                                                                100% { transform: scale(1); }
+                                                            }
+
+                                                            .progress-bar {
+                                                                transition: width 0.8s ease-in-out;
+                                                            }
+
+                                                            .metric-card {
+                                                                transition: all 0.3s ease;
+                                                            }
+
+                                                            .metric-card:hover {
+                                                                box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+                                                            }
+                                                        `;
+        document.head.appendChild(style);
+    </script>
+<?php $__env->stopSection(); ?>
+
+<?php $__env->startSection('content'); ?>
+    <div class="container-fluid">
+        
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h4 class="mb-1">Faculty Evaluation Analytics</h4>
+                <p class="text-muted mb-0">Comprehensive dashboard for evaluation insights and reporting</p>
+            </div>
+            <div class="d-flex gap-2">
+                <button class="btn btn-outline-primary" onclick="window.print()">
+                    <i class="bx bx-printer me-1"></i>Print Report
+                </button>
+                <button class="btn btn-primary" onclick="exportData()">
+                    <i class="bx bx-download me-1"></i>Export Data
+                </button>
+            </div>
+        </div>
+
+        
+        <div class="card mb-4 filter-section">
+            <div class="card-body">
+                <form method="GET" action="<?php echo e(route('reports')); ?>" class="row g-3">
+                    <div class="col-md-3">
+                        <label class="form-label">Department</label>
+                        <select name="department" class="form-select">
+                            <option value="all" <?php echo e($selectedDepartment == 'all' ? 'selected' : ''); ?>>All Departments</option>
+                            <?php $__currentLoopData = $departments; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $dept): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                                <option value="<?php echo e($dept); ?>" <?php echo e($selectedDepartment == $dept ? 'selected' : ''); ?>>
+                                    <?php echo e($dept); ?>
+
+                                </option>
+                            <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Academic Year</label>
+                        <select name="academic_year" class="form-select">
+                            <option value="all" <?php echo e($selectedAcademicYear == 'all' ? 'selected' : ''); ?>>All Years</option>
+                            <?php $__currentLoopData = $academicYears; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $year): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                                <option value="<?php echo e($year); ?>" <?php echo e($selectedAcademicYear == $year ? 'selected' : ''); ?>>
+                                    <?php echo e($year); ?>
+
+                                </option>
+                            <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Semester</label>
+                        <select name="semester" class="form-select">
+                            <option value="all" <?php echo e($selectedSemester == 'all' ? 'selected' : ''); ?>>All Semesters</option>
+                            <?php $__currentLoopData = $semesters; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $sem): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                                <option value="<?php echo e($sem); ?>" <?php echo e($selectedSemester == $sem ? 'selected' : ''); ?>>
+                                    <?php echo e($sem); ?>
+
+                                </option>
+                            <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
+                        </select>
+                    </div>
+                    <div class="col-md-3 d-flex align-items-end">
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="bx bx-filter-alt me-1"></i>Apply Filters
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        
+        <div class="row mb-4">
+            <div class="col-xl-3 col-md-6 mb-3">
+                <div class="card metric-card h-100">
+                    <div class="card-body text-center">
+                        <div class="d-flex align-items-center justify-content-center mb-3">
+                            <div class="avatar flex-shrink-0 me-3">
+                                <span class="avatar-initial bg-primary rounded">
+                                    <i class="bx bx-user-check bx-lg"></i>
+                                </span>
+                            </div>
+                            <div>
+                                <h3 class="mb-0"><?php echo e($metrics['total_faculties']); ?></h3>
+                                <p class="text-muted mb-0">Total Faculties</p>
+                            </div>
+                        </div>
+                        <small class="text-success">
+                            <?php echo e($metrics['active_evaluations']); ?> active evaluations
+                        </small>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-xl-3 col-md-6 mb-3">
+                <div class="card metric-card h-100">
+                    <div class="card-body text-center">
+                        <div class="d-flex align-items-center justify-content-center mb-3">
+                            <div class="avatar flex-shrink-0 me-3">
+                                <span class="avatar-initial bg-success rounded">
+                                    <i class="bx bx-bar-chart bx-lg"></i>
+                                </span>
+                            </div>
+                            <div>
+                                <h3 class="mb-0"><?php echo e($metrics['total_responses']); ?></h3>
+                                <p class="text-muted mb-0">Total Responses</p>
+                            </div>
+                        </div>
+                        <small class="text-info">
+                            <?php echo e($metrics['responses_with_feedback']); ?> with feedback
+                        </small>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-xl-3 col-md-6 mb-3">
+                <div class="card metric-card h-100">
+                    <div class="card-body text-center">
+                        <div class="d-flex align-items-center justify-content-center mb-3">
+                            <div class="avatar flex-shrink-0 me-3">
+                                <span class="avatar-initial bg-warning rounded">
+                                    <i class="bx bx-star bx-lg"></i>
+                                </span>
+                            </div>
+                            <div>
+                                <h3 class="mb-0"><?php echo e($metrics['average_rating']); ?></h3>
+                                <p class="text-muted mb-0">Average Rating</p>
+                            </div>
+                        </div>
+                        <small class="text-muted">
+                            Out of 4.0 scale
+                        </small>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-xl-3 col-md-6 mb-3">
+                <div class="card metric-card h-100">
+                    <div class="card-body text-center">
+                        <div class="d-flex align-items-center justify-content-center mb-3">
+                            <div class="avatar flex-shrink-0 me-3">
+                                <span class="avatar-initial bg-info rounded">
+                                    <i class="bx bx-book bx-lg"></i>
+                                </span>
+                            </div>
+                            <div>
+                                <h3 class="mb-0"><?php echo e($metrics['courses_evaluated']); ?></h3>
+                                <p class="text-muted mb-0">Courses Evaluated</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            
+            <div class="col-lg-8 mb-4">
+                <div class="card h-100">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">Overall Rating Distribution</h5>
+                        <small class="text-muted"><?php echo e($metrics['total_responses']); ?> total responses</small>
+                    </div>
+                    <div class="card-body">
+                        <?php if($metrics['total_responses'] > 0): ?>
+                            <div class="row">
+                                <?php $__currentLoopData = ['4' => ['Very Effective', 'success'], '3' => ['Effective', 'info'], '2' => ['Somewhat Effective', 'warning'], '1' => ['Not Effective', 'danger']]; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $rating => $info): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                                    <?php
+                                        $count = $metrics['rating_distribution']->get($rating, 0);
+                                        $percentage = ($count / $metrics['total_responses']) * 100;
+                                    ?>
+                                    <div class="col-md-6 mb-3">
+                                        <div class="d-flex justify-content-between mb-1">
+                                            <span class="fw-medium"><?php echo e($info[0]); ?></span>
+                                            <span class="text-muted"><?php echo e($count); ?> (<?php echo e(number_format($percentage, 1)); ?>%)</span>
+                                        </div>
+                                        <div class="progress rating-progress mb-2">
+                                            <div class="progress-bar bg-<?php echo e($info[1]); ?>" style="width: <?php echo e($percentage); ?>%"></div>
+                                        </div>
+                                    </div>
+                                <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
+                            </div>
+
+                            
+                            <div class="row mt-4">
+                                <div class="col-md-4 text-center">
+                                    <h6 class="text-success">
+                                        <?php echo e($metrics['rating_distribution']->get('4', 0) + $metrics['rating_distribution']->get('3', 0)); ?>
+
+                                    </h6>
+                                    <small class="text-muted">Positive Ratings</small>
+                                </div>
+                                <div class="col-md-4 text-center">
+                                    <h6 class="text-warning"><?php echo e($metrics['rating_distribution']->get('2', 0)); ?></h6>
+                                    <small class="text-muted">Neutral Ratings</small>
+                                </div>
+                                <div class="col-md-4 text-center">
+                                    <h6 class="text-danger"><?php echo e($metrics['rating_distribution']->get('1', 0)); ?></h6>
+                                    <small class="text-muted">Needs Improvement</small>
+                                </div>
+                            </div>
+                        <?php else: ?>
+                            <div class="text-center py-5">
+                                <i class="bx bx-bar-chart display-4 text-muted mb-3"></i>
+                                <h6 class="mb-2">No Data Available</h6>
+                                <p class="text-muted">No evaluation responses found for the selected filters.</p>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            </div>
+
+            
+            <div class="col-lg-4 mb-4">
+                <div class="card h-100">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">Recent Evaluations</h5>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="recent-activity p-3">
+                            <?php $__empty_1 = true; $__currentLoopData = $recentResponses; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $response): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
+                                                <div class="d-flex align-items-center mb-3">
+                                                    <div class="avatar flex-shrink-0 me-3">
+                                                        <span class="avatar-initial rounded bg-light text-dark">
+                                                            <?php echo e(substr($response->schedule->facultyCourse->course->class_code ?? 'N', 0, 2)); ?>
+
+                                                        </span>
+                                                    </div>
+                                                    <div class="flex-grow-1">
+                                                        <h6 class="mb-1"><?php echo e($response->schedule->facultyCourse->course->class_code ?? 'N/A'); ?>
+
+                                                        </h6>
+                                                        <div class="d-flex align-items-center">
+                                                            <span
+                                                                class="badge bg-<?php echo e($response->effectiveness_rating == '4' ? 'success' :
+                                ($response->effectiveness_rating == '3' ? 'info' :
+                                    ($response->effectiveness_rating == '2' ? 'warning' : 'danger'))); ?> me-2"><?php echo e($response->effectiveness_rating); ?></span>
+                                                            <small class="text-muted"><?php echo e($response->created_at->diffForHumans()); ?></small>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                            <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?>
+                                <div class="text-center py-4">
+                                    <i class="bx bx-time text-muted mb-2" style="font-size: 2rem;"></i>
+                                    <p class="text-muted mb-0">No recent activity</p>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        
+        <div class="row">
+            <div class="col-12 mb-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <?php if($selectedDepartment !== 'all'): ?>
+                                <?php echo e($selectedDepartment); ?> Department Performance
+                            <?php else: ?>
+                                Department Performance Breakdown
+                            <?php endif; ?>
+                        </h5>
+                        <?php if($selectedDepartment !== 'all'): ?>
+                            <small class="text-muted">Showing data for <?php echo e($selectedDepartment); ?> department only</small>
+                        <?php endif; ?>
+                    </div>
+                    <div class="card-body">
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-3">
+                                <label class="form-label">Show entries</label>
+                                <select class="form-select form-select-sm" id="departmentPerPage"
+                                    onchange="updatePerPage(this.value)">
+                                    <option value="10" <?php echo e($perPage == 10 ? 'selected' : ''); ?>>10</option>
+                                    <option value="25" <?php echo e($perPage == 25 ? 'selected' : ''); ?>>25</option>
+                                    <option value="50" <?php echo e($perPage == 50 ? 'selected' : ''); ?>>50</option>
+                                    <option value="100" <?php echo e($perPage == 100 ? 'selected' : ''); ?>>100</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6"></div>
+                            <div class="col-md-3">
+                                <label class="form-label">Search</label>
+                                <input type="text" class="form-control form-control-sm" id="departmentSearch"
+                                    placeholder="Search departments..." onkeyup="filterDepartments(this.value)">
+                            </div>
+                        </div>
+
+                        <div class="table-responsive" id="departmentTableContainer">
+                            <table class="table table-hover" id="departmentTable">
+                                <thead>
+                                    <tr>
+                                        <th>Department</th>
+                                        <th class="text-center">Faculties</th>
+                                        <th class="text-center">Evaluations</th>
+                                        <th class="text-center">Responses</th>
+                                        <th class="text-center">Avg Rating</th>
+                                        <th class="text-center">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php $__empty_1 = true; $__currentLoopData = $departmentBreakdown; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $dept): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
+                                        <tr class="department-row" data-department="<?php echo e($dept['department']); ?>">
+                                            <td>
+                                                <div class="d-flex align-items-center">
+                                                    <div class="avatar flex-shrink-0 me-3">
+                                                        <span class="avatar-initial bg-primary rounded">
+                                                            <?php echo e(substr($dept['department'], 0, 2)); ?>
+
+                                                        </span>
+                                                    </div>
+                                                    <div>
+                                                        <h6 class="mb-0"><?php echo e($dept['department']); ?></h6>
+                                                        <small class="text-muted"><?php echo e($dept['active_evaluations']); ?>
+
+                                                            active</small>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td class="text-center">
+                                                <span class="badge bg-light text-dark"><?php echo e($dept['faculty_count']); ?></span>
+                                            </td>
+                                            <td class="text-center">
+                                                <span class="badge bg-info"><?php echo e($dept['total_evaluations']); ?></span>
+                                            </td>
+                                            <td class="text-center">
+                                                <span class="badge bg-success"><?php echo e($dept['total_responses']); ?></span>
+                                            </td>
+                                            <td class="text-center">
+                                                <span class="fw-medium"><?php echo e($dept['average_rating']); ?></span>
+                                                <div class="progress rating-progress mt-1">
+                                                    <div class="progress-bar bg-<?php echo e($dept['average_rating'] >= 3 ? 'success' : ($dept['average_rating'] >= 2 ? 'warning' : 'danger')); ?>"
+                                                        style="width: <?php echo e(($dept['average_rating'] / 4) * 100); ?>%"></div>
+                                                </div>
+                                            </td>
+                                            <td class="text-center">
+                                                <button type="button" class="btn btn-sm btn-outline-primary"
+                                                    onclick="showFacultyModal('<?php echo e($dept['department']); ?>')">
+                                                    <i class="bx bx-group me-1"></i>View Faculty
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?>
+                                        <tr>
+                                            <td colspan="6" class="text-center py-4">
+                                                <i class="bx bx-buildings text-muted mb-2" style="font-size: 2rem;"></i>
+                                                <p class="text-muted mb-0">No department data available</p>
+                                            </td>
+                                        </tr>
+                                    <?php endif; ?>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        
+                        <div class="d-flex justify-content-between align-items-center mt-3" id="departmentPagination">
+                            <div>
+                                <small class="text-muted">Showing <span
+                                        id="departmentShowing"><?php echo e(count($departmentBreakdown)); ?></span> of
+                                    <?php echo e(count($departmentBreakdown)); ?> entries</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        
+        <div class="row">
+            
+            <div class="col-lg-6 mb-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">Top Rated Faculties</h5>
+                    </div>
+                    <div class="card-body">
+                        <?php $__empty_1 = true; $__currentLoopData = $facultyRatings['top_rated']; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $index => $faculty): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
+                            <div class="d-flex align-items-center mb-3">
+                                <div class="me-3">
+                                    <span class="badge bg-<?php echo e($index < 3 ? 'success' : 'primary'); ?> rounded-pill">
+                                        #<?php echo e($index + 1); ?>
+
+                                    </span>
+                                </div>
+                                <div class="flex-grow-1">
+                                    <h6 class="mb-0"><?php echo e($faculty['faculty_name']); ?></h6>
+                                    <small class="text-muted"><?php echo e($faculty['department']); ?></small>
+                                </div>
+                                <div class="text-end">
+                                    <div class="fw-medium"><?php echo e($faculty['average_rating']); ?>/4.0</div>
+                                    <small class="text-muted"><?php echo e($faculty['total_responses']); ?> responses</small>
+                                </div>
+                            </div>
+                        <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?>
+                            <div class="text-center py-3">
+                                <i class="bx bx-star text-muted mb-2" style="font-size: 2rem;"></i>
+                                <p class="text-muted mb-0">No rating data available</p>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            </div>
+
+            
+            <div class="col-lg-6 mb-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">Most Evaluated Faculties</h5>
+                    </div>
+                    <div class="card-body">
+                        <?php $__empty_1 = true; $__currentLoopData = $facultyRatings['most_evaluated']; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $index => $faculty): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
+                            <div class="d-flex align-items-center mb-3">
+                                <div class="me-3">
+                                    <span class="badge bg-<?php echo e($index < 3 ? 'info' : 'secondary'); ?> rounded-pill">
+                                        #<?php echo e($index + 1); ?>
+
+                                    </span>
+                                </div>
+                                <div class="flex-grow-1">
+                                    <h6 class="mb-0"><?php echo e($faculty['faculty_name']); ?></h6>
+                                    <small class="text-muted"><?php echo e($faculty['department']); ?></small>
+                                </div>
+                                <div class="text-end">
+                                    <div class="fw-medium"><?php echo e($faculty['total_responses']); ?> responses</div>
+                                    <small class="text-muted"><?php echo e($faculty['average_rating']); ?>/4.0 avg</small>
+                                </div>
+                            </div>
+                        <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?>
+                            <div class="text-center py-3">
+                                <i class="bx bx-bar-chart text-muted mb-2" style="font-size: 2rem;"></i>
+                                <p class="text-muted mb-0">No evaluation data available</p>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    
+    <div class="modal fade" id="facultyModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Faculty Members - <span id="modalDepartmentName"></span></h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-3">
+                            <label class="form-label">Show entries</label>
+                            <select class="form-select form-select-sm" id="facultyPerPage">
+                                <option value="10">10</option>
+                                <option value="25">25</option>
+                                <option value="50">50</option>
+                                <option value="100">100</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6"></div>
+                        <div class="col-md-3">
+                            <label class="form-label">Search</label>
+                            <input type="text" class="form-control form-control-sm" id="facultySearch"
+                                placeholder="Search faculty...">
+                        </div>
+                    </div>
+
+                    
+                    <div id="facultyTableContainer">
+                        <div class="text-center py-4">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    
+                    <div id="facultyPagination" class="mt-3"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Enhanced functionality for the dashboard
+        let currentDepartment = '';
+
+        // Export functionality
+        function exportData() {
+            const filters = {
+                department: '<?php echo e($selectedDepartment); ?>',
+                academic_year: '<?php echo e($selectedAcademicYear); ?>',
+                semester: '<?php echo e($selectedSemester); ?>'
+            };
+
+            // Create CSV content
+            let csvContent = "data:text/csv;charset=utf-8,";
+
+            // Add headers
+            csvContent += "Department,Faculty Count,Total Evaluations,Active Evaluations,Total Responses,Average Rating\n";
+
+            <?php $__currentLoopData = $departmentBreakdown; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $dept): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                csvContent += "<?php echo e($dept['department']); ?>,<?php echo e($dept['faculty_count']); ?>,<?php echo e($dept['total_evaluations']); ?>,<?php echo e($dept['active_evaluations']); ?>,<?php echo e($dept['total_responses']); ?>,<?php echo e($dept['average_rating']); ?>\n";
+            <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
+
+                // Create and trigger download
+                const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `evaluation_report_${new Date().toISOString().split('T')[0]}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        // Department table functionality
+        function updatePerPage(value) {
+            const url = new URL(window.location.href);
+            url.searchParams.set('per_page', value);
+            window.location.href = url.toString();
+        }
+
+        function filterDepartments(searchTerm) {
+            const rows = document.querySelectorAll('.department-row');
+            let visibleCount = 0;
+
+            rows.forEach(row => {
+                const departmentName = row.getAttribute('data-department').toLowerCase();
+                if (departmentName.includes(searchTerm.toLowerCase())) {
+                    row.style.display = '';
+                    visibleCount++;
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+
+            document.getElementById('departmentShowing').textContent = visibleCount;
+        }
+
+        // Faculty modal functionality
+        function showFacultyModal(department) {
+            currentDepartment = department;
+            document.getElementById('modalDepartmentName').textContent = department;
+
+            const modal = new bootstrap.Modal(document.getElementById('facultyModal'));
+            modal.show();
+
+            loadFacultyData(department, 1, 10, '');
+        }
+
+        function loadFacultyData(department, page = 1, perPage = 10, search = '') {
+            const url = new URL('<?php echo e(route("reports.department.faculties")); ?>');
+            url.searchParams.set('department', department);
+            url.searchParams.set('page', page);
+            url.searchParams.set('per_page', perPage);
+            url.searchParams.set('search', search);
+            url.searchParams.set('academic_year', '<?php echo e($selectedAcademicYear); ?>');
+            url.searchParams.set('semester', '<?php echo e($selectedSemester); ?>');
+
+            // Show loading
+            document.getElementById('facultyTableContainer').innerHTML = `
+                    <div class="text-center py-4">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                `;
+
+            fetch(url, {
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Content-Type': 'application/json'
+                }
+            })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    // Handle the JSON response properly
+                    if (data.html && data.pagination) {
+                        // Create a temporary div to parse the HTML string
+                        const tempDiv = document.createElement('div');
+                        tempDiv.innerHTML = data.html;
+
+                        // Set the parsed HTML
+                        document.getElementById('facultyTableContainer').innerHTML = tempDiv.innerHTML;
+
+                        // Parse and set pagination
+                        const tempPagDiv = document.createElement('div');
+                        tempPagDiv.innerHTML = data.pagination;
+                        document.getElementById('facultyPagination').innerHTML = tempPagDiv.innerHTML;
+
+                        // Bind pagination click events
+                        bindPaginationEvents();
+                    } else {
+                        throw new Error('Invalid response format');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading faculty data:', error);
+                    document.getElementById('facultyTableContainer').innerHTML = `
+                        <div class="text-center py-4">
+                            <i class="bx bx-error text-danger mb-2" style="font-size: 2rem;"></i>
+                            <p class="text-muted mb-0">Error loading faculty data</p>
+                            <small class="text-muted">${error.message}</small>
+                        </div>
+                    `;
+                });
+        }
+
+        // Bind pagination events
+        function bindPaginationEvents() {
+            const paginationLinks = document.querySelectorAll('#facultyPagination .pagination a');
+
+            paginationLinks.forEach(link => {
+                link.addEventListener('click', function (e) {
+                    e.preventDefault();
+
+                    // Extract page number from URL
+                    const url = new URL(this.href);
+                    const page = url.searchParams.get('page') || 1;
+                    const perPage = document.getElementById('facultyPerPage').value;
+                    const search = document.getElementById('facultySearch').value;
+
+                    // Load the new page
+                    loadFacultyData(currentDepartment, page, perPage, search);
+                });
+            });
+        }
+
+        // Faculty pagination function for direct page calls
+        function goToFacultyPage(page) {
+            const perPage = document.getElementById('facultyPerPage').value;
+            const search = document.getElementById('facultySearch').value;
+            loadFacultyData(currentDepartment, page, perPage, search);
+        }
+
+        // Faculty search and pagination handlers
+        document.addEventListener('DOMContentLoaded', function () {
+            // Faculty per page change
+            document.getElementById('facultyPerPage').addEventListener('change', function () {
+                if (currentDepartment) {
+                    loadFacultyData(currentDepartment, 1, this.value, document.getElementById('facultySearch').value);
+                }
+            });
+
+            // Faculty search with debouncing
+            let searchTimeout;
+            document.getElementById('facultySearch').addEventListener('input', function () {
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(() => {
+                    if (currentDepartment) {
+                        loadFacultyData(currentDepartment, 1, document.getElementById('facultyPerPage').value, this.value);
+                    }
+                }, 500);
+            });
+        });
+
+        // Form auto-submit on filter change
+        document.querySelectorAll('select[name="department"], select[name="academic_year"], select[name="semester"]').forEach(select => {
+            select.addEventListener('change', function () {
+                // Add loading state
+                const button = document.querySelector('button[type="submit"]');
+                const originalText = button.innerHTML;
+                button.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Loading...';
+                button.disabled = true;
+
+                // Submit form
+                this.form.submit();
+            });
+        });
+
+        // Progress bar animations
+        function animateProgressBars() {
+            document.querySelectorAll('.progress-bar').forEach(bar => {
+                const width = bar.style.width;
+                bar.style.width = '0%';
+                setTimeout(() => {
+                    bar.style.transition = 'width 1s ease-in-out';
+                    bar.style.width = width;
+                }, 100);
+            });
+        }
+
+        // Initialize animations on load
+        document.addEventListener('DOMContentLoaded', function () {
+            animateProgressBars();
+        });
+
+        // Auto-refresh every 5 minutes (only if modal is not open)
+        setInterval(function () {
+            const modal = document.getElementById('facultyModal');
+            if (!modal.classList.contains('show')) {
+                location.reload();
+            }
+        }, 300000);
+
+        // Utility function to decode HTML entities
+        function decodeHtmlEntities(str) {
+            const textArea = document.createElement('textarea');
+            textArea.innerHTML = str;
+            return textArea.value;
+        }
+
+        // Alternative method for handling JSON response with escaped HTML
+        function parseJsonResponse(data) {
+            if (typeof data === 'string') {
+                try {
+                    data = JSON.parse(data);
+                } catch (e) {
+                    console.error('Failed to parse JSON:', e);
+                    return null;
+                }
+            }
+
+            if (data.html) {
+                // Decode HTML entities if they exist
+                data.html = decodeHtmlEntities(data.html);
+            }
+
+            if (data.pagination) {
+                // Decode pagination HTML entities if they exist
+                data.pagination = decodeHtmlEntities(data.pagination);
+            }
+
+            return data;
+        }
+
+        // Enhanced error handling
+        window.addEventListener('error', function (e) {
+            console.error('JavaScript error:', e.error);
+        });
+
+        // Add CSS animations and styles
+        const style = document.createElement('style');
+        style.textContent = `
+                @keyframes pulse {
+                    0% { transform: scale(1); }
+                    50% { transform: scale(1.05); }
+                    100% { transform: scale(1); }
+                }
+
+                @keyframes fadeIn {
+                    from { opacity: 0; }
+                    to { opacity: 1; }
+                }
+
+                .progress-bar {
+                    transition: width 0.8s ease-in-out;
+                }
+
+                .metric-card {
+                    transition: all 0.3s ease;
+                }
+
+                .metric-card:hover {
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+                }
+
+                .department-row:hover {
+                    background-color: #f8f9fa;
+                }
+
+                .modal-xl {
+                    max-width: 1200px;
+                }
+
+                .table-responsive {
+                    animation: fadeIn 0.3s ease-in-out;
+                }
+
+                .pagination {
+                    justify-content: center;
+                }
+
+                .pagination .page-link {
+                    transition: all 0.2s ease;
+                }
+
+                .pagination .page-link:hover {
+                    transform: translateY(-1px);
+                }
+
+                .spinner-border-sm {
+                    width: 1rem;
+                    height: 1rem;
+                }
+
+                .loading-overlay {
+                    position: relative;
+                }
+
+                .loading-overlay::after {
+                    content: '';
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    background: rgba(255, 255, 255, 0.8);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    z-index: 10;
+                }
+            `;
+        document.head.appendChild(style);
+
+        // Debug function to check response format
+        function debugResponse(response) {
+            console.log('Response type:', typeof response);
+            console.log('Response content:', response);
+
+            if (typeof response === 'string') {
+                try {
+                    const parsed = JSON.parse(response);
+                    console.log('Parsed JSON:', parsed);
+                    return parsed;
+                } catch (e) {
+                    console.error('JSON parse error:', e);
+                    return null;
+                }
+            }
+
+            return response;
+        }
+    </script>
+<?php $__env->stopSection(); ?>
+<?php echo $__env->make('layouts/contentNavbarLayout', array_diff_key(get_defined_vars(), ['__data' => 1, '__path' => 1]))->render(); ?><?php /**PATH C:\laragon\www\faculty-evaluation\resources\views/content/dashboard/dashboard-reports.blade.php ENDPATH**/ ?>

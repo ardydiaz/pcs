@@ -1,0 +1,159 @@
+employeeno,classcode,section,academicyear,semester,time,day,subjectcode,status,fullname,department,jobtitle
+22140205,216000,CS 2-1,2025 - 2026,Summer,"
+09:00a - 12:00p ",TTH ,"	FRE 102 ",scheduled,"SUNGA , EMELINE GALANG",College of Arts and Sciences,Faculty
+22140205,216001,CS 2-1,2025 - 2026,Summer,01:00p - 05:30p,TTH ,FRE 102L ,scheduled,"SUNGA , EMELINE GALANG",College of Arts and Sciences,Faculty
+22140205,216002,CS 2-1,2025 - 2026,Summer,01:00p - 04:00p ,FS,"
+CCS 115",scheduled,"SUNGA , EMELINE GALANG",College of Arts and Sciences,Faculty
+22140205,216003,"
+CS 2-1",2025 - 2026,Summer,07:30a - 12:00p,FS,"
+CCS 115L",scheduled,"SUNGA , EMELINE GALANG",College of Arts and Sciences,Faculty
+22050924,216004,CS 2-1,2025 - 2026,Summer,"
+09:00a - 12:00p ",MW,PRO 101 ,scheduled,"LOPEZ, DONNA LYN PELEO",College of Arts and Sciences,Faculty
+22050924,216005,CS 2-1,2025 - 2026,Summer,01:00p - 05:30p,MW,"
+PRO 101L",scheduled,"LOPEZ, DONNA LYN PELEO",College of Arts and Sciences,Faculty
+6130527,216008,IT 2-1,2025 - 2026,Summer,11:00a - 02:00p,FS,CCS 124,scheduled,"FLORENTINO, NI?A CIELA CORTEZA",College of Arts and Sciences,Faculty
+25011204,216010,IT 2-1,2025 - 2026,Summer,01:00p - 04:00p ,MW,"
+PROP 111",scheduled,"BAUTISTA, ALFRED BRIAN CABRAL",College of Arts and Sciences,Faculty
+25011204,216011,IT 2-1,2025 - 2026,Summer,07:30a - 12:00p,MW,PROP 111L,scheduled,"
+BAUTISTA, ALFRED BRIAN CABRAL",College of Arts and Sciences,Faculty
+24260200,216012,MICROBIO 2-1,2025 - 2026,Summer,07:30a - 12:00p,MW,"
+BSB 211",scheduled,"GADICHO , JEZREEL VINCE PRINCIPE",College of Arts and Sciences,Faculty
+25140716,216013,MICROBIO 2-1,2025 - 2026,Summer,01:00p - 05:30p ,TTH,"
+BSB 211L",scheduled,"BATE, JEAN-MATTHEW B.",College of Arts and Sciences,Faculty
+6091436,216014,MICROBIO 2-1,2025 - 2026,Summer,01:00p - 05:30p,MW,LTS 002,scheduled,"
+ILEDAN , DENNIS VILLARUEL",College of Arts and Sciences,Faculty
+6208800,216015,BIOLOGY 3-1,2025 - 2026,Summer,09:00a - 12:00p ,MW,BSB 411,scheduled,"CAPILI , NIEVES LIBANAN",College of Arts and Sciences,Faculty
+21061200,216016,BIOLOGY 3-1,2025 - 2026,Summer,01:00p - 05:30p,MW,BSB 414,scheduled,"CABALLERO, JIMUEL CALIZO",College of Arts and Sciences,Faculty
+6061119,2110004,MSD IRREG,2025 - 2026,Summer,01:00p - 05:30p,MW,CLX 004,scheduled,"GALVAN , SHIRCHIE IRIS PARIÃ‘AS",College of Dentistry,Faculty
+23040912,2110005,MSD IRREG,2025 - 2026,Summer,01:00p - 05:30p,MW,CLX 006,scheduled,"URSUA , LYNDSEY JOYCE RAIZ",College of Dentistry,Faculty
+25140724,2110006,DDM 2-IRREG,2025 - 2026,Summer,08:00a - 10:00a ,T,"
+ORA 301 ",scheduled,"
+SANTIAGO, FRANCISCO JR. G.",College of Dentistry,Faculty
+25140724,2110007,DDM 2-IRREG,2025 - 2026,Summer,10:00a - 01:00p,TH,ORA 301L,scheduled,"SANTIAGO, FRANCISCO JR. G.",College of Dentistry,Faculty
+1159000,2110008,DDM 2-IRREG,2025 - 2026,Summer,08:00a - 10:00a,M,OMA 302,scheduled,"RAGADIO, MARIA LEAH MENDOZA",College of Dentistry,Faculty
+1159000,2110009,DDM 2-IRREG,2025 - 2026,Summer,10:00a - 01:00p,W,"
+OMA 302L",scheduled,"RAGADIO, MARIA LEAH MENDOZA",College of Dentistry,Faculty
+23180901,2110010,MSD IRREG,2025 - 2026,Summer,08:00a - 10:00a,W,MSDO 215 ,scheduled,"
+VIDAL, MARGOT R.",College of Dentistry,Faculty
+6179602,114000,BS-MT 2-1,2025 - 2026,Summer,01:00p - 07:00p,F,CYT 001C,scheduled,"
+MORTEL, FERDINAND APOLONIO",College of Medical Technology,Faculty
+25140711,114001,BS-MT 2-1,2025 - 2026,Summer,09:00a - 12:00p,TTH,HIS 000 ,scheduled,"
+MEJOS, DARYL CHRISTIAN SILLANO",College of Medical Technology,Faculty
+25140711,114002,BS-MT 2-1,2025 - 2026,Summer,01:00p - 05:30p ,TTH ,HIS 000L ,scheduled,"MEJOS, DARYL CHRISTIAN SILLANO",College of Medical Technology,Faculty
+22140203,114003,BS-MT 2-1,2025 - 2026,Summer,09:00a - 12:00p ,MW,HIS 113C ,scheduled,"BULURAN, SHERWIN Q",College of Medical Technology,Faculty
+22140203,114004,BS-MT 2-1,2025 - 2026,Summer,01:00p - 05:30p ,MW,"
+HIS 113B",scheduled,"BULURAN, SHERWIN Q",College of Medical Technology,Faculty
+6071015,114005,BS-MT 2-2,2025 - 2026,Summer,09:00a - 12:00p,F,CYT 001C,scheduled,"MARTIN, SHEILA GRACE ALARILLA",College of Medical Technology,Faculty
+22140203,114006,BS-MT 2-2,2025 - 2026,Summer,09:00a,TTH,HIS 000 ,scheduled,"BULURAN, SHERWIN Q",College of Medical Technology,Faculty
+22140203,114007,BS-MT 2-2,2025 - 2026,Summer,01:00p - 05:30p,TTH ,HIS 000L ,scheduled,"BULURAN, SHERWIN Q",College of Medical Technology,Faculty
+6091434,114008,BS-MT 2-2,2025 - 2026,Summer,02:00p - 05:00p ,MW ,"
+HIS 113C ",scheduled,"ABRAZALDO , JOSEPHINE CRUZ",College of Medical Technology,Faculty
+6091434,114009,BS-MT 2-2,2025 - 2026,Summer,08:00a - 12:30p ,MW ,HIS 113B ,scheduled,"ABRAZALDO , JOSEPHINE CRUZ",College of Medical Technology,Faculty
+6091434,114010,BS-MT 2-3,2025 - 2026,Summer,10:00a - 01:00p ,FS,CYT 001C ,scheduled,"ABRAZALDO , JOSEPHINE CRUZ",College of Medical Technology,Faculty
+10201000,114013,BS-MT 2-3,2025 - 2026,Summer,09:00a - 12:00p,TTH ,HIS 113C,scheduled,"CALISANG, MA. CECILIA CONTRERAS",College of Medical Technology,Faculty
+10201000,114014,BS-MT 2-3,2025 - 2026,Summer,01:00p - 05:30p ,TTH ,HIS 113B ,scheduled,"CALISANG, MA. CECILIA CONTRERAS",College of Medical Technology,Faculty
+6071015,114015,BS-MT 2-4,2025 - 2026,Summer,10:00a - 01:00p,M,CYT 001C ,scheduled,"MARTIN, SHEILA GRACE ALARILLA",College of Medical Technology,Faculty
+25140701,114016,BS-MT 2-4,2025 - 2026,Summer,02:00p - 05:00p ,WF,HIS 000,scheduled,"DEQUI?A, JULIE",College of Medical Technology,Faculty
+25140701,114017,BS-MT 2-4,2025 - 2026,Summer,08:00a - 12:30p,WF,HIS 000L,scheduled,"DEQUI?A, JULIE",College of Medical Technology,Faculty
+24120801,114018,BS-MT 2-4,2025 - 2026,Summer,02:00p - 05:00p ,TTH ,HIS 113C ,scheduled,"DAYRIT, JOHN LEO CANLAS",College of Medical Technology,Faculty
+24120801,114019,BS-MT 2-4,2025 - 2026,Summer,08:00a - 12:30p,TTH ,HIS 113B,scheduled,"DAYRIT, JOHN LEO CANLAS",College of Medical Technology,Faculty
+24120803,114020,MT - IRREG 1,2025 - 2026,Summer,01:00p - 05:30p ,MW ,COM 001B,scheduled,"TORRES, MARY PRUDEN GAYLE LLAGAS",College of Medical Technology,Faculty
+6131231,114021,MT - IRREG 1,2025 - 2026,Summer,02:00p - 05:00p,F,COM 002,scheduled,"PUNZALAN JR. , OSCAR VILLEGAS",College of Medical Technology,Faculty
+6131231,114022,MT - IRREG 1,2025 - 2026,Summer,07:00a - 01:00p,MWF ,COM 002L,scheduled,"
+PUNZALAN JR. , OSCAR VILLEGAS",College of Medical Technology,Faculty
+23040903,114023,MT - IRREG 1,2025 - 2026,Summer,01:00p - 05:30p ,TTH ,ASL 000 ,scheduled,"REYES, ROSSALINE KATE GO",College of Medical Technology,Faculty
+6071015,114024,MT - IRREG 1,2025 - 2026,Summer,01:00p - 05:30p ,TTH ,SCA 000 ,scheduled,"MARTIN, SHEILA GRACE ALARILLA",College of Medical Technology,Faculty
+17061101,114026,MT - IRREG 2,2025 - 2026,Summer,01:00p - 04:00p,W,COM 002 ,scheduled,"DE VERA, PATRICK RODRIGUEZ",College of Medical Technology,Faculty
+25140701,114027,MT - IRREG 2,2025 - 2026,Summer,07:00a - 01:00p,TTH ,COM 002L,scheduled,"DEQUI?A, JULIE",College of Medical Technology,Faculty
+11081015,114028,MT - IRREG 2,2025 - 2026,Summer,07:00a - 11:30a ,MW ,"
+ASL 000",scheduled,"ABELOS , ALEX VALENTIN",College of Medical Technology,Faculty
+22050919,114029,MT - IRREG 2,2025 - 2026,Summer,07:00a - 11:30a,F,SCA 000 ,scheduled,"VINO, ANGELA MAIKA D",College of Medical Technology,Faculty
+24120803,114030,MT - IRREG 3,2025 - 2026,Summer,08:00a - 12:30p ,MW,"
+COM 001B ",scheduled,"TORRES, MARY PRUDEN GAYLE LLAGAS",College of Medical Technology,Faculty
+6091434,114031,MT - IRREG 3,2025 - 2026,Summer,07:00a - 10:00a,F,COM 002,scheduled,"ABRAZALDO , JOSEPHINE CRUZ",College of Medical Technology,Faculty
+24120801,114032,MT - IRREG 3,2025 - 2026,Summer,01:00p - 07:00p,MWF ,"
+COM 002L ",scheduled,"DAYRIT, JOHN LEO CANLAS",College of Medical Technology,Faculty
+6101309,114033,MT - IRREG 3,2025 - 2026,Summer,07:00a - 11:30a ,TTH ,ASL 000 ,scheduled,"MONTECILLO, GARRY ANASCO",College of Medical Technology,Faculty
+19080700,114034,MT - IRREG 3,2025 - 2026,Summer,01:00p - 05:30p,TTH ,SCA 000 ,scheduled,"RAMOSO, ROSA SINCHIOCO",College of Medical Technology,Faculty
+25140711,114035,MT - IRREG 4,2025 - 2026,Summer,02:00p - 06:30p ,MW ,COM 001B ,scheduled,"MEJOS, DARYL CHRISTIAN SILLANO",College of Medical Technology,Faculty
+17061101,114036,MT - IRREG 4,2025 - 2026,Summer,01:00p - 04:00p ,TH ,COM 002 ,scheduled,"DE VERA, PATRICK RODRIGUEZ",College of Medical Technology,Faculty
+25140711,114037,MT - IRREG 4,2025 - 2026,Summer,07:00a - 01:00p,MWF ,COM 002L ,scheduled,"
+MEJOS, DARYL CHRISTIAN SILLANO",College of Medical Technology,Faculty
+11081015,114038,MT - IRREG 4,2025 - 2026,Summer,07:00a - 11:30a ,TTH ,"
+ASL 000",scheduled,"ABELOS , ALEX VALENTIN",College of Medical Technology,Faculty
+11051302,114039,MT - IRREG 4,2025 - 2026,Summer,02:00p - 06:30p,TF ,SCA 000,scheduled,"MANALANG , FATIMA MARASIGAN",College of Medical Technology,Faculty
+22140203,114040,MT - IRREG 5,2025 - 2026,Summer,09:00a - 12:00p,TTH ,PHM 115 ,scheduled,"BULURAN, SHERWIN Q",College of Medical Technology,Faculty
+22140203,114041,MT - IRREG 6,2025 - 2026,Summer,01:00p - 04:00p ,TTH ,PHM 115 ,scheduled,"BULURAN, SHERWIN Q",College of Medical Technology,Faculty
+6071015,114042,MT - IRREG 7,2025 - 2026,Summer,08:00a - 11:00a,TTH ,PAR 103 ,scheduled,"MARTIN, SHEILA GRACE ALARILLA",College of Medical Technology,Faculty
+25011207,114043,MT - IRREG 7,2025 - 2026,Summer,07:00a - 01:00p ,S,PAR 103L ,scheduled,"CHEN, MICHAEL WESLEY GO",College of Medical Technology,Faculty
+24120802,114044,MT - IRREG-9,2025 - 2026,Summer,07:00a - 01:00p ,S,CPH 000,scheduled,"RODRIGUEZ, ALLYSSA GABRIELLE CAPIRAL",College of Medical Technology,Faculty
+25140732,114045,MT - IRREG-9,2025 - 2026,Summer,07:00a - 01:00p ,MW ,CPH 000L ,scheduled,"RIEGO, LYSSA MAE DAVID",College of Medical Technology,Faculty
+23040905,114046,MT - IRREG 8,2025 - 2026,Summer,07:00a - 01:00p,F,"
+CHE006 ",scheduled,"ESTRELLA, AERON THAN LAWRENCE SO",College of Medical Technology,Faculty
+23040905,114047,MT - IRREG 8,2025 - 2026,Summer,07:00a - 01:00p,WS ,"
+CHE006L ",scheduled,"ESTRELLA, AERON THAN LAWRENCE SO",College of Medical Technology,Faculty
+22210201,219000,BSN 1-1,2025 - 2026,Summer,09:00a - 12:00p,MWF ,BIO 006 ,scheduled,"ZAFRA, CHRISTIAN I",College of Nursing,Faculty
+6101351,219001,BSN 1-1,2025 - 2026,Summer,01:00p - 05:30p ,TTH ,BIO 006L ,scheduled,"
+GOROSPE , GERALD RETUTA",College of Nursing,Faculty
+6190602,219002,BSN 1-1,2025 - 2026,Summer,07:00a - 11:30a ,TTH ,"
+NCM 103C ",scheduled,"DIASEN, MARIA ELENA CHAVEZ",College of Nursing,Faculty
+11060615,219003,BSN 1-1,2025 - 2026,Summer,01:00p - 07:00p,MWF ,NCM 103CL ,scheduled,"
+ASURO , CARMELA CONSTANTINO",College of Nursing,Faculty
+24270801,219004,BSN 1-2,2025 - 2026,Summer,09:00a - 12:00p,MWF ,BIO 006 ,scheduled,"PILOTON, TRIXIE LAGASCA",College of Nursing,Faculty
+24270801,219005,BSN 1-2,2025 - 2026,Summer,01:00p - 05:30p ,MW ,BIO 006L,scheduled,"PILOTON, TRIXIE LAGASCA",College of Nursing,Faculty
+25140705,219006,BSN 1-2,2025 - 2026,Summer,01:00p - 05:00p ,F,"
+NCM 103C",scheduled,"PITAMANAN, MOHAIMEN M.",College of Nursing,Faculty
+25140705,219007,BSN 1-2,2025 - 2026,Summer,07:00a - 12:00p ,T,NCM 103CL,scheduled,"PITAMANAN, MOHAIMEN M.",College of Nursing,Faculty
+6101351,219008,BSN 1-3,2025 - 2026,Summer,09:00a - 12:00p,MWF ,"
+BIO 006 ",scheduled,"GOROSPE , GERALD RETUTA",College of Nursing,Faculty
+6101351,219009,BSN 1-3,2025 - 2026,Summer,01:00p - 05:30p ,MW ,BIO 006L,scheduled,"GOROSPE , GERALD RETUTA",College of Nursing,Faculty
+6190602,219010,BSN 1-3,2025 - 2026,Summer,01:00p - 05:30p ,TTH ,NCM 103C ,scheduled,"DIASEN, MARIA ELENA CHAVEZ",College of Nursing,Faculty
+25010906,219011,BSN 1-3,2025 - 2026,Summer,07:00a - 12:00p ,TTH ,NCM 103CL ,scheduled,"
+UMALI, MILAGROS CORAZON CASTRO",College of Nursing,Faculty
+24300800,219012,BSN 1-4,2025 - 2026,Summer,01:00p - 05:30p ,TTH ,BIO 006,scheduled,"ARQUERO, ARON JOSHUA BON",College of Nursing,Faculty
+24300800,219013,BSN 1-4,2025 - 2026,Summer,07:30a - 12:00p ,TTH ,"
+BIO 006L ",scheduled,"ARQUERO, ARON JOSHUA BON",College of Nursing,Faculty
+11121209,219014,BSN 1-4,2025 - 2026,Summer,07:00a - 11:30a ,MW ,"
+NCM 103C ",scheduled,"ATANACIO , HENLYN ENRIQUEZ",College of Nursing,Faculty
+1140500,219015,BSN 1-4,2025 - 2026,Summer,12:30p - 05:30p,MW ,NCM 103CL,scheduled,"AGUINALDO , MARJORIE VALENTIN",College of Nursing,Faculty
+25140731,219016,BSN 1-5,2025 - 2026,Summer,07:30a - 12:00p,MW ,BIO 006,scheduled,"MABUGAY, NIQUE C.",College of Nursing,Faculty
+21150901,219017,BSN 1-5,2025 - 2026,Summer,01:00p - 05:30p ,TTH ,BIO 006L ,scheduled,"CABALLERO, REY JOHN D",College of Nursing,Faculty
+11121209,219018,BSN 1-5,2025 - 2026,Summer,01:00p - 05:30p ,MW ,NCM 103C ,scheduled,"ATANACIO , HENLYN ENRIQUEZ",College of Nursing,Faculty
+11121209,219019,BSN 1-5,2025 - 2026,Summer,07:00a - 12:00p ,TTH ,NCM 103CL,scheduled,"ATANACIO , HENLYN ENRIQUEZ",College of Nursing,Faculty
+22210201,219020,BSN 1-6,2025 - 2026,Summer,01:00p - 04:00p,MWF,BIO 006,scheduled,"
+ZAFRA, CHRISTIAN I",College of Nursing,Faculty
+19180602,219021,BSN 1-6,2025 - 2026,Summer,"
+01:00p - 05:30p ",TTH ,BIO 006L,scheduled,"BIGCAS, BRYLLE RAPHAEL U",College of Nursing,Faculty
+25140705,219022,BSN 1-6,2025 - 2026,Summer,07:00a - 11:30a ,MW,NCM 103C ,scheduled,"PITAMANAN, MOHAIMEN M.",College of Nursing,Faculty
+11060615,219023,BSN 1-6,2025 - 2026,Summer,07:00a - 12:00p ,TTH ,NCM 103CL,scheduled,"ASURO , CARMELA CONSTANTINO",College of Nursing,Faculty
+25140731,219024,BSN 1-7,2025 - 2026,Summer,01:00p - 05:30p ,MW,BIO 006,scheduled,"MABUGAY, NIQUE C.",College of Nursing,Faculty
+25200100,219025,BSN 1-7,2025 - 2026,Summer,07:00a - 11:30a ,MW ,BIO 006L ,scheduled,"PEREZ, VIVIEN DELA CRUZ",College of Nursing,Faculty
+1140500,219027,BSN 1-7,2025 - 2026,Summer,07:00a - 12:00p,TTH ,NCM 103CL ,scheduled,"AGUINALDO , MARJORIE VALENTIN",College of Nursing,Faculty
+6208800,219028,SC-IRREG3,2025 - 2026,Summer,01:00p - 05:30p ,TTH ,BIO 001 ,scheduled,"CAPILI , NIEVES LIBANAN",College of Nursing,Faculty
+25140731,219029,SC-IRREG3,2025 - 2026,Summer,07:30a - 12:00p,TTH ,BIO 001L ,scheduled,"MABUGAY, NIQUE C.",College of Nursing,Faculty
+26040502,219030,SC-IRREG3,2025 - 2026,Summer,07:30a - 12:00p,MW,"
+CHE 006",scheduled,"GRACILLA, DANIEL E",College of Nursing,Faculty
+26040502,219031,SC-IRREG3,2025 - 2026,Summer,01:00p - 05:30p,MWF,CHE 006L ,scheduled,"GRACILLA, DANIEL E",College of Nursing,Faculty
+11189200,215000,BS-PHARMACY 4-SC,2025 - 2026,Summer,07:00a - 10:00a,MWS ,PCA 141,scheduled,"BALMAS , MANUEL",Institue of Education,Faculty
+6101303,2116000,MAED 2-1,2025 - 2026,Summer,09:00a - 06:00p,S,MAP 208 ,scheduled,"PATUBO, MARK VICTOR EMMANUEL VASQUEZ",Institue of Education,Faculty
+6101303,2116001,MAED 2-1,2025 - 2026,Summer,06:00p - 09:00p,MWF ,MAP 211,scheduled,"PATUBO, MARK VICTOR EMMANUEL VASQUEZ",Institue of Education,Faculty
+6130610,2116002,PHD 2,2025 - 2026,Summer,06:00p - 09:00p,MWF ,PHD 313 ,scheduled,"FLORES, RAMIL VILLANUEVA",Institue of Education,Faculty
+6130610,2116003,PHD 3,2025 - 2026,Summer,06:00p - 09:00p,TTHS ,PHD 314,scheduled,"FLORES, RAMIL VILLANUEVA",Institue of Education,Faculty
+6130611,2116004,PHD 1,2025 - 2026,Summer,06:00p - 09:00p,MWF ,"
+PHD 306",scheduled,"GO , RONALD SY KIM HO",Institue of Education,Faculty
+6101303,2116005,PHD 2,2025 - 2026,Summer,06:00p - 09:00p,TTHS ,"
+PHD 309",scheduled,"PATUBO, MARK VICTOR EMMANUEL VASQUEZ",Institue of Education,Faculty
+6130611,2116006,PHD 3,2025 - 2026,Summer,06:00p - 09:00p,TTHS ,PHD 316 ,scheduled,"GO , RONALD SY KIM HO",Institue of Education,Faculty
+18090100,218000,OM 1-1,2025 - 2026,Summer,01:00p - 05:30p ,MW ,IFS 000,scheduled,"LAMBINO, DANILO SANCHEZ",School of Business and Management,Faculty
+10241123,218001,OM 1-1,2025 - 2026,Summer,07:00a - 11:30a,MW ,PEO 001 ,scheduled,"AQUINO, LEA ALMARIO",School of Business and Management,Faculty
+18090100,218002,MM 1-1,2025 - 2026,Summer,01:00p - 05:30p ,MW ,IFS 000 ,scheduled,"LAMBINO, DANILO SANCHEZ",School of Business and Management,Faculty
+18190300,218003,MM 1-1,2025 - 2026,Summer,07:00a - 11:30a ,MW,PME 001,scheduled,"Leoncio, Honey Tess Basco",School of Business and Management,Faculty
+10290701,218004,AC 2-1,2025 - 2026,Summer,07:00a - 11:30a,MW,RPH 000 ,scheduled,"
+FULGENCIO, III , PAULINO B.",School of Business and Management,Faculty
+18051101,218005,AC 2-1,2025 - 2026,Summer,07:00a - 11:30a,TTH,"
+RZL 000",scheduled,"RUBILLOS, JOEY BOY DRIZ",School of Business and Management,Faculty
+25100300,218006,AC 2-1,2025 - 2026,Summer,01:00a - 05:30a,TTH ,SCA 000 ,scheduled,"GONZALES, REGINALD HIPOLITO",School of Business and Management,Faculty
+23130201,218007,AC 3-1,2025 - 2026,Summer,01:00p - 05:30p ,TS ,"
+ARM 000",scheduled,"DE QUITO, JOJO J",School of Business and Management,Faculty
+6040731,218008,AC 3-1,2025 - 2026,Summer,07:00a - 11:30a,TTH,"
+ASL 001",scheduled,"SUMAWAY, MARGARET COLEEN SEECKTS",School of Business and Management,Faculty
