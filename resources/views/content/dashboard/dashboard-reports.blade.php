@@ -220,14 +220,6 @@
                 <h4 class="mb-1">Post-Class Survey Analytics</h4>
                 <p class="text-muted mb-0">Comprehensive dashboard for evaluation insights and reporting</p>
             </div>
-            <div class="d-flex gap-2">
-                <button class="btn btn-outline-primary" onclick="window.print()">
-                    <i class="bx bx-printer me-1"></i>Print Report
-                </button>
-                <button class="btn btn-primary" onclick="exportData()">
-                    <i class="bx bx-download me-1"></i>Export Data
-                </button>
-            </div>
         </div>
 
         {{-- Filters --}}
