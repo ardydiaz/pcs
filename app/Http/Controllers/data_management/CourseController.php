@@ -202,7 +202,7 @@ class CourseController extends Controller
         foreach ($courses as $course) {
 
             $subjectType =
-                '<span class="badge rounded-pill text-bg-warning">Minor</span>';
+                '<span class="badge rounded-pill text-bg-warning">GendEd Course</span>';
             $assignments =
                 $course->faculty_courses_count ?? 0;
             $actions = '

@@ -213,7 +213,6 @@
 @endsection
 
 @section('content')
-    <div class="container-fluid">
         {{-- Header --}}
         <div class="d-flex justify-content-between align-items-center mb-4">
             <div>
@@ -274,8 +273,8 @@
                         <label class="form-label">Subject Type</label>
                         <select name="subject_type" class="form-select">
                             <option value="all" {{ $selectedSubjectType == 'all' ? 'selected' : '' }}>All Types</option>
-                            <option value="major" {{ $selectedSubjectType == 'major' ? 'selected' : '' }}>Major</option>
-                            <option value="minor" {{ $selectedSubjectType == 'minor' ? 'selected' : '' }}>Minor</option>
+                            <option value="major" {{ $selectedSubjectType == 'major' ? 'selected' : '' }}>Professional Course</option>
+                            <option value="minor" {{ $selectedSubjectType == 'minor' ? 'selected' : '' }}>GenEd Course</option>
                         </select>
                     </div>
                     <div class="col-md-3 d-flex align-items-end">
@@ -551,16 +550,16 @@
                                                 @endphp
                                                 <div class="d-flex flex-column gap-1 align-items-center">
                                                     <div class="d-flex align-items-center gap-1"
-                                                        title="Major: {{ $majorR }} responses">
+                                                        title="Professional Course: {{ $majorR }} responses">
                                                         <span class="badge bg-label-success">
-                                                            <i class="bx bx-book-open me-1"></i>Major
+                                                            <i class="bx bx-book-open me-1"></i>Professional
                                                         </span>
                                                         <span class="fw-medium small">{{ $majorR }} resp.</span>
                                                     </div>
                                                     <div class="d-flex align-items-center gap-1"
-                                                        title="Minor: {{ $minorR }} responses">
+                                                        title="Minor Course: {{ $minorR }} responses">
                                                         <span class="badge bg-label-warning">
-                                                            <i class="bx bx-book me-1"></i>Minor
+                                                            <i class="bx bx-book me-1"></i>GenEd
                                                         </span>
                                                         <span class="fw-medium small">{{ $minorR }} resp.</span>
                                                     </div>
@@ -625,31 +624,15 @@
                                         return $value !== '';
                                     })
                                     ->values();
+                                $rankNumber = $index + 1;
                             @endphp
-                            <div class="d-flex align-items-center mb-3">
-                                <div class="me-3">
-                                    <span class="badge bg-{{ $index < 3 ? 'success' : 'primary' }} rounded-pill">
-                                        #{{ $index + 1 }}
-                                    </span>
-                                </div>
+                            <div class="d-flex align-items-center gap-2 mb-3">
+                                <span class="badge bg-{{ $rankNumber <= 3 ? 'success' : 'primary' }} rounded-pill" style="min-width: 40px; display: flex; align-items: center; justify-content: center;">
+                                    #{{ $rankNumber }}
+                                </span>
                                 <div class="flex-grow-1">
                                     <h6 class="mb-0">{{ $faculty['faculty_name'] }}</h6>
-                                    <div class="d-flex flex-wrap gap-1">
-                                        @php
-                                            // Display only the selected department if specific department is selected, otherwise show first department
-                                            $displayedDepartments = collect();
-                                            if ($selectedDepartment !== 'all' && $facultyDepartments->contains($selectedDepartment)) {
-                                                $displayedDepartments = collect([$selectedDepartment]);
-                                            } elseif ($facultyDepartments->isNotEmpty()) {
-                                                $displayedDepartments = $facultyDepartments->take(1);
-                                            }
-                                        @endphp
-                                        @forelse($displayedDepartments as $department)
-                                            <span class="badge bg-label-secondary">{{ $department }}</span>
-                                        @empty
-                                            <span class="text-muted">No department</span>
-                                        @endforelse
-                                    </div>
+                                    <small class="text-muted">{{ $facultyDepartments->first() ?? 'No department' }}</small>
                                 </div>
                                 <div class="text-end">
                                     <div class="fw-medium">{{ $faculty['average_rating'] }}/4.0</div>
@@ -683,31 +666,15 @@
                                         return $value !== '';
                                     })
                                     ->values();
+                                $rankNumber = $index + 1;
                             @endphp
-                            <div class="d-flex align-items-center mb-3">
-                                <div class="me-3">
-                                    <span class="badge bg-{{ $index < 3 ? 'danger' : 'secondary' }} rounded-pill">
-                                        #{{ $index + 1 }}
-                                    </span>
-                                </div>
+                            <div class="d-flex align-items-center gap-2 mb-3">
+                                <span class="badge bg-{{ $rankNumber <= 3 ? 'danger' : 'secondary' }} rounded-pill" style="min-width: 40px; display: flex; align-items: center; justify-content: center;">
+                                    #{{ $rankNumber }}
+                                </span>
                                 <div class="flex-grow-1">
                                     <h6 class="mb-0">{{ $faculty['faculty_name'] }}</h6>
-                                    <div class="d-flex flex-wrap gap-1">
-                                        @php
-                                            // Display only the selected department if specific department is selected, otherwise show first department
-                                            $displayedDepartments = collect();
-                                            if ($selectedDepartment !== 'all' && $facultyDepartments->contains($selectedDepartment)) {
-                                                $displayedDepartments = collect([$selectedDepartment]);
-                                            } elseif ($facultyDepartments->isNotEmpty()) {
-                                                $displayedDepartments = $facultyDepartments->take(1);
-                                            }
-                                        @endphp
-                                        @forelse($displayedDepartments as $department)
-                                            <span class="badge bg-label-secondary">{{ $department }}</span>
-                                        @empty
-                                            <span class="text-muted">No department</span>
-                                        @endforelse
-                                    </div>
+                                    <small class="text-muted">{{ $facultyDepartments->first() ?? 'No department' }}</small>
                                 </div>
                                 <div class="text-end">
                                     <div class="fw-medium">{{ $faculty['average_rating'] }}/4.0</div>
@@ -743,31 +710,15 @@
                                         return $value !== '';
                                     })
                                     ->values();
+                                $rankNumber = $index + 1;
                             @endphp
-                            <div class="d-flex align-items-center mb-3">
-                                <div class="me-3">
-                                    <span class="badge bg-{{ $index < 3 ? 'info' : 'secondary' }} rounded-pill">
-                                        #{{ $index + 1 }}
-                                    </span>
-                                </div>
+                            <div class="d-flex align-items-center gap-2 mb-3">
+                                <span class="badge bg-{{ $rankNumber <= 3 ? 'info' : 'secondary' }} rounded-pill" style="min-width: 40px; display: flex; align-items: center; justify-content: center;">
+                                    #{{ $rankNumber }}
+                                </span>
                                 <div class="flex-grow-1">
                                     <h6 class="mb-0">{{ $faculty['faculty_name'] }}</h6>
-                                    <div class="d-flex flex-wrap gap-1">
-                                        @php
-                                            // Display only the selected department if specific department is selected, otherwise show first department
-                                            $displayedDepartments = collect();
-                                            if ($selectedDepartment !== 'all' && $facultyDepartments->contains($selectedDepartment)) {
-                                                $displayedDepartments = collect([$selectedDepartment]);
-                                            } elseif ($facultyDepartments->isNotEmpty()) {
-                                                $displayedDepartments = $facultyDepartments->take(1);
-                                            }
-                                        @endphp
-                                        @forelse($displayedDepartments as $department)
-                                            <span class="badge bg-label-secondary">{{ $department }}</span>
-                                        @empty
-                                            <span class="text-muted">No department</span>
-                                        @endforelse
-                                    </div>
+                                    <small class="text-muted">{{ $facultyDepartments->first() ?? 'No department' }}</small>
                                 </div>
                                 <div class="text-end">
                                     <div class="fw-medium">{{ $faculty['total_responses'] }} responses</div>
@@ -784,7 +735,6 @@
                 </div>
             </div>
         </div>
-    </div>
 
     {{-- Faculty Modal --}}
     <div class="modal fade" id="facultyModal" tabindex="-1" aria-hidden="true">
@@ -795,7 +745,7 @@
                         Faculty Members - <span id="modalDepartmentName"></span>
                         @if($selectedSubjectType !== 'all')
                             <span class="badge {{ $selectedSubjectType === 'major' ? 'bg-success' : 'bg-warning text-dark' }} ms-2">
-                                {{ ucfirst($selectedSubjectType) }} Subjects Only
+                                {{ $selectedSubjectType === 'major' ? 'Professional Course' : 'GenEd Course' }} Only
                             </span>
                         @endif
                     </h5>
@@ -817,7 +767,7 @@
                         @endif
                         @if($selectedSubjectType !== 'all')
                             <span class="badge {{ $selectedSubjectType === 'major' ? 'bg-success' : 'bg-warning text-dark' }}">
-                                {{ ucfirst($selectedSubjectType) }} Subjects
+                                {{ $selectedSubjectType === 'major' ? 'Professional Course' : 'GenEd Course' }}
                             </span>
                         @else
                             <span class="badge bg-label-secondary">All Subject Types</span>
@@ -895,6 +845,7 @@
                     </div>
                     <div class="modal-body">
                         <input type="hidden" name="department" id="departmentExportDepartment">
+                        <input type="hidden" name="subject_type" value="{{ $selectedSubjectType }}">
                         <div class="mb-3">
                             <label for="departmentExportStartDate" class="form-label">Start Date</label>
                             <input type="date" class="form-control" id="departmentExportStartDate" name="start_date">
@@ -909,7 +860,7 @@
                             <select class="form-select" id="departmentExportAcademicYear" name="academic_year">
                                 <option value="all" selected>All</option>
                                 @if($selectedAcademicYear !== 'all')
-                                    <option value="{{ $selectedAcademicYear }}">{{ $selectedAcademicYear }}</option>
+                                    <option value="{{ $selectedAcademicYear }}" selected>{{ $selectedAcademicYear }}</option>
                                 @endif
                             </select>
                         </div>
@@ -918,16 +869,29 @@
                             <select class="form-select" id="departmentExportSemester" name="semester">
                                 <option value="all" selected>All</option>
                                 @if($selectedSemester !== 'all')
-                                    <option value="{{ $selectedSemester }}">{{ $selectedSemester }}</option>
+                                    <option value="{{ $selectedSemester }}" selected>{{ $selectedSemester }}</option>
                                 @endif
                             </select>
                         </div>
+                        @if($selectedSubjectType !== 'all')
+                            <div class="mt-3 alert alert-light border py-2">
+                                <small class="text-muted">
+                                    <i class="bx bx-filter-alt me-1"></i>
+                                    Subject type filter active:
+                                    <span class="badge {{ $selectedSubjectType === 'major' ? 'bg-success' : 'bg-warning text-dark' }}">
+                                        {{ $selectedSubjectType === 'major' ? 'Professional Course' : 'Minor Course' }} Only
+                                    </span>
+                                </small>
+                            </div>
+                        @endif
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-primary">
-                            <i class="bx bx-download me-1"></i>Export CSV
-                        </button>
+                        <div class="d-flex gap-2">
+                             <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bx bx-download me-1"></i>Export Result
+                            </button>
+                        </div>
                     </div>
                 </form>
             </div>

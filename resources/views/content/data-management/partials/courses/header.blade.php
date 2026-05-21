@@ -5,7 +5,7 @@
             <h5 class="card-title mb-1 d-flex align-items-center gap-2 justify-content-center justify-content-lg-start"
                 style="font-size: 1.2rem;">
                 <i class="fa-solid fa-book" style="font-size: 1.5rem;"></i>
-                Course Actions
+                Professional Course Actions
             </h5>
             <p class="text-muted mb-0">Switch between managing courses or assignments, or import records from a file.</p>
         </div>

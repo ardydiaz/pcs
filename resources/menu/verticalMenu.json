@@ -28,12 +28,12 @@
       "submenu": [
         {
           "url": "/data-management/courses",
-          "name": "Major Subject",
+          "name": "Professional Course",
           "slug": "dm.courses"
         },
         {
           "url": "data-management/minor-courses",
-          "name": "Minor Subject",
+          "name": "GenEd Course",
           "slug": "dm.minor.courses"
         }
       ]

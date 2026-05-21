@@ -7,6 +7,7 @@
                 <i class="fa-solid fa-book" style="font-size: 1.5rem;"></i>
                 Minors Course
             </h5>
+            <p class="text-muted mb-0">Switch between managing courses or assignments</p>
         </div>
         <div class="course-tabs-panel">
             <div class="course-tabs-header">

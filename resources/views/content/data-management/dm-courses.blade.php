@@ -1382,9 +1382,9 @@
                 const classCodeAttr = 'course-code';
                 const subjectRaw = this.formatCourseText(course.subject_code, 'N/A');
                 const subject = this.escapeHtml(subjectRaw);
-                const subjectType = course.subject_type === 'major' ? '<span class="badge bg-success">Major</span>' :
+                const subjectType = course.subject_type === 'major' ? '<span class="badge bg-success">Professional Course</span>' :
                     course.subject_type === 'minor' ?
-                    '<span class="badge bg-warning text-dark">Minor</span>' :
+                    '<span class="badge bg-warning text-dark">Minor Course</span>' :
                     '<span class="badge bg-secondary">N/A</span>';
                 const assignments = Number(course.assignments ?? 0);
                 const searchTerms = [course.class_code ?? '', course.subject_code ?? ''].join(' ').toLowerCase();

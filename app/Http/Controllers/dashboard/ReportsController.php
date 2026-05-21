@@ -569,6 +569,10 @@ class ReportsController extends Controller
 
         $academicYear = $request->get('academic_year', 'all');
         $semester = $request->get('semester', 'all');
+        $subjectType = $request->get('subject_type', 'all');
+        if (!in_array($subjectType, ['all', 'major', 'minor'], true)) {
+            $subjectType = 'all';
+        }
         $startDate = $request->get('start_date');
         $endDate = $request->get('end_date');
 
@@ -629,100 +633,145 @@ class ReportsController extends Controller
             return redirect()->back()->with('error', 'No evaluations found for the selected filters.');
         }
 
-        $grouped = $evaluations->groupBy(function ($evaluation) {
-            if (!empty($evaluation->faculty_id)) {
-                return 'id_' . $evaluation->faculty_id;
-            }
-            return 'name_' . Str::slug((string) ($evaluation->resolved_faculty_name ?? 'unknown'), '_');
-        });
+        $evaluationIds = $evaluations->pluck('id')->filter()->values();
 
-        $tempDir = storage_path('app/tmp');
-        File::ensureDirectoryExists($tempDir);
+        // Collect all responses across all faculty
+        $responsesQuery = EvaluationResponse::with(['evaluation', 'schedule.facultyCourse.course'])
+            ->whereIn('evaluation_id', $evaluationIds);
 
-        $departmentSlug = Str::slug($department, '_');
-        $dateTag = now()->format('Ymd_His');
-        $zipPath = $tempDir . DIRECTORY_SEPARATOR . "department_responses_{$departmentSlug}_{$dateTag}.zip";
-
-        $zip = new ZipArchive();
-        if ($zip->open($zipPath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
-            return redirect()->back()->with('error', 'Failed to create export archive.');
+        if ($start) {
+            $responsesQuery->where('created_at', '>=', $start);
+        }
+        if ($end) {
+            $responsesQuery->where('created_at', '<=', $end);
         }
 
-        foreach ($grouped as $facultyKey => $facultyEvaluations) {
-            $evaluationIds = $facultyEvaluations->pluck('id')->filter()->values();
-            if ($evaluationIds->isEmpty()) {
-                continue;
-            }
-
-            $responsesQuery = EvaluationResponse::with(['evaluation', 'schedule.facultyCourse.course'])
-                ->whereIn('evaluation_id', $evaluationIds);
-
-            if ($start) {
-                $responsesQuery->where('created_at', '>=', $start);
-            }
-            if ($end) {
-                $responsesQuery->where('created_at', '<=', $end);
-            }
-
-            $responses = $responsesQuery->orderBy('created_at')->get();
-            $primaryEvaluation = $facultyEvaluations->first();
-
-            $facultyName = $primaryEvaluation?->resolved_faculty_name ?? 'Unknown';
-            $facultySlug = Str::slug($facultyName, '_');
-            $facultyKeyTag = Str::slug((string) $facultyKey, '_');
-            $csvFilename = "evaluation_responses_{$facultySlug}_{$facultyKeyTag}_{$dateTag}.csv";
-
-            $handle = fopen('php://temp', 'r+');
-            fwrite($handle, "\xEF\xBB\xBF");
-            fputcsv($handle, [
-                'Faculty Name',
-                'Faculty Email',
-                'Faculty Department',
-                'Academic Year',
-                'Semester',
-                'Course Code',
-                'Course Name',
-                'Schedule Time',
-                'Schedule Days',
-                'Effectiveness Rating',
-                'Effectiveness Text',
-                'Feedback Comments',
-                'Response Submitted At',
-                'Evaluation Link',
-                'Evaluation Created At',
-            ]);
-
-            foreach ($responses as $response) {
-                $evaluation = $response->evaluation;
-                fputcsv($handle, [
-                    $evaluation?->resolved_faculty_name ?? $primaryEvaluation?->resolved_faculty_name,
-                    $evaluation?->resolved_faculty_email ?? $primaryEvaluation?->resolved_faculty_email,
-                    $evaluation?->resolved_faculty_department ?? $primaryEvaluation?->resolved_faculty_department,
-                    $evaluation?->academic_year ?? $primaryEvaluation?->academic_year,
-                    $evaluation?->semester ?? $primaryEvaluation?->semester,
-                    $response->resolved_course_code,
-                    $response->resolved_course_name,
-                    $response->resolved_schedule_time,
-                    $response->resolved_schedule_days,
-                    $response->effectiveness_rating,
-                    $response->effectiveness_text,
-                    $response->feedback_comments,
-                    optional($response->created_at)->toDateTimeString(),
-                    $evaluation?->form_link ?? $primaryEvaluation?->form_link,
-                    optional($evaluation?->created_at ?? $primaryEvaluation?->created_at)->toDateTimeString(),
-                ]);
-            }
-
-            rewind($handle);
-            $csvContent = stream_get_contents($handle);
-            fclose($handle);
-
-            $zip->addFromString($csvFilename, $csvContent);
+        // Apply subject_type filter
+        if ($subjectType !== 'all') {
+            $responsesQuery->whereHas('schedule.facultyCourse.course', function ($q) use ($subjectType) {
+                $q->where('subject_type', $subjectType);
+            });
         }
 
-        $zip->close();
+        $responses = $responsesQuery->get();
 
-        return response()->download($zipPath)->deleteFileAfterSend(true);
+        if ($responses->isEmpty()) {
+            return redirect()->back()->with('error', 'No responses found for the selected filters.');
+        }
+
+        // Sort responses by faculty name alphabetically, then by created_at within each faculty
+        $responses = $responses->sortBy(function ($response) {
+            $facultyName = $response->evaluation?->resolved_faculty_name ?? 'Unknown';
+            $createdAt = $response->created_at?->timestamp ?? 0;
+            return [$facultyName, $createdAt];
+        })->values();
+
+        // Generate filename
+        $departmentSlug = preg_replace('/[^A-Za-z0-9]+/', '_', ucwords(strtolower($department)));
+        $departmentSlug = trim($departmentSlug, '_');
+        $dateTag = now()->format('Y-m-d_H-i-s');
+        $subjectTag = $subjectType !== 'all' ? '_' . ucfirst($subjectType) : '';
+        $csvFilename = "Evaluation_Responses_{$departmentSlug}{$subjectTag}_{$dateTag}.csv";
+
+        // Prepare data for export
+        $headers = [
+            'FACULTY NAME',
+            'FACULTY DEPARTMENT',
+            'ACADEMIC YEAR',
+            'SEMESTER',
+            'SUBJECT TYPE',
+            'COURSE CODE',
+            'SECTION',
+            'COURSE NAME',
+            'EFFECTIVENESS',
+            'EFFECTIVENESS RATING',
+            'FEEDBACK COMMENTS',
+        ];
+
+        $data = [];
+        foreach ($responses as $response) {
+            $evaluation = $response->evaluation;
+            $course = optional(optional($response->schedule)->facultyCourse)->course;
+            $subjectTypeValue = $course ? ucfirst(strtolower($course->subject_type ?? '')) : '';
+            
+            // Convert subject type to display label
+            if ($subjectTypeValue === 'Major') {
+                $subjectTypeValue = 'Professional Course';
+            } elseif ($subjectTypeValue === 'Minor') {
+                $subjectTypeValue = 'Minor Course';
+            }
+            
+            $section = optional(optional($response->schedule)->facultyCourse)->section ?? '';
+            
+            // Clean up faculty name - remove extra spaces and fix encoding
+            $facultyName = $evaluation?->resolved_faculty_name ?? 'Unknown';
+            
+            // Fix encoding issues - convert from ISO-8859-1 to UTF-8 if needed
+            $facultyName = iconv('UTF-8', 'UTF-8//IGNORE', $facultyName);
+            
+            // Remove extra spaces
+            $facultyName = preg_replace('/\s+/', ' ', trim($facultyName));
+            
+            $data[] = [
+                $facultyName,
+                $evaluation?->resolved_faculty_department ?? '',
+                $evaluation?->academic_year ?? '',
+                $evaluation?->semester ?? '',
+                $subjectTypeValue,
+                $response->resolved_course_code,
+                $section,
+                $response->resolved_course_name,
+                $response->effectiveness_text,
+                $response->effectiveness_rating,
+                $response->feedback_comments,
+            ];
+        }
+
+        // Use Laravel Excel to export with styling
+        return \Maatwebsite\Excel\Facades\Excel::download(
+            new class($headers, $data) implements \Maatwebsite\Excel\Concerns\FromArray, \Maatwebsite\Excel\Concerns\WithStyles {
+                private $headers;
+                private $data;
+
+                public function __construct($headers, $data)
+                {
+                    $this->headers = $headers;
+                    $this->data = $data;
+                }
+
+                public function array(): array
+                {
+                    return array_merge([$this->headers], $this->data);
+                }
+
+                public function styles(\PhpOffice\PhpSpreadsheet\Worksheet\Worksheet $sheet)
+                {
+                    // Style header row
+                    $sheet->getStyle('1:1')->applyFromArray([
+                        'font' => [
+                            'bold' => true,
+                            'color' => ['rgb' => 'FFFFFF'],
+                        ],
+                        'fill' => [
+                            'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
+                            'startColor' => ['rgb' => '5C297C'],
+                        ],
+                        'alignment' => [
+                            'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER,
+                            'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER,
+                        ],
+                    ]);
+
+                    // Auto-fit columns
+                    foreach (range('A', 'K') as $column) {
+                        $sheet->getColumnDimension($column)->setAutoSize(true);
+                    }
+
+                    return [];
+                }
+            },
+            $csvFilename
+        );
     }
 
     private function calculateMetrics($evaluations, $department, $academicYear, $semester, string $subjectType = 'all')
@@ -1035,9 +1084,9 @@ class ReportsController extends Controller
         $ratingsCollection = collect($ratings);
 
         return [
-            'top_rated' => $ratingsCollection->sortByDesc('average_rating')->take(5),
-            'low_rated' => $ratingsCollection->sortBy('average_rating')->take(5),
-            'most_evaluated' => $ratingsCollection->sortByDesc('total_responses')->take(5)
+            'top_rated' => $ratingsCollection->sortByDesc('average_rating')->values()->take(5),
+            'low_rated' => $ratingsCollection->sortBy('average_rating')->values()->take(5),
+            'most_evaluated' => $ratingsCollection->sortByDesc('total_responses')->values()->take(5)
         ];
     }
 

@@ -70,6 +70,7 @@
                     <i class="fa-solid fa-book"></i>
                     Minor Course
                 </h5>
+                 <p class="text-muted mb-0">Switch between managing courses or assignments</p>
             </div>
 
             {{-- TOGGLE BUTTONS --}}
