@@ -96,13 +96,12 @@ class ReportsController extends Controller
         }
 
         // Get academic years and semesters for filters
-        $academicYears = Evaluation::where('is_active', true)
-            ->distinct()
+        // Pull from FacultyCourse instead of Evaluation to ensure consistency with actual response data
+        $academicYears = FacultyCourse::distinct()
             ->pluck('academic_year')
             ->sort()
             ->values();
-        $semesters = Evaluation::where('is_active', true)
-            ->distinct()
+        $semesters = FacultyCourse::distinct()
             ->pluck('semester')
             ->sort()
             ->values();
@@ -492,7 +491,11 @@ class ReportsController extends Controller
             $faculties = $this->paginateCollection($facultyRows, $pageSize);
 
             // Generate the HTML and pagination
-            $html = view('content.dashboard.partials.faculty-modal-table', compact('faculties'))->render();
+            $selectedAcademicYear = $academicYear;
+            $selectedSemester = $semester;
+            $selectedSubjectType = $subjectType;
+            $selectedDepartment = $department;
+            $html = view('content.dashboard.partials.faculty-modal-table', compact('faculties', 'selectedDepartment', 'selectedAcademicYear', 'selectedSemester', 'selectedSubjectType'))->render();
             $pagination = $usePagination
                 ? $faculties->appends($request->all())->links('pagination::bootstrap-4')->render()
                 : '';

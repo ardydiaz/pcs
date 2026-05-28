@@ -48,7 +48,7 @@ class ScheduleImport implements ToModel, WithHeadingRow
             ->where('course_id', $course->id);
 
         $section = isset($row['section']) ? trim((string) $row['section']) : '';
-        $academicYear = isset($row['academicyear']) ? trim((string) $row['academicyear']) : '';
+        $academicYear = $this->normalizeAcademicYear($row['academicyear'] ?? '');
         $semester = $this->normalizeSemester($row['semester'] ?? '');
 
         if ($section !== '') {
@@ -147,16 +147,20 @@ class ScheduleImport implements ToModel, WithHeadingRow
 
     private function normalizeSemester($semester): string
     {
-        $value = strtolower(trim((string) $semester));
-        if ($value === '1st' || $value === '1st semester') {
-            return '1st';
-        }
-        if ($value === '2nd' || $value === '2nd semester') {
-            return '2nd';
-        }
-        if ($value === 'summer') {
-            return 'Summer';
-        }
-        return '';
+        $value = strtolower(preg_replace('/[^a-z0-9]+/', '', trim((string) $semester)));
+
+        return match ($value) {
+            '1', '1st', 'first', 'firstsem', 'firstsemester', 'semester1' => '1st',
+            '2', '2nd', 'second', 'secondsem', 'secondsemester', 'semester2' => '2nd',
+            '3', '3rd', 'summer', 'summersem', 'summersemester', 'midyear' => 'Summer',
+            default => '',
+        };
+    }
+
+    private function normalizeAcademicYear($academicYear): string
+    {
+        $normalized = preg_replace('/\s*-\s*/', '-', trim((string) $academicYear));
+
+        return preg_replace('/\s+/', '', $normalized);
     }
 }

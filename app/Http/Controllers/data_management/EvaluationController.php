@@ -63,13 +63,9 @@ class EvaluationController extends Controller
             ->values();
 
         $academicYearQuery = FacultyCourse::query();
-        $semesterQuery = FacultyCourse::query();
 
         if ($shouldFilter) {
             $academicYearQuery->whereHas('faculty', function ($query) use ($departmentFilters) {
-                $query->forDepartments($departmentFilters);
-            });
-            $semesterQuery->whereHas('faculty', function ($query) use ($departmentFilters) {
                 $query->forDepartments($departmentFilters);
             });
         }
@@ -82,19 +78,12 @@ class EvaluationController extends Controller
             ->pluck('academic_year')
             ->values();
 
-        $semesterOptions = $semesterQuery
-            ->whereNotNull('semester')
-            ->where('semester', '!=', '')
-            ->distinct()
-            ->orderBy('semester')
-            ->pluck('semester')
-            ->map(function ($value) {
-                return [
-                    'value' => $value,
-                    'label' => $this->formatSemesterLabel($value),
-                ];
-            })
-            ->values();
+        // Use a fixed list of valid semesters to prevent duplicates from inconsistent DB values
+        $semesterOptions = collect([
+            ['value' => '1st',    'label' => '1st Semester'],
+            ['value' => '2nd',    'label' => '2nd Semester'],
+            ['value' => 'Summer', 'label' => 'Summer'],
+        ]);
 
         return view('content.data-management.dm-evaluation', compact(
             'evaluations',
@@ -132,6 +121,16 @@ class EvaluationController extends Controller
         );
 
         if ($existingEvaluation) {
+            return back()->with('error', 'Evaluation form already exists for this faculty in the selected academic year and semester.');
+        }
+
+        // Extra safety: direct DB check with normalized semester value
+        $directDuplicate = Evaluation::where('faculty_id', $request->faculty_id)
+            ->where('academic_year', $normalizedAcademicYear)
+            ->where('semester', $normalizedSemester)
+            ->exists();
+
+        if ($directDuplicate) {
             return back()->with('error', 'Evaluation form already exists for this faculty in the selected academic year and semester.');
         }
 
@@ -193,12 +192,19 @@ class EvaluationController extends Controller
                 continue;
             }
 
-            // Skip if evaluation already exists
+            // Skip if evaluation already exists (check with findExistingEvaluation + direct DB check)
             $exists = $this->findExistingEvaluation(
                 $user->id,
                 $request->academic_year,
                 $normalizedSemester
             );
+
+            if (!$exists) {
+                $exists = Evaluation::where('faculty_id', $user->id)
+                    ->where('academic_year', $request->academic_year)
+                    ->where('semester', $normalizedSemester)
+                    ->exists();
+            }
 
             if ($exists) {
                 $skipped++;
@@ -222,11 +228,29 @@ class EvaluationController extends Controller
         }
 
         // Build success message with skipped faculty details
-        $message = "Generated {$generated} new evaluation forms.";
+        $noScheduleCount = collect($skippedFaculties)->filter(fn($f) => str_ends_with($f, '(No schedule)'))->count();
+        $alreadyExistsCount = collect($skippedFaculties)->filter(fn($f) => str_ends_with($f, '(Already exists)'))->count();
+
+        $message = "Generated {$generated} new evaluation form(s).";
 
         if ($skipped > 0) {
-            $skippedNames = implode(', ', $skippedFaculties);
-            $message .= " Skipped {$skipped} faculties: {$skippedNames}";
+            $message .= " Skipped {$skipped} faculty member(s)";
+            $details = [];
+            if ($noScheduleCount > 0) {
+                $details[] = "{$noScheduleCount} with no schedule";
+            }
+            if ($alreadyExistsCount > 0) {
+                $details[] = "{$alreadyExistsCount} already have an evaluation";
+            }
+            $otherCount = $skipped - $noScheduleCount - $alreadyExistsCount;
+            if ($otherCount > 0) {
+                $details[] = "{$otherCount} other reason(s)";
+            }
+            if (!empty($details)) {
+                $message .= ' (' . implode(', ', $details) . ').';
+            } else {
+                $message .= '.';
+            }
         }
 
         return back()->with('success', $message);
@@ -343,17 +367,19 @@ class EvaluationController extends Controller
             return null;
         }
 
-        $evaluations = Evaluation::where('faculty_id', $facultyId)
+        // Check all possible semester variants that normalize to the same value
+        $semesterVariants = collect([
+            '1st', 'first', 'firstsem', 'firstsemester', 'semester1', '1',
+            '2nd', 'second', 'secondsem', 'secondsemester', 'semester2', '2',
+            'Summer', 'summer', 'summersem', 'summersemester', 'midyear', '3', '3rd',
+        ])->filter(function ($v) use ($normalizedSemester) {
+            return $this->normalizeSemesterValue($v) === $normalizedSemester;
+        })->values()->all();
+
+        return Evaluation::where('faculty_id', $facultyId)
             ->where('academic_year', $academicYear)
-            ->get();
-
-        foreach ($evaluations as $evaluation) {
-            if ($this->normalizeSemesterValue($evaluation->semester) === $normalizedSemester) {
-                return $evaluation;
-            }
-        }
-
-        return null;
+            ->whereIn('semester', $semesterVariants)
+            ->first();
     }
 
     public function toggleStatus(Request $request, Evaluation $evaluation)
@@ -554,13 +580,149 @@ class EvaluationController extends Controller
         ]);
     }
 
-    public function viewResponses(Evaluation $evaluation)
+    // public function viewResponses(Evaluation $evaluation, Request $request)
+    // {
+    //     $this->enforceEvaluationAccess($evaluation);
+        
+    //     // Get filter parameters from query string
+    //     $academicYear = $request->get('academic_year', 'all');
+    //     $semester = $request->get('semester', 'all');
+    //     $subjectType = $request->get('subject_type', 'all');
+        
+    //     // Validate subject_type
+    //     if (!in_array($subjectType, ['all', 'major', 'minor'], true)) {
+    //         $subjectType = 'all';
+    //     }
+        
+    //     // Get all responses for this faculty (not just this evaluation)
+    //     // This matches the export logic which also uses faculty_id
+    //     $responsesQuery = EvaluationResponse::with(['schedule.facultyCourse.course'])
+    //         ->whereHas('schedule.facultyCourse', function ($query) use ($evaluation) {
+    //             $query->where('faculty_id', $evaluation->faculty_id);
+    //         });
+        
+    //     // Apply academic_year filter if specified
+    //     if ($academicYear !== 'all') {
+    //         $responsesQuery->whereHas('schedule.facultyCourse', function ($q) use ($academicYear) {
+    //             $q->where('academic_year', $academicYear);
+    //         });
+    //     }
+        
+    //     // Apply semester filter if specified
+    //     // Handle both "Summer" and "2nd" semester since data may be stored inconsistently
+    //     if ($semester !== 'all') {
+    //         $responsesQuery->whereHas('schedule.facultyCourse', function ($q) use ($semester) {
+    //             $q->where('semester', $semester)
+    //               ->orWhere(function ($query) use ($semester) {
+    //                   // If looking for Summer, also include 2nd semester
+    //                   if ($semester === 'Summer') {
+    //                       $query->where('semester', '2nd');
+    //                   }
+    //                   // If looking for 2nd, also include Summer
+    //                   elseif ($semester === '2nd') {
+    //                       $query->where('semester', 'Summer');
+    //                   }
+    //               });
+    //         });
+    //     }
+        
+    //     // Apply subject_type filter if specified
+    //     if ($subjectType !== 'all') {
+    //         $responsesQuery->whereHas('schedule.facultyCourse.course', function ($q) use ($subjectType) {
+    //             $q->where('subject_type', $subjectType);
+    //         });
+    //     }
+        
+    //     $responses = $responsesQuery->latest()->get();
+
+    //     $coursesEvaluatedCount = $this->countUniqueCoursesFromResponses($responses);
+
+    //     return view('content.data-management.evaluation-files.evaluation-responses', compact(
+    //         'evaluation',
+    //         'responses',
+    //         'coursesEvaluatedCount'
+    //     ));
+    // }
+        public function viewResponses(Evaluation $evaluation)
     {
         $this->enforceEvaluationAccess($evaluation);
-        $responses = EvaluationResponse::with(['schedule.facultyCourse.course'])
-            ->where('evaluation_id', $evaluation->id)
-            ->latest()
-            ->get();
+        
+        // Get filter parameters from query string
+        $academicYear = request('academic_year', $evaluation->academic_year);
+        $semester = request('semester', $evaluation->semester);
+        $subjectType = request('subject_type', 'all');
+        
+        \Log::info('ViewResponses - Starting', [
+            'evaluation_id' => $evaluation->id,
+            'faculty_id' => $evaluation->faculty_id,
+            'academic_year' => $academicYear,
+            'semester' => $semester,
+            'subject_type' => $subjectType
+        ]);
+        
+        // Build query to fetch responses based on evaluation and filter parameters
+        $query = EvaluationResponse::with(['schedule.facultyCourse.course', 'evaluation'])
+            ->where('evaluation_id', $evaluation->id);
+        
+        // Filter by academic_year if provided and not 'all'
+        if ($academicYear && $academicYear !== 'all') {
+            $query->whereHas('evaluation', function ($q) use ($academicYear) {
+                $q->where('academic_year', $academicYear);
+            });
+        }
+        
+        // Filter by semester if provided and not 'all'
+        if ($semester && $semester !== 'all') {
+            $query->whereHas('evaluation', function ($q) use ($semester) {
+                $q->where('semester', $semester);
+            });
+        }
+        
+        // Filter by subject_type if provided and not 'all'
+        if ($subjectType && $subjectType !== 'all') {
+            $query->whereHas('schedule.facultyCourse.course', function ($q) use ($subjectType) {
+                $q->where('subject_type', $subjectType);
+            });
+        }
+        
+        $responses = $query->latest()->get();
+        
+        \Log::info('ViewResponses - Query result', [
+            'evaluation_id' => $evaluation->id,
+            'academic_year' => $academicYear,
+            'semester' => $semester,
+            'subject_type' => $subjectType,
+            'count' => $responses->count()
+        ]);
+        
+        // If no responses found with evaluation_id, try by faculty_id + academic_year + semester
+        if ($responses->isEmpty() && $evaluation->faculty_id) {
+            \Log::info('ViewResponses - Fallback: Attempt by faculty_id + academic_year + semester', [
+                'faculty_id' => $evaluation->faculty_id,
+                'academic_year' => $academicYear,
+                'semester' => $semester
+            ]);
+            
+            $fallbackQuery = EvaluationResponse::with(['schedule.facultyCourse.course', 'evaluation'])
+                ->whereHas('evaluation', function ($q) use ($evaluation, $academicYear, $semester) {
+                    $q->where('faculty_id', $evaluation->faculty_id)
+                      ->where('academic_year', $academicYear)
+                      ->where('semester', $semester)
+                      ->where('is_active', true);
+                });
+            
+            if ($subjectType && $subjectType !== 'all') {
+                $fallbackQuery->whereHas('schedule.facultyCourse.course', function ($q) use ($subjectType) {
+                    $q->where('subject_type', $subjectType);
+                });
+            }
+            
+            $responses = $fallbackQuery->latest()->get();
+            
+            \Log::info('ViewResponses - Fallback result', [
+                'count' => $responses->count()
+            ]);
+        }
 
         $coursesEvaluatedCount = $this->countUniqueCoursesFromResponses($responses);
 
@@ -577,52 +739,137 @@ class EvaluationController extends Controller
 
         $academicYear = $request->get('academic_year', $evaluation->academic_year);
         $semester = $request->get('semester', $evaluation->semester);
+        $subjectType = $request->get('subject_type', 'all');
         $startDate = $request->get('start_date');
         $endDate = $request->get('end_date');
 
-        $responsesQuery = EvaluationResponse::with(['schedule.facultyCourse.course'])
+        \Log::info('ExportResponses - Starting', [
+            'evaluation_id' => $evaluation->id,
+            'faculty_id' => $evaluation->faculty_id,
+            'academic_year' => $academicYear,
+            'semester' => $semester,
+            'subject_type' => $subjectType,
+            'start_date' => $startDate,
+            'end_date' => $endDate
+        ]);
+
+        // Start with base query - get all responses for this evaluation
+        $responsesQuery = EvaluationResponse::with(['schedule.facultyCourse.course', 'evaluation'])
             ->where('evaluation_id', $evaluation->id);
 
-        if ($academicYear !== 'all' && $academicYear !== $evaluation->academic_year) {
-            $responsesQuery->whereRaw('1 = 0');
+        // Get all responses first (before date filtering)
+        $allResponsesBeforeDateFilter = (clone $responsesQuery)->orderBy('created_at')->get();
+        
+        \Log::info('ExportResponses - All responses before date filter', [
+            'evaluation_id' => $evaluation->id,
+            'total_count' => $allResponsesBeforeDateFilter->count(),
+            'first_response_created_at' => $allResponsesBeforeDateFilter->first()?->created_at
+        ]);
+
+        // If no responses found with evaluation_id, try by faculty_id + academic_year + semester (fallback)
+        if ($allResponsesBeforeDateFilter->isEmpty() && $evaluation->faculty_id) {
+            \Log::info('ExportResponses - Fallback: Attempt by faculty_id + academic_year + semester', [
+                'faculty_id' => $evaluation->faculty_id,
+                'academic_year' => $academicYear,
+                'semester' => $semester
+            ]);
+            
+            $responsesQuery = EvaluationResponse::with(['schedule.facultyCourse.course', 'evaluation'])
+                ->whereHas('evaluation', function ($q) use ($evaluation, $academicYear, $semester) {
+                    $q->where('faculty_id', $evaluation->faculty_id)
+                      ->where('academic_year', $academicYear)
+                      ->where('semester', $semester)
+                      ->where('is_active', true);
+                });
+            
+            $allResponsesBeforeDateFilter = (clone $responsesQuery)->orderBy('created_at')->get();
+            
+            \Log::info('ExportResponses - Fallback result', [
+                'count' => $allResponsesBeforeDateFilter->count()
+            ]);
         }
 
-        if ($semester !== 'all' && $semester !== $evaluation->semester) {
-            $responsesQuery->whereRaw('1 = 0');
-        }
+        // Apply date filters only if provided
+        if ($startDate || $endDate) {
+            $start = null;
+            $end = null;
 
-        $start = null;
-        $end = null;
+            if ($startDate) {
+                try {
+                    $start = Carbon::parse($startDate)->startOfDay();
+                    $responsesQuery->where('created_at', '>=', $start);
+                } catch (\Exception $e) {
+                    // Invalid date, skip
+                }
+            }
 
-        if ($startDate) {
-            try {
-                $start = Carbon::parse($startDate)->startOfDay();
-            } catch (\Exception $e) {
-                $start = null;
+            if ($endDate) {
+                try {
+                    $end = Carbon::parse($endDate)->endOfDay();
+                    $responsesQuery->where('created_at', '<=', $end);
+                } catch (\Exception $e) {
+                    // Invalid date, skip
+                }
             }
         }
 
-        if ($endDate) {
-            try {
-                $end = Carbon::parse($endDate)->endOfDay();
-            } catch (\Exception $e) {
-                $end = null;
-            }
+        // Get all responses first
+        $allResponses = $responsesQuery->orderBy('created_at')->get();
+
+        \Log::info('ExportResponses - All responses fetched', [
+            'evaluation_id' => $evaluation->id,
+            'total_count' => $allResponses->count(),
+            'start_date' => $startDate,
+            'end_date' => $endDate
+        ]);
+
+        // Apply academic_year filter in PHP if needed
+        if ($academicYear && $academicYear !== 'all') {
+            $allResponses = $allResponses->filter(function ($response) use ($academicYear) {
+                return $response->evaluation && $response->evaluation->academic_year === $academicYear;
+            })->values();
+            
+            \Log::info('ExportResponses - After academic_year filter', [
+                'academic_year' => $academicYear,
+                'count' => $allResponses->count()
+            ]);
         }
 
-        if ($start && $end && $end->lt($start)) {
-            [$start, $end] = [$end, $start];
+        // Apply semester filter in PHP if needed
+        if ($semester && $semester !== 'all') {
+            $allResponses = $allResponses->filter(function ($response) use ($semester) {
+                return $response->evaluation && $response->evaluation->semester === $semester;
+            })->values();
+            
+            \Log::info('ExportResponses - After semester filter', [
+                'semester' => $semester,
+                'count' => $allResponses->count()
+            ]);
         }
 
-        if ($start) {
-            $responsesQuery->where('created_at', '>=', $start);
+        // Apply subject_type filter in PHP if needed
+        if ($subjectType && $subjectType !== 'all') {
+            $beforeSubjectFilter = $allResponses->count();
+            $allResponses = $allResponses->filter(function ($response) use ($subjectType) {
+                $course = $response->schedule?->facultyCourse?->course;
+                $courseSubjectType = $course?->subject_type;
+                \Log::debug('ExportResponses - Checking subject_type', [
+                    'response_id' => $response->id,
+                    'course_subject_type' => $courseSubjectType,
+                    'filter_subject_type' => $subjectType,
+                    'match' => $courseSubjectType === $subjectType
+                ]);
+                return $course && $courseSubjectType === $subjectType;
+            })->values();
+            
+            \Log::info('ExportResponses - After subject_type filter', [
+                'subject_type' => $subjectType,
+                'before_count' => $beforeSubjectFilter,
+                'after_count' => $allResponses->count()
+            ]);
         }
 
-        if ($end) {
-            $responsesQuery->where('created_at', '<=', $end);
-        }
-
-        $responses = $responsesQuery->orderBy('created_at')->get();
+        $responses = $allResponses;
 
         $facultySlug = Str::slug($evaluation->resolved_faculty_name, '_');
         $dateTag = now()->format('Ymd_His');
@@ -634,39 +881,27 @@ class EvaluationController extends Controller
 
             fputcsv($handle, [
                 'Faculty Name',
-                'Faculty Email',
                 'Faculty Department',
                 'Academic Year',
                 'Semester',
                 'Course Code',
                 'Course Name',
-                'Schedule Time',
-                'Schedule Days',
                 'Effectiveness Rating',
                 'Effectiveness Text',
                 'Feedback Comments',
-                'Response Submitted At',
-                'Evaluation Link',
-                'Evaluation Created At',
             ]);
 
             foreach ($responses as $response) {
                 fputcsv($handle, [
                     $evaluation->resolved_faculty_name,
-                    $evaluation->resolved_faculty_email,
                     $evaluation->resolved_faculty_department,
                     $evaluation->academic_year,
                     $evaluation->semester,
                     $response->resolved_course_code,
                     $response->resolved_course_name,
-                    $response->resolved_schedule_time,
-                    $response->resolved_schedule_days,
                     $response->effectiveness_rating,
                     $response->effectiveness_text,
                     $response->feedback_comments,
-                    optional($response->created_at)->toDateTimeString(),
-                    $evaluation->form_link,
-                    optional($evaluation->created_at)->toDateTimeString(),
                 ]);
             }
 

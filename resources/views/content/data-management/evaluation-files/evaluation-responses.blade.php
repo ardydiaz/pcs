@@ -178,8 +178,18 @@
                     </div>
                     @php
                         $from = request('from');
-                        $backRoute = $from === 'reports' ? route('reports') : route('dm.evaluation');
-                        $backLabel = $from === 'reports' ? 'Back to Reports' : 'Back to Evaluations';
+                        $department = request('department');
+                        $academicYear = request('academic_year', $evaluation->academic_year);
+                        $semester = request('semester', $evaluation->semester);
+                        $subjectType = request('subject_type', 'all');
+                        
+                        if ($from === 'reports') {
+                            $backRoute = route('reports') . '?department=' . $department . '&academic_year=' . $academicYear . '&semester=' . $semester . '&subject_type=' . $subjectType;
+                            $backLabel = 'Back to Reports';
+                        } else {
+                            $backRoute = route('dm.evaluation');
+                            $backLabel = 'Back to Evaluations';
+                        }
                     @endphp
                     <div class="d-flex gap-2">
                         <button type="button" class="btn btn-primary" data-bs-toggle="modal"
@@ -233,6 +243,10 @@
                                     </option>
                                 </select>
                             </div>
+                            <!-- Hidden fields to preserve filter context from dashboard -->
+                            <input type="hidden" name="academic_year" value="{{ request('academic_year', $evaluation->academic_year) }}">
+                            <input type="hidden" name="semester" value="{{ request('semester', $evaluation->semester) }}">
+                            <input type="hidden" name="subject_type" value="{{ request('subject_type', 'all') }}">
                         </div>
                         <div class="modal-footer">
                             <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
