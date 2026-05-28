@@ -62,9 +62,9 @@ class ImportAll implements ToModel, WithHeadingRow // Class to handle the import
             return null;
         }
 
-        // Validate academic year format (should be something like "2023-2024" or "2024")
+        // Validate academic year format (should be something like "2023-2024")
         if (!$this->isValidAcademicYear($academicYear)) {
-            $this->skippedRecords[] = ['row' => $row, 'reason' => 'Invalid academic year format: ' . $academicYear];
+            $this->skippedRecords[] = ['row' => $row, 'reason' => 'Invalid academic year format: ' . $academicYear . '. Use YYYY-YYYY, for example 2025-2026'];
             return null;
         }
 
@@ -258,15 +258,14 @@ class ImportAll implements ToModel, WithHeadingRow // Class to handle the import
     // Helper function to normalize semester values to standard format matching enum values
     private function normalizeSemester($semester): string
     {
-        $value = strtolower(trim((string) $semester));
-        if ($value === '1st' || $value === '1st semester') {
-            return '1st';
-        } elseif ($value === '2nd' || $value === '2nd semester') {
-            return '2nd';
-        } elseif ($value === 'summer' || $value === 'summer semester') {
-            return 'Summer';
-        }
-        return '';
+        $value = preg_replace('/[^a-z0-9]+/', '', strtolower(trim((string) $semester)));
+
+        return match ($value) {
+            '1', '1st', '1stsemester', 'first', 'firstsem', 'firstsemester', 'semester1' => '1st',
+            '2', '2nd', '2ndsemester', 'second', 'secondsem', 'secondsemester', 'semester2' => '2nd',
+            '3', '3rd', 'summer', 'summersem', 'summersemester', 'midyear' => 'Summer',
+            default => '',
+        };
     }
 
     /**
@@ -301,15 +300,13 @@ class ImportAll implements ToModel, WithHeadingRow // Class to handle the import
      */
     private function isValidAcademicYear(string $academicYear): bool
     {
-        // Allow YYYY-YYYY format or just YYYY
         $academicYear = trim($academicYear);
-        
-        // Pattern: YYYY or YYYY-YYYY
-        if (preg_match('/^\d{4}(-\d{4})?$/', $academicYear)) {
-            return true;
+
+        if (!preg_match('/^(\d{4})-(\d{4})$/', $academicYear, $matches)) {
+            return false;
         }
-        
-        return false;
+
+        return (int) $matches[2] === (int) $matches[1] + 1;
     }
 
     /**

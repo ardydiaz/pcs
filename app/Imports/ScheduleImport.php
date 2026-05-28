@@ -147,11 +147,11 @@ class ScheduleImport implements ToModel, WithHeadingRow
 
     private function normalizeSemester($semester): string
     {
-        $value = strtolower(preg_replace('/[^a-z0-9]+/', '', trim((string) $semester)));
+        $value = preg_replace('/[^a-z0-9]+/', '', strtolower(trim((string) $semester)));
 
         return match ($value) {
-            '1', '1st', 'first', 'firstsem', 'firstsemester', 'semester1' => '1st',
-            '2', '2nd', 'second', 'secondsem', 'secondsemester', 'semester2' => '2nd',
+            '1', '1st', '1stsemester', 'first', 'firstsem', 'firstsemester', 'semester1' => '1st',
+            '2', '2nd', '2ndsemester', 'second', 'secondsem', 'secondsemester', 'semester2' => '2nd',
             '3', '3rd', 'summer', 'summersem', 'summersemester', 'midyear' => 'Summer',
             default => '',
         };
