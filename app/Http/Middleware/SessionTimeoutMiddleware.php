@@ -32,7 +32,7 @@ class SessionTimeoutMiddleware
                 $timeoutInSeconds = $sessionTimeout * 60;
                 
                 // If session has expired
-                if ($timeSinceLastActivity > $timeoutInSeconds) {
+                if ($timeSinceLastActivity >= $timeoutInSeconds) {
                     // Logout the user
                     Auth::logout();
                     Session::invalidate();

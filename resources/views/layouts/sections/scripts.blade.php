@@ -14,3 +14,44 @@
 <!-- BEGIN: Page JS-->
 @yield('page-script')
 <!-- END: Page JS-->
+
+@auth
+<script>
+  (() => {
+    const timeoutMs = {{ (int) config('session.lifetime', 120) * 60 * 1000 }};
+    const loginUrl = @json(route('login'));
+    const logoutUrl = @json(route('logout'));
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+    let timeoutId;
+
+    const logoutAfterIdle = () => {
+      if (!csrfToken) {
+        window.location.assign(loginUrl);
+        return;
+      }
+
+      window.fetch(logoutUrl, {
+        method: 'POST',
+        headers: {
+          'Accept': 'text/html',
+          'X-CSRF-TOKEN': csrfToken,
+        },
+        credentials: 'same-origin',
+      }).finally(() => {
+        window.location.assign(loginUrl);
+      });
+    };
+
+    const resetIdleTimer = () => {
+      window.clearTimeout(timeoutId);
+      timeoutId = window.setTimeout(logoutAfterIdle, timeoutMs);
+    };
+
+    ['click', 'keydown', 'scroll', 'touchstart'].forEach((eventName) => {
+      window.addEventListener(eventName, resetIdleTimer, { passive: true });
+    });
+
+    resetIdleTimer();
+  })();
+</script>
+@endauth

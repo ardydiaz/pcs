@@ -35,7 +35,7 @@ class MicrosoftOAuthController extends Controller
 
             $existingUser = User::whereRaw('LOWER(email) = ?', [$normalizedEmail])->first();
             if ($existingUser) {
-                Auth::login($existingUser, true);
+                Auth::login($existingUser);
                 return redirect()->intended('/dashboard');
             }
 
@@ -98,7 +98,7 @@ class MicrosoftOAuthController extends Controller
                 'avatar' => $microsoftUser->attributes['avatar'] ?? null,
             ]);
 
-            Auth::login($user, true);
+            Auth::login($user);
 
             return redirect()->intended('/dashboard');
 
