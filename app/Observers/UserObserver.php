@@ -4,6 +4,7 @@ namespace App\Observers;
 
 use App\Models\Faculty;
 use App\Models\User;
+use App\Support\AuditLogger;
 use Illuminate\Support\Facades\DB;
 
 class UserObserver
@@ -49,5 +50,16 @@ class UserObserver
                 'faculty_email_snapshot' => $user->email,
                 'faculty_department_snapshot' => $department,
             ]);
+
+        if (auth()->check()) {
+            AuditLogger::logModelUpdated($user, 'User Management', "User updated: {$user->name}");
+        }
+    }
+
+    public function deleted(User $user): void
+    {
+        if (auth()->check()) {
+            AuditLogger::logModelDeleted($user, 'User Management', "User deleted: {$user->name}");
+        }
     }
 }

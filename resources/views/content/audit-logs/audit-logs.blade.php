@@ -7,20 +7,7 @@
     .logs-table {
         font-size: 0.875rem;
     }
-    .action-badge {
-        font-size: 0.75rem;
-        padding: 0.25rem 0.5rem;
-    }
-    .action-faculty_created { background: #f3e5f5; color: #7b1fa2; }
-    .action-login { background: #f3e5f5; color: #7b1fa2; }
-    .action-logout { background: #f3e5f5; color: #7b1fa2; }
-    .action-user_registration { background: #f3e5f5; color: #7b1fa2; }
-    .user-agent-cell {
-        max-width: 500px;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-    }
+
     .filter-card {
         background: #f8f9fa;
         border: 1px solid #dee2e6;
@@ -28,142 +15,211 @@
         padding: 1rem;
         margin-bottom: 1.5rem;
     }
+
+    .log-description {
+        max-width: 360px;
+        white-space: normal;
+    }
+
+    .log-json {
+        max-width: 420px;
+        max-height: 180px;
+        overflow: auto;
+        margin: 0;
+        font-size: 0.75rem;
+        white-space: pre-wrap;
+    }
+
+    .severity-info { background: #e7f1ff; color: #0d47a1; }
+    .severity-warning { background: #fff4db; color: #8a5a00; }
+    .severity-danger { background: #fde7e9; color: #9f1239; }
+    .severity-critical { background: #f3e8ff; color: #581c87; }
 </style>
 @endsection
 
 @section('content')
 <div class="container-fluid">
-    {{-- Header --}}
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
             <h4 class="mb-1">System Activity Logs</h4>
-            <p class="text-muted mb-0">Monitor user activities and system events</p>
+            <p class="text-muted mb-0">Monitor user activity, affected modules, and record changes.</p>
         </div>
-        <div class="d-flex gap-2">
-            <button class="btn btn-outline-primary" onclick="window.print()">
-                <i class="bx bx-printer me-1"></i>Print Logs
-            </button>
-        </div>
+        <button class="btn btn-outline-primary" onclick="window.print()">
+            <i class="bx bx-printer me-1"></i>Print Logs
+        </button>
     </div>
 
-    {{-- Filters --}}
     <div class="filter-card">
         <form method="GET" action="{{ route('um.audit-logs') }}" class="row g-3">
-            <div class="col-md-4">
+            <div class="col-lg-3 col-md-6">
                 <label class="form-label">Search</label>
-                <input type="text" name="search" class="form-control" 
-                       placeholder="Search by user name..." 
-                       value="{{ $filters['search'] ?? '' }}">
+                <input type="text" name="search" class="form-control"
+                    placeholder="Name, email, IP, description"
+                    value="{{ $filters['search'] ?? '' }}">
             </div>
-            <div class="col-md-3">
-                <label class="form-label">Action Type</label>
+            <div class="col-lg-2 col-md-6">
+                <label class="form-label">Action</label>
                 <select name="action" class="form-select">
                     <option value="">All Actions</option>
-                    <option value="login" {{ request('action') === 'login' ? 'selected' : '' }}>Login</option>
-                    <option value="logout" {{ request('action') === 'logout' ? 'selected' : '' }}>Logout</option>
-                    <option value="faculty_created" {{ request('action') === 'faculty_created' ? 'selected' : '' }}>Faculty Created</option>
-                    <option value="user_registration" {{ request('action') === 'user_registration' ? 'selected' : '' }}>User Registration</option>
+                    @foreach($actions as $action)
+                        <option value="{{ $action }}" {{ ($filters['action'] ?? '') === $action ? 'selected' : '' }}>
+                            {{ ucwords(str_replace('_', ' ', $action)) }}
+                        </option>
+                    @endforeach
                 </select>
             </div>
-            <div class="col-md-3">
-                <label class="form-label">Date Range</label>
+            <div class="col-lg-2 col-md-6">
+                <label class="form-label">Module</label>
+                <select name="module" class="form-select">
+                    <option value="">All Modules</option>
+                    @foreach($modules as $module)
+                        <option value="{{ $module }}" {{ ($filters['module'] ?? '') === $module ? 'selected' : '' }}>
+                            {{ $module }}
+                        </option>
+                    @endforeach
+                </select>
+            </div>
+            <div class="col-lg-2 col-md-6">
+                <label class="form-label">Severity</label>
+                <select name="severity" class="form-select">
+                    <option value="">All Severities</option>
+                    @foreach($severities as $severity)
+                        <option value="{{ $severity }}" {{ ($filters['severity'] ?? '') === $severity ? 'selected' : '' }}>
+                            {{ ucfirst($severity) }}
+                        </option>
+                    @endforeach
+                </select>
+            </div>
+            <div class="col-lg-3 col-md-6">
+                <label class="form-label">Quick Date Range</label>
                 <select name="date_range" class="form-select">
                     <option value="">All Time</option>
-                    <option value="today" {{ request('date_range') === 'today' ? 'selected' : '' }}>Today</option>
-                    <option value="week" {{ request('date_range') === 'week' ? 'selected' : '' }}>This Week</option>
-                    <option value="month" {{ request('date_range') === 'month' ? 'selected' : '' }}>This Month</option>
+                    <option value="today" {{ ($filters['date_range'] ?? '') === 'today' ? 'selected' : '' }}>Today</option>
+                    <option value="week" {{ ($filters['date_range'] ?? '') === 'week' ? 'selected' : '' }}>This Week</option>
+                    <option value="month" {{ ($filters['date_range'] ?? '') === 'month' ? 'selected' : '' }}>This Month</option>
                 </select>
             </div>
-            <div class="col-md-2 d-flex align-items-end">
-                <div class="d-grid w-100 gap-2">
-                    <button type="submit" class="btn btn-primary">
-                        <i class="bx bx-filter-alt me-1"></i>Filter
-                    </button>
-                    <a href="{{ route('um.audit-logs') }}" class="btn btn-outline-secondary btn-sm">
-                        Clear
-                    </a>
-                </div>
+            <div class="col-lg-2 col-md-6">
+                <label class="form-label">From</label>
+                <input type="date" name="date_from" class="form-control" value="{{ $filters['date_from'] ?? '' }}">
+            </div>
+            <div class="col-lg-2 col-md-6">
+                <label class="form-label">To</label>
+                <input type="date" name="date_to" class="form-control" value="{{ $filters['date_to'] ?? '' }}">
+            </div>
+            <div class="col-lg-2 col-md-6">
+                <label class="form-label">Rows</label>
+                <select name="per_page" class="form-select">
+                    @foreach([10, 20, 50, 100] as $size)
+                        <option value="{{ $size }}" {{ request('per_page', 20) == $size ? 'selected' : '' }}>{{ $size }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div class="col-lg-3 col-md-6 d-flex align-items-end gap-2">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bx bx-filter-alt me-1"></i>Filter
+                </button>
+                <a href="{{ route('um.audit-logs') }}" class="btn btn-outline-secondary">Clear</a>
             </div>
         </form>
     </div>
 
-    {{-- Logs Table --}}
     <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
             <h5 class="card-title mb-0">Activity Logs</h5>
-            <div class="d-flex align-items-center gap-2">
-                <span class="text-muted">Show:</span>
-                <select class="form-select form-select-sm" style="width: auto;" onchange="changePerPage(this.value)">
-                    <option value="10" {{ request('per_page', 20) == 10 ? 'selected' : '' }}>10</option>
-                    <option value="20" {{ request('per_page', 20) == 20 ? 'selected' : '' }}>20</option>
-                    <option value="50" {{ request('per_page', 20) == 50 ? 'selected' : '' }}>50</option>
-                    <option value="100" {{ request('per_page', 20) == 100 ? 'selected' : '' }}>100</option>
-                </select>
-                <span class="text-muted">entries</span>
-            </div>
+            <span class="text-muted">{{ number_format($logs->total()) }} result{{ $logs->total() === 1 ? '' : 's' }}</span>
         </div>
         <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table table-hover logs-table mb-0">
+                <table class="table table-hover logs-table mb-0 align-middle">
                     <thead class="table-light">
                         <tr>
-                            <th style="width: 180px;">Date & Time</th>
-                            <th style="width: 180px;">User</th>
-                            <th style="width: 150px;">Action</th>
-                            <th style="width: 80px;">Method</th>
-                            <th style="width: 120px;">IP Address</th>
-                            <th>User Agent</th>
+                            <th>Date & Time</th>
+                            <th>User</th>
+                            <th>Action</th>
+                            <th>Module</th>
+                            <th>Description</th>
+                            <th>Severity</th>
+                            <th>IP</th>
+                            <th>Changes</th>
                         </tr>
                     </thead>
                     <tbody>
                         @forelse($logs as $log)
+                            @php
+                                $severity = $log->severity ?: 'info';
+                                $hasChanges = !empty($log->before_values) || !empty($log->after_values);
+                            @endphp
                             <tr>
                                 <td>
                                     <div class="fw-medium">{{ $log->created_at->format('M d, Y') }}</div>
                                     <small class="text-muted">{{ $log->created_at->format('h:i A') }}</small>
                                 </td>
                                 <td>
-                                    <div class="fw-medium">{{ $log->name }}</div>
+                                    <div class="fw-medium">{{ $log->name ?: 'System' }}</div>
+                                    <small class="text-muted">{{ $log->email ?: $log->role ?: '-' }}</small>
                                 </td>
                                 <td>
-                                    @php
-                                        $actionClass = 'action-' . str_replace(' ', '_', strtolower($log->action));
-                                        $actionLabels = [
-                                            'login' => 'Login',
-                                            'logout' => 'Logout', 
-                                            'faculty_created' => 'Faculty Created',
-                                            'user_registration' => 'User Registration'
-                                        ];
-                                        $actionLabel = $actionLabels[$log->action] ?? ucfirst(str_replace('_', ' ', $log->action));
-                                    @endphp
-                                    <span class="badge action-badge {{ $actionClass }}">
-                                        {{ $actionLabel }}
+                                    <span class="badge bg-label-primary">
+                                        {{ ucwords(str_replace('_', ' ', $log->action ?? '-')) }}
                                     </span>
+                                    <div><small class="text-muted">{{ $log->method ?: '-' }}</small></div>
+                                </td>
+                                <td>{{ $log->module ?: '-' }}</td>
+                                <td class="log-description">
+                                    {{ $log->description ?: '-' }}
+                                    @if($log->target_type || $log->target_id)
+                                        <div>
+                                            <small class="text-muted">
+                                                Target: {{ class_basename($log->target_type) ?: '-' }} #{{ $log->target_id ?: '-' }}
+                                            </small>
+                                        </div>
+                                    @endif
                                 </td>
                                 <td>
-                                    @if($log->method)
-                                        <span class="badge bg-label-secondary">{{ $log->method }}</span>
-                                    @else
-                                        <span class="text-muted">-</span>
-                                    @endif
+                                    <span class="badge severity-{{ $severity }}">{{ ucfirst($severity) }}</span>
                                 </td>
                                 <td>
                                     <code class="text-body">{{ $log->ipAddress ?: '-' }}</code>
                                 </td>
                                 <td>
-                                    <div class="user-agent-cell" title="{{ $log->userAgent }}">
-                                        {{ $log->userAgent ?: '-' }}
-                                    </div>
+                                    @if($hasChanges)
+                                        <button class="btn btn-sm btn-outline-secondary" type="button"
+                                            data-bs-toggle="collapse" data-bs-target="#logChanges{{ $log->id }}">
+                                            View
+                                        </button>
+                                    @else
+                                        <span class="text-muted">-</span>
+                                    @endif
                                 </td>
                             </tr>
+                            @if($hasChanges)
+                                <tr class="collapse" id="logChanges{{ $log->id }}">
+                                    <td colspan="8" class="bg-light">
+                                        <div class="row g-3">
+                                            <div class="col-md-6">
+                                                <div class="fw-medium mb-1">Before</div>
+                                                <pre class="log-json">{{ json_encode($log->before_values, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) ?: '-' }}</pre>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <div class="fw-medium mb-1">After</div>
+                                                <pre class="log-json">{{ json_encode($log->after_values, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) ?: '-' }}</pre>
+                                            </div>
+                                        </div>
+                                        <div class="mt-2">
+                                            <small class="text-muted" title="{{ $log->userAgent }}">User agent: {{ $log->userAgent ?: '-' }}</small>
+                                        </div>
+                                    </td>
+                                </tr>
+                            @endif
                         @empty
                             <tr>
-                                <td colspan="6" class="text-center py-5">
+                                <td colspan="8" class="text-center py-5">
                                     <div class="mb-3">
                                         <i class="bx bx-history bx-lg text-muted"></i>
                                     </div>
                                     <h6 class="text-muted">No activity logs found</h6>
-                                    <p class="text-muted mb-0">Try adjusting your search or filter criteria</p>
+                                    <p class="text-muted mb-0">Try adjusting your search or filters.</p>
                                 </td>
                             </tr>
                         @endforelse
@@ -189,44 +245,10 @@
 
 @section('page-script')
 <script>
-function changePerPage(value) {
-    const url = new URL(window.location);
-    url.searchParams.set('per_page', value);
-    url.searchParams.set('page', '1'); // Reset to first page
-    window.location.href = url.toString();
-}
-
-function exportLogs() {
-    const url = new URL(window.location);
-    url.searchParams.set('export', '1');
-    window.open(url.toString(), '_blank');
-}
-
-// Initialize on page load
-document.addEventListener('DOMContentLoaded', function() {
-    setupAutoRefresh();
-    
-    // Add tooltips for user agents
-    const userAgentCells = document.querySelectorAll('.user-agent-cell');
-    userAgentCells.forEach(cell => {
-        if (cell.scrollWidth > cell.clientWidth) {
-            cell.style.cursor = 'help';
-        }
-    });
-});
-
-// Keyboard shortcuts
 document.addEventListener('keydown', function(e) {
-    // Ctrl+F to focus search
     if (e.ctrlKey && e.key === 'f') {
         e.preventDefault();
         document.querySelector('input[name="search"]')?.focus();
-    }
-    
-    // Ctrl+R to refresh
-    if (e.ctrlKey && e.key === 'r') {
-        e.preventDefault();
-        window.location.reload();
     }
 });
 </script>

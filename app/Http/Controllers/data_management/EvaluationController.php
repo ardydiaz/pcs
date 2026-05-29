@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\{Evaluation, EvaluationResponse, Schedule, User, FacultyCourse, Faculty};
 use Illuminate\Support\Str;
+use App\Support\AuditLogger;
 use chillerlan\QRCode\QRCode;
 use chillerlan\QRCode\QROptions;
 use Illuminate\Http\Response;
@@ -384,8 +385,27 @@ class EvaluationController extends Controller
 
     public function toggleStatus(Request $request, Evaluation $evaluation)
     {
+        $previousStatus = $evaluation->is_active;
         $evaluation->update(['is_active' => !$evaluation->is_active]);
         $status = $evaluation->is_active ? 'activated' : 'deactivated';
+
+        AuditLogger::log($evaluation->is_active ? 'evaluation_activated' : 'evaluation_deactivated', [
+            'module' => 'Evaluation',
+            'description' => "Evaluation form {$status} for {$evaluation->resolved_faculty_name} ({$evaluation->academic_year} - {$evaluation->semester}).",
+            'target_type' => Evaluation::class,
+            'target_id' => $evaluation->id,
+            'before_values' => [
+                'is_active' => $previousStatus,
+            ],
+            'after_values' => [
+                'faculty_id' => $evaluation->faculty_id,
+                'faculty_name' => $evaluation->resolved_faculty_name,
+                'academic_year' => $evaluation->academic_year,
+                'semester' => $evaluation->semester,
+                'is_active' => $evaluation->is_active,
+            ],
+            'severity' => $evaluation->is_active ? 'info' : 'warning',
+        ]);
 
         if ($request->expectsJson()) {
             return response()->json([
@@ -406,7 +426,25 @@ class EvaluationController extends Controller
 
     public function destroy(Request $request, Evaluation $evaluation)
     {
+        $logValues = [
+            'faculty_id' => $evaluation->faculty_id,
+            'faculty_name' => $evaluation->resolved_faculty_name,
+            'academic_year' => $evaluation->academic_year,
+            'semester' => $evaluation->semester,
+            'is_active' => $evaluation->is_active,
+            'form_link' => $evaluation->form_link,
+        ];
+
         $evaluation->delete();
+
+        AuditLogger::log('evaluation_deleted', [
+            'module' => 'Evaluation',
+            'description' => "Evaluation form deleted for {$logValues['faculty_name']} ({$logValues['academic_year']} - {$logValues['semester']}).",
+            'target_type' => Evaluation::class,
+            'target_id' => $evaluation->id,
+            'before_values' => $logValues,
+            'severity' => 'danger',
+        ]);
 
         if ($request->expectsJson()) {
             return response()->json([
@@ -431,7 +469,27 @@ class EvaluationController extends Controller
             ], 422);
         }
 
+        $evaluations = Evaluation::whereIn('id', $ids)->get();
+        $logValues = $evaluations->map(fn ($evaluation) => [
+            'id' => $evaluation->id,
+            'faculty_id' => $evaluation->faculty_id,
+            'faculty_name' => $evaluation->resolved_faculty_name,
+            'academic_year' => $evaluation->academic_year,
+            'semester' => $evaluation->semester,
+            'is_active' => $evaluation->is_active,
+        ])->values()->all();
+
         $deleted = Evaluation::whereIn('id', $ids)->delete();
+
+        AuditLogger::log('evaluation_bulk_deleted', [
+            'module' => 'Evaluation',
+            'description' => "Bulk deleted {$deleted} evaluation form(s).",
+            'target_type' => Evaluation::class,
+            'before_values' => [
+                'evaluations' => $logValues,
+            ],
+            'severity' => 'danger',
+        ]);
 
         return response()->json([
             'success' => true,
@@ -458,6 +516,21 @@ class EvaluationController extends Controller
         $qrcode = new QRCode($options);
         $qrCodeImage = $qrcode->render($evaluation->form_link);
 
+        AuditLogger::log('evaluation_qr_downloaded', [
+            'module' => 'Evaluation',
+            'description' => "Downloaded QR code for {$evaluation->resolved_faculty_name} ({$evaluation->academic_year} - {$evaluation->semester}).",
+            'target_type' => Evaluation::class,
+            'target_id' => $evaluation->id,
+            'after_values' => [
+                'faculty_id' => $evaluation->faculty_id,
+                'faculty_name' => $evaluation->resolved_faculty_name,
+                'academic_year' => $evaluation->academic_year,
+                'semester' => $evaluation->semester,
+                'file_name' => $fileName,
+            ],
+            'severity' => 'info',
+        ]);
+
         return response($qrCodeImage)
             ->header('Content-Type', 'image/png')
             ->header('Content-Disposition', 'attachment; filename="' . $fileName . '"');
@@ -476,6 +549,20 @@ class EvaluationController extends Controller
 
         $qrcode = new QRCode($options);
         $qrCodeImage = $qrcode->render($evaluation->form_link);
+
+        AuditLogger::log('evaluation_qr_generated', [
+            'module' => 'Evaluation',
+            'description' => "Generated QR code preview for {$evaluation->resolved_faculty_name} ({$evaluation->academic_year} - {$evaluation->semester}).",
+            'target_type' => Evaluation::class,
+            'target_id' => $evaluation->id,
+            'after_values' => [
+                'faculty_id' => $evaluation->faculty_id,
+                'faculty_name' => $evaluation->resolved_faculty_name,
+                'academic_year' => $evaluation->academic_year,
+                'semester' => $evaluation->semester,
+            ],
+            'severity' => 'info',
+        ]);
 
         return response($qrCodeImage)->header('Content-Type', 'image/png');
     }
@@ -725,6 +812,23 @@ class EvaluationController extends Controller
         }
 
         $coursesEvaluatedCount = $this->countUniqueCoursesFromResponses($responses);
+
+        AuditLogger::log('evaluation_responses_viewed', [
+            'module' => 'Evaluation',
+            'description' => "Viewed responses for {$evaluation->resolved_faculty_name} ({$academicYear} - {$semester}).",
+            'target_type' => Evaluation::class,
+            'target_id' => $evaluation->id,
+            'after_values' => [
+                'faculty_id' => $evaluation->faculty_id,
+                'faculty_name' => $evaluation->resolved_faculty_name,
+                'academic_year' => $academicYear,
+                'semester' => $semester,
+                'subject_type' => $subjectType,
+                'responses_count' => $responses->count(),
+                'courses_evaluated_count' => $coursesEvaluatedCount,
+            ],
+            'severity' => 'info',
+        ]);
 
         return view('content.data-management.evaluation-files.evaluation-responses', compact(
             'evaluation',

@@ -3,10 +3,18 @@
 namespace App\Observers;
 
 use App\Models\FacultyCourse;
+use App\Support\AuditLogger;
 use Illuminate\Support\Facades\DB;
 
 class FacultyCourseObserver
 {
+    public function created(FacultyCourse $facultyCourse): void
+    {
+        if (auth()->check()) {
+            AuditLogger::logModelCreated($facultyCourse, 'Faculty Course', "Faculty course assignment created: {$facultyCourse->section}");
+        }
+    }
+
     public function updated(FacultyCourse $facultyCourse): void
     {
         $course = DB::table('courses')
@@ -14,6 +22,9 @@ class FacultyCourseObserver
             ->first(['class_code', 'subject_code']);
 
         if (!$course) {
+            if (auth()->check()) {
+                AuditLogger::logModelUpdated($facultyCourse, 'Faculty Course', "Faculty course assignment updated: {$facultyCourse->section}");
+            }
             return;
         }
 
@@ -27,5 +38,16 @@ class FacultyCourseObserver
                 'course_code_snapshot' => $course->class_code,
                 'course_name_snapshot' => $course->subject_code,
             ]);
+
+        if (auth()->check()) {
+            AuditLogger::logModelUpdated($facultyCourse, 'Faculty Course', "Faculty course assignment updated: {$facultyCourse->section}");
+        }
+    }
+
+    public function deleted(FacultyCourse $facultyCourse): void
+    {
+        if (auth()->check()) {
+            AuditLogger::logModelDeleted($facultyCourse, 'Faculty Course', "Faculty course assignment deleted: {$facultyCourse->section}");
+        }
     }
 }

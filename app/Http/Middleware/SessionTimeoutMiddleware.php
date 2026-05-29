@@ -6,6 +6,7 @@ use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Session;
+use App\Support\AuditLogger;
 
 class SessionTimeoutMiddleware
 {
@@ -33,6 +34,12 @@ class SessionTimeoutMiddleware
                 
                 // If session has expired
                 if ($timeSinceLastActivity >= $timeoutInSeconds) {
+                    AuditLogger::log('auto_logout', [
+                        'module' => 'Authentication',
+                        'description' => 'User was automatically logged out due to inactivity.',
+                        'severity' => 'warning',
+                    ], Auth::user());
+
                     // Logout the user
                     Auth::logout();
                     Session::invalidate();

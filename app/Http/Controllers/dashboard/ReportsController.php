@@ -8,6 +8,7 @@ use App\Models\{Evaluation, EvaluationResponse, Schedule, User, Faculty, Course,
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
+use App\Support\AuditLogger;
 use Carbon\Carbon;
 use ZipArchive;
 
@@ -729,6 +730,23 @@ class ReportsController extends Controller
                 $response->feedback_comments,
             ];
         }
+
+        AuditLogger::log('report_excel_exported', [
+            'module' => 'Reports',
+            'description' => "Exported report responses for {$department}.",
+            'after_values' => [
+                'department' => $department,
+                'academic_year' => $academicYear,
+                'semester' => $semester,
+                'subject_type' => $subjectType,
+                'start_date' => $start?->toDateString(),
+                'end_date' => $end?->toDateString(),
+                'evaluation_count' => $evaluations->count(),
+                'response_count' => $responses->count(),
+                'file_name' => $csvFilename,
+            ],
+            'severity' => 'info',
+        ]);
 
         // Use Laravel Excel to export with styling
         return \Maatwebsite\Excel\Facades\Excel::download(

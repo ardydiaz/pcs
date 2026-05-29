@@ -8,19 +8,19 @@ use App\Models\User; // Import the User model to get user information for loggin
 use Illuminate\Support\Facades\Auth; // Import Auth facade to get the authenticated user information
 use Illuminate\Support\Facades\Log; // Import Log facade for logging purposes
 use App\Http\Controllers\Controller; // Import the base Controller class
+use App\Support\AuditLogger;
 
 class AuditLogsController extends Controller // Define the controller class
 {
     // log system activity for user actions (registration, login, log out, new faculty record, updated course schedule)
-    public function logActivity($user, $action, $method, $ipAddress, $userAgent)
+    public function logActivity($user, $action, $method = null, $ipAddress = null, $userAgent = null, $description = null, array $context = [])
     {
-        AuditLogs::create([
-            'name' => $user->name, // Get the name of the user performing the action e.g John Doe
-            'action' => $action, // Description of the action performed e.g faculty_created, login, logout
-            'method' => $method, // HTTP method used for the action e.g GET, POST, PUT, DELETE
-            'ipAddress' => $ipAddress, // IP address from which the action was performed e.g 192.168.1.1
-            'userAgent' => $userAgent, // User agent string of the browser or client used for the action e.g Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36
-        ]); // AppServiceProvider will call this method to log activities when certain events occur (e.g user registration, login, logout)
+        AuditLogger::log($action, array_merge([
+            'description' => $description,
+            'method' => $method,
+            'ip_address' => $ipAddress,
+            'user_agent' => $userAgent,
+        ], $context), $user);
     }
 
     // Display listing of users registered, logged and logged out logs
@@ -28,22 +28,37 @@ class AuditLogsController extends Controller // Define the controller class
     {
         $search = $request->input('search'); // Get search input from request
         $actionFilter = $request->input('action'); // Get action filter from request
+        $moduleFilter = $request->input('module');
+        $severityFilter = $request->input('severity');
         $dateRange = $request->input('date_range'); // Get date range filter from request
+        $dateFrom = $request->input('date_from');
+        $dateTo = $request->input('date_to');
         $perPage = $request->input('per_page', 20); // Get per page setting, default 20
 
         $query = AuditLogs::query(); // Query without eager loading roles
         
-        // Search by user name
         if ($search) { 
-            $query->where('name', 'like', '%' . $search . '%'); 
+            $query->where(function ($builder) use ($search) {
+                $builder->where('name', 'like', '%' . $search . '%')
+                    ->orWhere('email', 'like', '%' . $search . '%')
+                    ->orWhere('description', 'like', '%' . $search . '%')
+                    ->orWhere('ipAddress', 'like', '%' . $search . '%');
+            });
         }
         
         // Filter by action type
         if ($actionFilter) {
             $query->where('action', $actionFilter);
         }
+
+        if ($moduleFilter) {
+            $query->where('module', $moduleFilter);
+        }
+
+        if ($severityFilter) {
+            $query->where('severity', $severityFilter);
+        }
         
-        // Filter by date range
         if ($dateRange) {
             $now = now();
             switch ($dateRange) {
@@ -58,9 +73,20 @@ class AuditLogsController extends Controller // Define the controller class
                     break;
             }
         }
+
+        if ($dateFrom) {
+            $query->whereDate('created_at', '>=', $dateFrom);
+        }
+
+        if ($dateTo) {
+            $query->whereDate('created_at', '<=', $dateTo);
+        }
  
         // Retrieve system activity logs ordered by creation date, paginated
         $logs = $query->orderBy('created_at', 'desc')->paginate((int) $perPage); 
+        $actions = AuditLogs::whereNotNull('action')->distinct()->orderBy('action')->pluck('action');
+        $modules = AuditLogs::whereNotNull('module')->distinct()->orderBy('module')->pluck('module');
+        $severities = AuditLogs::whereNotNull('severity')->distinct()->orderBy('severity')->pluck('severity');
  
         // Render the view with logs data
         return view('content.audit-logs.audit-logs', [
@@ -68,8 +94,15 @@ class AuditLogsController extends Controller // Define the controller class
             'filters' => [ // Return current filters
                 'search' => $search, // Current search term
                 'action' => $actionFilter, // Current action filter
+                'module' => $moduleFilter,
+                'severity' => $severityFilter,
                 'date_range' => $dateRange, // Current date range filter
+                'date_from' => $dateFrom,
+                'date_to' => $dateTo,
             ],
+            'actions' => $actions,
+            'modules' => $modules,
+            'severities' => $severities,
         ]);
     }
 }

@@ -15,6 +15,7 @@ use App\Observers\UserObserver; // Make sure to import the UserObserver
 use Illuminate\Support\ServiceProvider; // Make sure to import the base ServiceProvider class
 use App\Http\Controllers\user_management\AuditLogsController; // Import the AuditLogsController to log activities
 use Illuminate\Support\Facades\Event; // Import Event facade to listen for model events
+use App\Support\AuditLogger;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -40,56 +41,48 @@ class AppServiceProvider extends ServiceProvider
         // Register event listeners for logging activities in the AuditLogsController
         // Register system activity logging for user registration, login, and logout
         User::created(function ($user) {
-            $req = request();
-            (new AuditLogsController)->logActivity(
-                $user,
-                'user_registration',
-                $req->method(),
-                $req->ip(),
-                $req->header('User-Agent'),
-                'User registered.'
-            );
+            AuditLogger::log('user_registration', [
+                'module' => 'User Management',
+                'description' => "User registered: {$user->name}",
+                'target_type' => User::class,
+                'target_id' => $user->id,
+                'after_values' => $user->only(['name', 'email', 'role', 'status', 'department', 'job_title']),
+                'severity' => 'info',
+            ], $user);
         });
 
         // Listen for the Login event to log user login activity
         \Event::listen(\Illuminate\Auth\Events\Login::class, function ($event) {
-            $req = request();
-            (new AuditLogsController)->logActivity(
-                $event->user,
-                'login',
-                $req->method(),
-                $req->ip(),
-                $req->header('User-Agent'),
-                'User logged in.'
-            );
+            AuditLogger::log('login', [
+                'module' => 'Authentication',
+                'description' => 'User logged in.',
+                'severity' => 'info',
+            ], $event->user);
         });
 
         //
         \Event::listen(\Illuminate\Auth\Events\Logout::class, function ($event) {
-            $req = request();
-            (new AuditLogsController)->logActivity(
-                $event->user,
-                'logout',
-                $req->method(),
-                $req->ip(),
-                $req->header('User-Agent'),
-                'User logged out.'
-            );
+            if ($event->user) {
+                AuditLogger::log('logout', [
+                    'module' => 'Authentication',
+                    'description' => 'User logged out.',
+                    'severity' => 'info',
+                ], $event->user);
+            }
         });
 
         // Listen for the Faculty created event to log faculty record creation
         Faculty::created(function ($faculty) {
             $authUser = auth()->user();
             if ($authUser) {
-                $req = request();
-                (new AuditLogsController)->logActivity(
-                    $authUser,
-                    'faculty_created',
-                    $req->method(),
-                    $req->ip(),
-                    $req->header('User-Agent'),
-                    "New faculty record created: {$faculty->employee_no}"
-                );
+                AuditLogger::log('faculty_created', [
+                    'module' => 'Faculty',
+                    'description' => "New faculty record created: {$faculty->employee_no}",
+                    'target_type' => Faculty::class,
+                    'target_id' => $faculty->id,
+                    'after_values' => $faculty->only(['user_id', 'employee_no', 'department', 'job_title', 'created_by']),
+                    'severity' => 'info',
+                ], $authUser);
             }
         });
     }
