@@ -118,6 +118,11 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/settings', [AccountSettingsAccount::class, 'index'])->name('settings')->middleware('access.level:settings');
     Route::post('/settings/maintenance', [AccountSettingsAccount::class, 'updateMaintenance'])->name('settings.maintenance')->middleware('admin');
 
+    // Session keep-alive for users actively working on long forms
+    Route::post('/session/keep-alive', function () {
+        return response()->noContent();
+    })->name('session.keep-alive');
+
     // Logout
     Route::post('/logout', function () {
         Auth::logout();

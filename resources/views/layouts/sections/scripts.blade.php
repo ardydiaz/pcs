@@ -21,8 +21,11 @@
     const timeoutMs = {{ (int) config('session.lifetime', 120) * 60 * 1000 }};
     const loginUrl = @json(route('login'));
     const logoutUrl = @json(route('logout'));
+    const keepAliveUrl = @json(route('session.keep-alive'));
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+    const keepAliveMs = Math.min(Math.max(Math.floor(timeoutMs / 2), 30000), 300000);
     let timeoutId;
+    let lastActivityAt = Date.now();
 
     const logoutAfterIdle = () => {
       if (!csrfToken) {
@@ -43,15 +46,32 @@
     };
 
     const resetIdleTimer = () => {
+      lastActivityAt = Date.now();
       window.clearTimeout(timeoutId);
       timeoutId = window.setTimeout(logoutAfterIdle, timeoutMs);
     };
 
-    ['click', 'keydown', 'scroll', 'touchstart'].forEach((eventName) => {
+    const keepSessionAlive = () => {
+      if (!csrfToken || Date.now() - lastActivityAt >= timeoutMs) {
+        return;
+      }
+
+      window.fetch(keepAliveUrl, {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'X-CSRF-TOKEN': csrfToken,
+        },
+        credentials: 'same-origin',
+      });
+    };
+
+    ['click', 'keydown', 'input', 'change', 'scroll', 'touchstart'].forEach((eventName) => {
       window.addEventListener(eventName, resetIdleTimer, { passive: true });
     });
 
     resetIdleTimer();
+    window.setInterval(keepSessionAlive, keepAliveMs);
   })();
 </script>
 @endauth

@@ -33,8 +33,15 @@ class MicrosoftOAuthController extends Controller
                     ->withErrors(['msg' => 'Microsoft account is missing an email address. Please contact administrator.']);
             }
 
+            $avatar = $this->fetchMicrosoftAvatar($microsoftUser->token ?? null)
+                ?? ($microsoftUser->attributes['avatar'] ?? null);
+
             $existingUser = User::whereRaw('LOWER(email) = ?', [$normalizedEmail])->first();
             if ($existingUser) {
+                if ($avatar && $existingUser->avatar !== $avatar) {
+                    $existingUser->forceFill(['avatar' => $avatar])->save();
+                }
+
                 Auth::login($existingUser);
                 return redirect()->intended('/dashboard');
             }
@@ -95,7 +102,7 @@ class MicrosoftOAuthController extends Controller
                 'status' => 'Active',
                 'provider_id' => $microsoftUser->getId(),
                 'provider' => 'microsoft',
-                'avatar' => $microsoftUser->attributes['avatar'] ?? null,
+                'avatar' => $avatar,
             ]);
 
             Auth::login($user);
@@ -125,6 +132,32 @@ class MicrosoftOAuthController extends Controller
             session()->flush();
             return redirect()->route('login')
                 ->withErrors(['msg' => 'Microsoft login failed. Please try again.']);
+        }
+    }
+
+    private function fetchMicrosoftAvatar(?string $accessToken): ?string
+    {
+        if (!$accessToken) {
+            return null;
+        }
+
+        try {
+            $response = Http::withToken($accessToken)
+                ->accept('image/*')
+                ->timeout(10)
+                ->get('https://graph.microsoft.com/v1.0/me/photo/$value');
+
+            if (!$response->successful() || $response->body() === '') {
+                return null;
+            }
+
+            $contentType = $response->header('Content-Type', 'image/jpeg');
+
+            return 'data:' . $contentType . ';base64,' . base64_encode($response->body());
+        } catch (\Throwable $e) {
+            Log::warning('Microsoft profile photo unavailable', ['error' => $e->getMessage()]);
+
+            return null;
         }
     }
 
