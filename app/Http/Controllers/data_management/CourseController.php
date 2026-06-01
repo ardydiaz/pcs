@@ -12,6 +12,7 @@ use Illuminate\Http\JsonResponse;
 use App\Imports\CourseImport;
 use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 
 class CourseController extends Controller
 {
@@ -801,11 +802,21 @@ class CourseController extends Controller
     // Course CRUD
     public function storeCourse(Request $request): JsonResponse
     {
+        $subjectType = $request->subject_type ?? 'major';
+
         $validated = $request->validate([
-            'class_code' => 'required|string|unique:courses,class_code',
+            'class_code' => [
+                'required',
+                'string',
+                'max:255',
+                Rule::unique('courses', 'class_code')
+                    ->where('subject_code', $request->subject_code)
+                    ->where('subject_type', $subjectType),
+            ],
             'subject_code' => 'required|string|max:255',
         ]);
-        $validated['subject_type'] = $request->subject_type ?? 'major';
+
+        $validated['subject_type'] = $subjectType;
         $course = Course::create($validated);
 
         return response()->json([
@@ -817,11 +828,22 @@ class CourseController extends Controller
 
     public function updateCourse(Request $request, Course $course): JsonResponse
     {
+        $subjectType = $request->subject_type ?? $course->subject_type ?? 'major';
+
         $validated = $request->validate([
-            'class_code' => 'required|string|unique:courses,class_code,' . $course->id,
+            'class_code' => [
+                'required',
+                'string',
+                'max:255',
+                Rule::unique('courses', 'class_code')
+                    ->where('subject_code', $request->subject_code)
+                    ->where('subject_type', $subjectType)
+                    ->ignore($course->id),
+            ],
             'subject_code' => 'required|string|max:255',
         ]);
 
+        $validated['subject_type'] = $subjectType;
         $course->update($validated);
 
         return response()->json([
