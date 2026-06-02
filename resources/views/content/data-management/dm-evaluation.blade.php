@@ -94,6 +94,26 @@
     $canDelete = $isAdmin;
     $showDeleteDisabled = !$isAdmin;
     $canImport = $canManageEvaluations;
+
+    $currentUser = auth()->user();
+    $allowedDepartmentFilterOptions = collect();
+    if (!$isAdmin && $currentUser) {
+        $allowedDepartmentFilterOptions = collect(
+            array_merge(
+                \App\Models\Faculty::normalizeDepartmentList($currentUser->department ?? ''),
+                \App\Models\Faculty::normalizeDepartmentList(optional($currentUser->faculty)->department ?? ''),
+            ),
+        )
+            ->unique()
+            ->sort()
+            ->values()
+            ->map(function ($department) {
+                return [
+                    'value' => strtolower($department),
+                    'label' => $department,
+                ];
+            });
+    }
 @endphp
 
 @section('title', 'Data Management - Evaluation')
@@ -1827,6 +1847,7 @@
             semester: 'all',
             status: 'all',
         };
+        const evaluationAllowedDepartmentOptions = @json($allowedDepartmentFilterOptions);
         let evaluationDeleteModalInstance;
         let evaluationBulkDeleteModalInstance;
         let evaluationTableController = null;
@@ -2633,9 +2654,14 @@
                     label
                 }));
 
+            const departmentOptions = Array.isArray(evaluationAllowedDepartmentOptions) &&
+                evaluationAllowedDepartmentOptions.length > 0 ?
+                evaluationAllowedDepartmentOptions :
+                toOptions(sets.department);
+
             return {
                 faculty: toOptions(sets.faculty),
-                department: toOptions(sets.department),
+                department: departmentOptions,
                 year: toOptions(sets.year),
                 semester: toOptions(sets.semester),
             };

@@ -37,7 +37,9 @@ class Faculty extends Model
             $items = preg_split('/\s*,\s*/', $departments);
         }
 
-        $normalized = array_map(static fn ($value) => trim((string) $value), $items);
+        $normalized = array_map(static function ($value) {
+            return preg_replace('/\s+/', ' ', trim((string) $value));
+        }, $items);
         $filtered = array_filter($normalized, static fn ($value) => $value !== '');
         return array_values(array_unique($filtered));
     }
@@ -84,10 +86,8 @@ class Faculty extends Model
 
         return $query->where(function (Builder $builder) use ($departments) {
             foreach ($departments as $department) {
-                $builder->orWhereRaw(
-                    "FIND_IN_SET(?, REPLACE(department, ', ', ','))",
-                    [$department]
-                );
+                $normalizedColumn = "REPLACE(REPLACE(REPLACE(COALESCE(department, ''), '  ', ' '), ', ', ','), ', ', ',')";
+                $builder->orWhereRaw("FIND_IN_SET(?, $normalizedColumn)", [$department]);
             }
         });
     }

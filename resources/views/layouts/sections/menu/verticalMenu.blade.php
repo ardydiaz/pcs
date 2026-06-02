@@ -39,6 +39,7 @@
       'dashboard' => $canAccessDashboard,
       'reports' => $canViewReports,
       'dm.faculties' => $canManageFaculties,
+      'dm' => $canManageCourses,
       'dm.courses' => $canManageCourses,
       'dm.schedules' => $canManageSchedules,
       'dm.evaluation' => $canManageEvaluations || $canManageEvaluationQr,

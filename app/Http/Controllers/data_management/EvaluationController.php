@@ -17,9 +17,7 @@ class EvaluationController extends Controller
     public function index()
     {
         $user = auth()->user();
-        $accessLevels = collect($user?->access_level ?? []);
-        $canManageEvaluations = $accessLevels->contains('Manage Evaluations');
-        $shouldFilter = $user && $user->role !== 'Admin' && !$canManageEvaluations;
+        $shouldFilter = $user && $user->role !== 'Admin';
         $department = trim($user?->department ?? '');
         if ($department === '') {
             $department = trim(optional($user?->faculty)->department ?? '');
@@ -44,7 +42,15 @@ class EvaluationController extends Controller
 
         if ($shouldFilter) {
             $departmentFacultyIds = Faculty::forDepartments($departmentFilters)->pluck('user_id');
-            $evaluationsQuery->whereIn('faculty_id', $departmentFacultyIds);
+            $evaluationsQuery->where(function ($query) use ($departmentFacultyIds, $departmentFilters) {
+                if ($departmentFacultyIds->isNotEmpty()) {
+                    $query->whereIn('faculty_id', $departmentFacultyIds);
+                }
+
+                $query->orWhere(function ($snapshotQuery) use ($departmentFilters) {
+                    $this->applyDepartmentFilter($snapshotQuery, $departmentFilters, 'faculty_department_snapshot');
+                });
+            });
         }
 
         $evaluations = $evaluationsQuery->get();
@@ -1122,5 +1128,20 @@ class EvaluationController extends Controller
         if ($allowed->isEmpty()) {
             abort(404);
         }
+    }
+
+    private function applyDepartmentFilter($query, array $departments, string $column): void
+    {
+        if (empty($departments)) {
+            return;
+        }
+
+        $query->where(function ($builder) use ($departments, $column) {
+            $normalizedColumn = "REPLACE(REPLACE(REPLACE(COALESCE($column, ''), '  ', ' '), ', ', ','), ', ', ',')";
+
+            foreach ($departments as $department) {
+                $builder->orWhereRaw("FIND_IN_SET(?, $normalizedColumn)", [$department]);
+            }
+        });
     }
 }
