@@ -54,11 +54,11 @@
         $accessLevels = collect(auth()->user()?->access_level ?? []);
         $isAdmin = auth()->user()?->role === 'Admin';
         $canManageCourses = $isAdmin || $accessLevels->contains('Manage Courses');
-        $canAdd = $canManageCourses;
+        $canAdd = $isAdmin;
         $canEdit = $canManageCourses;
         $canDelete = $isAdmin;
         $showDeleteDisabled = !$isAdmin && $canManageCourses;
-        $canImport = $canManageCourses;
+        $canImport = $isAdmin;
     @endphp
 
     {{-- HEADER --}}

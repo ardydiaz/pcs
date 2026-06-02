@@ -19,14 +19,8 @@ class CourseController extends Controller
     public function index()
     {
         $user = auth()->user();
-        $accessLevels = collect($user?->access_level ?? []);
-        $canManageCourses = $accessLevels->contains('Manage Courses');
-        $shouldFilter = $user && $user->role !== 'Admin' && !$canManageCourses;
-        $department = trim($user?->department ?? '');
-        if ($department === '') {
-            $department = trim(optional($user?->faculty)->department ?? '');
-        }
-        $departmentFilters = Faculty::normalizeDepartmentList($department);
+        $shouldFilter = $user && $user->role !== 'Admin';
+        $departmentFilters = $this->resolveDepartmentScope($user);
 
         if ($shouldFilter && empty($departmentFilters)) {
             $courses = collect();
@@ -140,6 +134,10 @@ class CourseController extends Controller
     // }
     public function minorCoursesList(Request $request)
     {
+        $user = auth()->user();
+        $shouldFilter = $user && $user->role !== 'Admin';
+        $departmentFilters = $this->resolveDepartmentScope($user);
+
         $draw = intval($request->input('draw'));
         $start = intval($request->input('start'));
         $length = intval($request->input('length'));
@@ -165,6 +163,25 @@ class CourseController extends Controller
         $query = Course::withCount('facultyCourses')
             ->where('subject_type', 'minor');
 
+        if ($shouldFilter) {
+            if (empty($departmentFilters)) {
+                return response()->json([
+                    "draw" => $draw,
+                    "recordsTotal" => 0,
+                    "recordsFiltered" => 0,
+                    "data" => []
+                ]);
+            }
+
+            $query->whereHas('facultyCourses.faculty', function ($facultyQuery) use ($departmentFilters) {
+                $facultyQuery->forDepartments($departmentFilters);
+            })->withCount(['facultyCourses' => function ($facultyCourseQuery) use ($departmentFilters) {
+                $facultyCourseQuery->whereHas('faculty', function ($facultyQuery) use ($departmentFilters) {
+                    $facultyQuery->forDepartments($departmentFilters);
+                });
+            }]);
+        }
+
         // =========================
         // SEARCH FILTER
         // =========================
@@ -181,7 +198,13 @@ class CourseController extends Controller
         // =========================
         // TOTAL COUNTS
         // =========================
-        $recordsTotal = Course::where('subject_type', 'minor')->count();
+        $recordsTotalQuery = Course::where('subject_type', 'minor');
+        if ($shouldFilter) {
+            $recordsTotalQuery->whereHas('facultyCourses.faculty', function ($facultyQuery) use ($departmentFilters) {
+                $facultyQuery->forDepartments($departmentFilters);
+            });
+        }
+        $recordsTotal = $recordsTotalQuery->count();
 
         $recordsFiltered = $query->count();
 
@@ -206,6 +229,16 @@ class CourseController extends Controller
                 '<span class="badge rounded-pill text-bg-warning">GendEd Course</span>';
             $assignments =
                 $course->faculty_courses_count ?? 0;
+            $deleteAction = $user?->role === 'Admin'
+                ? '<a class="dropdown-item"
+                        href="javascript:void(0);"
+                        onclick="list_methods.deleteMinorCourse(this)"
+                        data-id="'.$course->id.'">
+
+                            <i class="icon-base bx bx-trash me-1"></i> Delete
+                        </a>'
+                : '';
+
             $actions = '
                 <div class="dropdown">
                     <button type="button" class="btn p-0 dropdown-toggle hide-arrow" data-bs-toggle="dropdown">
@@ -222,13 +255,7 @@ class CourseController extends Controller
                             <i class="icon-base bx bx-edit-alt me-1"></i> Edit
                         </a>
 
-                        <a class="dropdown-item"
-                        href="javascript:void(0);"
-                        onclick="list_methods.deleteMinorCourse(this)"
-                        data-id="'.$course->id.'">
-
-                            <i class="icon-base bx bx-trash me-1"></i> Delete
-                        </a>
+                        '.$deleteAction.'
 
                     </div>
                 </div>
@@ -251,6 +278,8 @@ class CourseController extends Controller
         ]);
     }
     public function saveAddMinorCourse(Request $request){
+        $this->authorizeAdminOnly();
+
          try {
 
             $request->validate([
@@ -312,6 +341,7 @@ class CourseController extends Controller
             // FIND COURSE
             // =========================
             $course = Course::findOrFail($id);
+            $this->authorizeCourseDepartmentAccess($course);
 
             // =========================
             // OPTIONAL SAFETY
@@ -369,6 +399,8 @@ class CourseController extends Controller
     }
 
     public function deletMinorCourse(Request $request){
+        $this->authorizeAdminOnly();
+
         $id = $request->input('id');
         try{
             $row = Course::findOrFail($id);
@@ -495,6 +527,10 @@ class CourseController extends Controller
     // }
     public function minorAssignmentsList(Request $request)
     {
+        $user = auth()->user();
+        $shouldFilter = $user && $user->role !== 'Admin';
+        $departmentFilters = $this->resolveDepartmentScope($user);
+
         $draw = intval($request->input('draw'));
         $start = intval($request->input('start'));
         $length = intval($request->input('length'));
@@ -525,6 +561,26 @@ class CourseController extends Controller
             ->join('faculties', 'faculty_courses.faculty_id', '=', 'faculties.id')
             ->where('courses.subject_type', 'minor')
             ->select('faculty_courses.*');
+
+        if ($shouldFilter) {
+            if (empty($departmentFilters)) {
+                return response()->json([
+                    "draw" => $draw,
+                    "recordsTotal" => 0,
+                    "recordsFiltered" => 0,
+                    "data" => []
+                ]);
+            }
+
+            $query->where(function ($departmentQuery) use ($departmentFilters) {
+                foreach ($departmentFilters as $department) {
+                    $departmentQuery->orWhereRaw(
+                        "FIND_IN_SET(?, REPLACE(REPLACE(REPLACE(COALESCE(faculties.department, ''), '  ', ' '), ', ', ','), ', ', ','))",
+                        [$department]
+                    );
+                }
+            });
+        }
         
         // =========================
         // FILTERS
@@ -571,9 +627,15 @@ class CourseController extends Controller
         // =========================
         // COUNTS
         // =========================
-        $recordsTotal = FacultyCourse::whereHas('course', function ($q) {
+        $recordsTotalQuery = FacultyCourse::whereHas('course', function ($q) {
             $q->where('subject_type', 'minor');
-        })->count();
+        });
+        if ($shouldFilter) {
+            $recordsTotalQuery->whereHas('faculty', function ($facultyQuery) use ($departmentFilters) {
+                $facultyQuery->forDepartments($departmentFilters);
+            });
+        }
+        $recordsTotal = $recordsTotalQuery->count();
 
         $recordsFiltered = $query->count();
 
@@ -597,6 +659,14 @@ class CourseController extends Controller
 
             $courseCode = optional($row->course)->class_code ?? 'N/A';
             $subjectCode = optional($row->course)->subject_code ?? 'N/A';
+
+            $deleteAction = $user?->role === 'Admin'
+                ? '<a class="dropdown-item" href="javascript:void(0);"
+                        onclick="list_methods.deleteAssignMinorCourse(this)"
+                        data-id="'.$row->id.'">
+                            <i class="icon-base bx bx-trash me-1"></i> Delete
+                        </a>'
+                : '';
 
             $data[] = [
                 // FACULTY
@@ -630,11 +700,7 @@ class CourseController extends Controller
                         data-id="'.$row->id.'">
                             <i class="icon-base bx bx-edit-alt me-1"></i> Edit
                         </a>
-                        <a class="dropdown-item" href="javascript:void(0);"
-                        onclick="list_methods.deleteAssignMinorCourse(this)"
-                        data-id="'.$row->id.'">
-                            <i class="icon-base bx bx-trash me-1"></i> Delete
-                        </a>
+                        '.$deleteAction.'
                     </div>
                 </div>'
             ];
@@ -650,6 +716,8 @@ class CourseController extends Controller
 
     public function SaveAddMinorCourseAssign(Request $request)
     {
+        $this->authorizeAdminOnly();
+
         $validated = $request->validate([
             'faculty_id' => 'required|exists:faculties,id',
             'course_id' => 'required|exists:courses,id',
@@ -714,6 +782,9 @@ class CourseController extends Controller
             ]);
 
             $assignment = FacultyCourse::findOrFail($id);
+            $this->authorizeFacultyCourseDepartmentAccess($assignment);
+            $targetFaculty = Faculty::findOrFail($request->faculty_id);
+            $this->authorizeFacultyDepartmentAccess($targetFaculty);
 
            $assignment->update(array_filter([
                 'faculty_id' => $request->faculty_id,
@@ -748,6 +819,8 @@ class CourseController extends Controller
     }
 
     public function deletAssignMinorCourse(Request $request){
+        $this->authorizeAdminOnly();
+
         $id = $request->input('id');
         try{
             $row = FacultyCourse::findOrFail($id);
@@ -766,12 +839,38 @@ class CourseController extends Controller
     }
 
     public function minorSubject(){
+        $user = auth()->user();
+        $shouldFilter = $user && $user->role !== 'Admin';
+        $departmentFilters = $this->resolveDepartmentScope($user);
+
         $facultyCoursesQuery = FacultyCourse::with(['faculty.user', 'course'])
             ->whereHas('course', function ($query) {
                 $query->where('subject_type', 'minor');
             });
-        $faculties = Faculty::with('user')->get();
-        $courses = Course::where('subject_type', 'minor')->get();
+
+        $facultiesQuery = Faculty::with('user');
+        $coursesQuery = Course::where('subject_type', 'minor');
+
+        if ($shouldFilter) {
+            if (empty($departmentFilters)) {
+                $faculties = collect();
+                $courses = collect();
+                $facultyCourses = collect();
+
+                return view('content.data-management.dm-minor-course', compact('faculties','courses', 'facultyCourses'));
+            }
+
+            $facultyCoursesQuery->whereHas('faculty', function ($query) use ($departmentFilters) {
+                $query->forDepartments($departmentFilters);
+            });
+            $facultiesQuery->forDepartments($departmentFilters);
+            $coursesQuery->whereHas('facultyCourses.faculty', function ($query) use ($departmentFilters) {
+                $query->forDepartments($departmentFilters);
+            });
+        }
+
+        $faculties = $facultiesQuery->get();
+        $courses = $coursesQuery->get();
         $facultyCourses = $facultyCoursesQuery->get();
 
         return view('content.data-management.dm-minor-course', compact('faculties','courses', 'facultyCourses'));
@@ -780,6 +879,8 @@ class CourseController extends Controller
     // Course Import
     public function import(Request $request)
     {
+        $this->authorizeAdminOnly();
+
         $request->validate([
             'file' => 'required|mimes:csv,xlsx,xls',
         ]);
@@ -802,6 +903,8 @@ class CourseController extends Controller
     // Course CRUD
     public function storeCourse(Request $request): JsonResponse
     {
+        $this->authorizeAdminOnly();
+
         $subjectType = $request->subject_type ?? 'major';
 
         $validated = $request->validate([
@@ -828,6 +931,8 @@ class CourseController extends Controller
 
     public function updateCourse(Request $request, Course $course): JsonResponse
     {
+        $this->authorizeCourseDepartmentAccess($course);
+
         $subjectType = $request->subject_type ?? $course->subject_type ?? 'major';
 
         $validated = $request->validate([
@@ -855,6 +960,8 @@ class CourseController extends Controller
 
     public function destroyCourse(Course $course): JsonResponse
     {
+        $this->authorizeAdminOnly();
+
         DB::transaction(function () use ($course) {
             $this->deleteAssignmentsForCourseIds([$course->id]);
             $course->delete();
@@ -868,6 +975,8 @@ class CourseController extends Controller
 
     public function bulkDestroyCourses(Request $request): JsonResponse
     {
+        $this->authorizeAdminOnly();
+
         $validated = $request->validate([
             'ids' => 'required|array',
             'ids.*' => 'integer|exists:courses,id',
@@ -892,6 +1001,8 @@ class CourseController extends Controller
     // Faculty Course Assignment CRUD
     public function storeFacultyCourse(Request $request): JsonResponse
     {
+        $this->authorizeAdminOnly();
+
         $validated = $request->validate([
             'faculty_id' => 'required|exists:faculties,id',
             'course_id' => 'required|exists:courses,id',
@@ -933,6 +1044,8 @@ class CourseController extends Controller
 
     public function updateFacultyCourse(Request $request, FacultyCourse $facultyCourse): JsonResponse
     {
+        $this->authorizeFacultyCourseDepartmentAccess($facultyCourse);
+
         $validated = $request->validate([
             'faculty_id' => 'required|exists:faculties,id', // <--- point to faculties.id
             'course_id' => 'required|exists:courses,id',
@@ -957,6 +1070,9 @@ class CourseController extends Controller
             ], 422);
         }
 
+        $targetFaculty = Faculty::findOrFail($validated['faculty_id']);
+        $this->authorizeFacultyDepartmentAccess($targetFaculty);
+
         $facultyCourse->update([
             'faculty_id' => $validated['faculty_id'],
             'course_id' => $validated['course_id'],
@@ -975,6 +1091,8 @@ class CourseController extends Controller
 
     public function destroyFacultyCourse(FacultyCourse $facultyCourse): JsonResponse
     {
+        $this->authorizeAdminOnly();
+
         DB::transaction(function () use ($facultyCourse) {
             $this->deleteSchedulesByAssignmentIds([$facultyCourse->id]);
             $facultyCourse->delete();
@@ -988,6 +1106,8 @@ class CourseController extends Controller
 
     public function bulkDestroyFacultyCourses(Request $request): JsonResponse
     {
+        $this->authorizeAdminOnly();
+
         $validated = $request->validate([
             'ids' => 'required|array',
             'ids.*' => 'integer|exists:faculty_courses,id',
@@ -1042,5 +1162,79 @@ class CourseController extends Controller
         }
 
         Schedule::whereIn('faculty_course_id', $assignmentIds)->delete();
+    }
+
+    private function authorizeAdminOnly(): void
+    {
+        if (auth()->user()?->role !== 'Admin') {
+            abort(404);
+        }
+    }
+
+    private function resolveDepartmentScope($user): array
+    {
+        if (!$user) {
+            return [];
+        }
+
+        return array_values(array_unique(array_merge(
+            Faculty::normalizeDepartmentList($user->department ?? ''),
+            Faculty::normalizeDepartmentList(optional($user->faculty)->department ?? '')
+        )));
+    }
+
+    private function authorizeFacultyDepartmentAccess(Faculty $faculty): void
+    {
+        $user = auth()->user();
+        if (!$user || $user->role === 'Admin') {
+            return;
+        }
+
+        $departmentFilters = $this->resolveDepartmentScope($user);
+        if (empty($departmentFilters)) {
+            abort(404);
+        }
+
+        $facultyDepartments = array_values(array_unique(array_merge(
+            Faculty::normalizeDepartmentList($faculty->department ?? ''),
+            Faculty::normalizeDepartmentList(optional($faculty->user)->department ?? '')
+        )));
+
+        if (collect($departmentFilters)->intersect($facultyDepartments)->isEmpty()) {
+            abort(404);
+        }
+    }
+
+    private function authorizeCourseDepartmentAccess(Course $course): void
+    {
+        $user = auth()->user();
+        if (!$user || $user->role === 'Admin') {
+            return;
+        }
+
+        $departmentFilters = $this->resolveDepartmentScope($user);
+        if (empty($departmentFilters)) {
+            abort(404);
+        }
+
+        $allowed = $course->facultyCourses()
+            ->whereHas('faculty', function ($query) use ($departmentFilters) {
+                $query->forDepartments($departmentFilters);
+            })
+            ->exists();
+
+        if (!$allowed) {
+            abort(404);
+        }
+    }
+
+    private function authorizeFacultyCourseDepartmentAccess(FacultyCourse $facultyCourse): void
+    {
+        $facultyCourse->loadMissing('faculty.user');
+        if (!$facultyCourse->faculty) {
+            abort(404);
+        }
+
+        $this->authorizeFacultyDepartmentAccess($facultyCourse->faculty);
     }
 }
