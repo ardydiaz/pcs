@@ -20,14 +20,8 @@ class FacultyController extends Controller // Controller class for managing facu
     public function index() // Display a listing of faculty information
     {
         $user = auth()->user();
-        $accessLevels = collect($user?->access_level ?? []);
-        $canManageFaculties = $accessLevels->contains('Manage Faculties');
-        $shouldFilter = $user && $user->role !== 'Admin' && !$canManageFaculties;
-        $department = trim($user?->department ?? '');
-        if ($department === '') {
-            $department = trim(optional($user?->faculty)->department ?? '');
-        }
-        $departmentFilters = Faculty::normalizeDepartmentList($department);
+        $shouldFilter = $user && $user->role !== 'Admin';
+        $departmentFilters = $this->resolveDepartmentScope($user);
 
         if ($shouldFilter && empty($departmentFilters)) {
             $faculties = collect();
@@ -55,6 +49,8 @@ class FacultyController extends Controller // Controller class for managing facu
     // to get new session cookies and update .env MCU_PHPSESSID and MCU_MFA_SESSION values for this to work
     public function searchEmployeeNo(Request $request) // Search for employee numbers by surname using the MCU HRNet POST API 
     {
+        $this->authorizeAdminOnly();
+
         $search = strtolower($request->input('query', ''));
 
         if (empty($search)) {
@@ -112,6 +108,8 @@ class FacultyController extends Controller // Controller class for managing facu
 
     public function import(Request $request) // Import faculty and user data from Excel file 
     {
+        $this->authorizeAdminOnly();
+
         $request->validate([
             'file' => 'required|mimes:xlsx,csv'
         ]);
@@ -178,6 +176,8 @@ class FacultyController extends Controller // Controller class for managing facu
 
     public function importAll(Request $request)
 {
+    $this->authorizeAdminOnly();
+
     $request->validate([
         'file' => 'required|mimes:xlsx,csv'
     ]);
@@ -202,6 +202,8 @@ class FacultyController extends Controller // Controller class for managing facu
 
     public function store(Request $request): JsonResponse
     {
+        $this->authorizeAdminOnly();
+
         $validated = $request->validate([
             'user_id' => 'nullable|exists:users,id|unique:faculties,user_id',
             'user_name' => 'nullable|string|max:255',
@@ -261,6 +263,8 @@ class FacultyController extends Controller // Controller class for managing facu
 
     public function update(Request $request, Faculty $faculty): JsonResponse
     {
+        $this->authorizeFacultyDepartmentAccess($faculty);
+
         $validated = $request->validate([
             'user_id' => 'required|exists:users,id|unique:faculties,user_id,' . $faculty->id,
             'employee_no' => 'required|string|unique:faculties,employee_no,' . $faculty->id,
@@ -293,6 +297,8 @@ class FacultyController extends Controller // Controller class for managing facu
 
     public function destroy(Faculty $faculty): JsonResponse
     {
+        $this->authorizeAdminOnly();
+
         DB::transaction(function () use ($faculty) {
             $this->deleteFacultyAssignments([$faculty->id]);
             $faculty->delete();
@@ -306,6 +312,8 @@ class FacultyController extends Controller // Controller class for managing facu
 
     public function bulkDestroy(Request $request): JsonResponse
     {
+        $this->authorizeAdminOnly();
+
         $validated = $request->validate([
             'ids' => 'required|array',
             'ids.*' => 'integer|exists:faculties,id',
@@ -346,6 +354,47 @@ class FacultyController extends Controller // Controller class for managing facu
 
         Schedule::whereIn('faculty_course_id', $facultyCourseIds)->delete();
         FacultyCourse::whereIn('id', $facultyCourseIds)->delete();
+    }
+
+    private function authorizeAdminOnly(): void
+    {
+        if (auth()->user()?->role !== 'Admin') {
+            abort(404);
+        }
+    }
+
+    private function resolveDepartmentScope(?User $user): array
+    {
+        if (!$user) {
+            return [];
+        }
+
+        return array_values(array_unique(array_merge(
+            Faculty::normalizeDepartmentList($user->department ?? ''),
+            Faculty::normalizeDepartmentList(optional($user->faculty)->department ?? '')
+        )));
+    }
+
+    private function authorizeFacultyDepartmentAccess(Faculty $faculty): void
+    {
+        $user = auth()->user();
+        if (!$user || $user->role === 'Admin') {
+            return;
+        }
+
+        $departmentFilters = $this->resolveDepartmentScope($user);
+        if (empty($departmentFilters)) {
+            abort(404);
+        }
+
+        $facultyDepartments = array_values(array_unique(array_merge(
+            Faculty::normalizeDepartmentList($faculty->department ?? ''),
+            Faculty::normalizeDepartmentList(optional($faculty->user)->department ?? '')
+        )));
+
+        if (collect($departmentFilters)->intersect($facultyDepartments)->isEmpty()) {
+            abort(404);
+        }
     }
 
     /**

@@ -115,12 +115,12 @@
     $accessLevels = collect(auth()->user()?->access_level ?? []);
     $isAdmin = auth()->user()?->role === 'Admin';
     $canManageFaculties = $isAdmin || $accessLevels->contains('Manage Faculties');
-    $canAdd = $canManageFaculties;
+    $canAdd = $isAdmin;
     $canEdit = $canManageFaculties;
     $canDelete = $isAdmin;
     $showDeleteDisabled = !$isAdmin && $canManageFaculties;
-    $canImport = $canManageFaculties;
-    $canImportAll = $canManageFaculties;
+    $canImport = $isAdmin;
+    $canImportAll = $isAdmin;
 @endphp
 
 @section('title', 'Data Management - Faculties')
@@ -1852,11 +1852,17 @@
     </div> <!-- End Faculty Management Container -->
 
     <!-- Modals rendered from partials/faculties -->
-    @include('content.data-management.partials.faculties.add-faculty-form-modal') <!-- Add Faculty Form Modal -->
+    @if ($canAdd)
+        @include('content.data-management.partials.faculties.add-faculty-form-modal') <!-- Add Faculty Form Modal -->
+    @endif
     @include('content.data-management.partials.faculties.edit-faculty-form-modal') <!-- Edit Faculty Form Modal -->
     @include('content.data-management.partials.faculties.delete-alert-modal') <!-- Delete Faculty Form Modal -->
     @include('content.data-management.partials.faculties.bulk-delete-modal') <!-- Bulk Delete Faculty Form Modal -->
-    @include('content.data-management.partials.faculties.excel-import-modal') <!-- Excel Import Faculty Form Modal -->
-    @include('content.data-management.partials.faculties.import-all-modal') <!-- Import All Modal -->
+    @if ($canImport)
+        @include('content.data-management.partials.faculties.excel-import-modal') <!-- Excel Import Faculty Form Modal -->
+    @endif
+    @if ($canImportAll)
+        @include('content.data-management.partials.faculties.import-all-modal') <!-- Import All Modal -->
+    @endif
 
 @endsection <!-- End Faculty Management Blade View Frontend -->
