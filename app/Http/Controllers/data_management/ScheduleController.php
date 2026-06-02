@@ -16,14 +16,8 @@ class ScheduleController extends Controller
     public function index()
     {
         $user = auth()->user();
-        $accessLevels = collect($user?->access_level ?? []);
-        $canManageSchedules = $accessLevels->contains('Manage Schedules');
-        $shouldFilter = $user && $user->role !== 'Admin' && !$canManageSchedules;
-        $department = trim($user?->department ?? '');
-        if ($department === '') {
-            $department = trim(optional($user?->faculty)->department ?? '');
-        }
-        $departmentFilters = Faculty::normalizeDepartmentList($department);
+        $shouldFilter = $user && $user->role !== 'Admin';
+        $departmentFilters = $this->resolveDepartmentScope($user);
 
         if ($shouldFilter && empty($departmentFilters)) {
             $schedules = collect();
@@ -52,6 +46,8 @@ class ScheduleController extends Controller
 
     public function import(Request $request)
     {
+        $this->authorizeAdminOnly();
+
         $request->validate([
             'file' => 'required|mimes:csv,txt,xlsx'
         ]);
@@ -76,6 +72,8 @@ class ScheduleController extends Controller
 
     public function store(Request $request)
     {
+        $this->authorizeAdminOnly();
+
         $validated = $request->validate([
             'faculty_course_id' => 'required|exists:faculty_courses,id',
             'time' => 'required|string', // e.g. "07:00a - 08:30a"
@@ -109,6 +107,8 @@ class ScheduleController extends Controller
 
     public function update(Request $request, Schedule $schedule): JsonResponse
     {
+        $this->authorizeScheduleDepartmentAccess($schedule);
+
         $validated = $request->validate([
             'faculty_course_id' => 'required|exists:faculty_courses,id',
             'time' => 'required|string', // e.g. "07:00a - 08:30a"
@@ -118,6 +118,8 @@ class ScheduleController extends Controller
 
         $validated['day'] = implode('', $validated['day']);
         $validated['time'] = $this->normalizeTimeInput($validated['time']);
+        $targetFacultyCourse = FacultyCourse::with('faculty.user')->findOrFail($validated['faculty_course_id']);
+        $this->authorizeFacultyCourseDepartmentAccess($targetFacultyCourse);
 
         $exists = Schedule::where('faculty_course_id', $validated['faculty_course_id'])
             ->where('time', $validated['time'])
@@ -143,6 +145,8 @@ class ScheduleController extends Controller
 
     public function destroy(Schedule $schedule): JsonResponse
     {
+        $this->authorizeAdminOnly();
+
         $schedule->delete();
 
         return response()->json([
@@ -153,6 +157,8 @@ class ScheduleController extends Controller
 
     public function bulkDestroy(Request $request): JsonResponse
     {
+        $this->authorizeAdminOnly();
+
         $validated = $request->validate([
             'ids' => 'required|array',
             'ids.*' => 'integer|exists:schedules,id',
@@ -177,5 +183,66 @@ class ScheduleController extends Controller
     {
         $normalized = preg_replace('/\s*to\s*/i', ' - ', $time);
         return preg_replace('/\s+/', ' ', trim($normalized));
+    }
+
+    private function authorizeAdminOnly(): void
+    {
+        if (auth()->user()?->role !== 'Admin') {
+            abort(404);
+        }
+    }
+
+    private function resolveDepartmentScope($user): array
+    {
+        if (!$user) {
+            return [];
+        }
+
+        return array_values(array_unique(array_merge(
+            Faculty::normalizeDepartmentList($user->department ?? ''),
+            Faculty::normalizeDepartmentList(optional($user->faculty)->department ?? '')
+        )));
+    }
+
+    private function authorizeFacultyDepartmentAccess(Faculty $faculty): void
+    {
+        $user = auth()->user();
+        if (!$user || $user->role === 'Admin') {
+            return;
+        }
+
+        $departmentFilters = $this->resolveDepartmentScope($user);
+        if (empty($departmentFilters)) {
+            abort(404);
+        }
+
+        $facultyDepartments = array_values(array_unique(array_merge(
+            Faculty::normalizeDepartmentList($faculty->department ?? ''),
+            Faculty::normalizeDepartmentList(optional($faculty->user)->department ?? '')
+        )));
+
+        if (collect($departmentFilters)->intersect($facultyDepartments)->isEmpty()) {
+            abort(404);
+        }
+    }
+
+    private function authorizeFacultyCourseDepartmentAccess(FacultyCourse $facultyCourse): void
+    {
+        $facultyCourse->loadMissing('faculty.user');
+        if (!$facultyCourse->faculty) {
+            abort(404);
+        }
+
+        $this->authorizeFacultyDepartmentAccess($facultyCourse->faculty);
+    }
+
+    private function authorizeScheduleDepartmentAccess(Schedule $schedule): void
+    {
+        $schedule->loadMissing('facultyCourse.faculty.user');
+        if (!$schedule->facultyCourse) {
+            abort(404);
+        }
+
+        $this->authorizeFacultyCourseDepartmentAccess($schedule->facultyCourse);
     }
 }

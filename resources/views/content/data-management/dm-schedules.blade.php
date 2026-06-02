@@ -109,11 +109,11 @@
     $accessLevels = collect(auth()->user()?->access_level ?? []);
     $isAdmin = auth()->user()?->role === 'Admin';
     $canManageSchedules = $isAdmin || $accessLevels->contains('Manage Schedules');
-    $canAdd = $canManageSchedules;
+    $canAdd = $isAdmin;
     $canEdit = $canManageSchedules;
     $canDelete = $isAdmin;
     $showDeleteDisabled = !$isAdmin && $canManageSchedules;
-    $canImport = $canManageSchedules;
+    $canImport = $isAdmin;
 @endphp
 
 @section('title', 'Data Management - Schedules') <!-- Set the page title for the schedules management page -->
