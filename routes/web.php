@@ -51,6 +51,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/data-management/faculties', [FacultyController::class, 'index'])->name('dm.faculties')->middleware('access.level:faculties');
     Route::post('/faculties/search-employee', [FacultyController::class, 'searchEmployeeNo'])->name('faculties.search-employee')->middleware('access.level:faculties');
     Route::post('/faculties/import', [FacultyController::class, 'import'])->name('faculties.import')->middleware('access.level:faculties');
+    Route::post('/faculties/convert-import-template', [FacultyController::class, 'convertImportTemplate'])->name('faculties.convert-import-template')->middleware('access.level:faculties');
     Route::post('/faculties/import-all', [FacultyController::class, 'importAll'])->name('faculties.import-all')->middleware('access.level:faculties');
     Route::post('/data-management/faculties', [FacultyController::class, 'store'])->name('dm.faculties.store')->middleware('access.level:faculties');
     Route::put('/data-management/faculties/{faculty}', [FacultyController::class, 'update'])->name('dm.faculties.update')->middleware('access.level:faculties');
@@ -106,6 +107,7 @@ Route::middleware(['auth'])->group(function () {
 
     // User Management
     Route::get('/user-management/users', [UserManagementController::class, 'index'])->name('um.users')->middleware('admin');
+    Route::get('/user-management/users/list', [UserManagementController::class, 'list'])->name('um.users.list')->middleware('admin');
     Route::post('/user-management/users', [UserManagementController::class, 'store'])->name('um.users.store')->middleware('admin');
     Route::put('/user-management/users/{user}', [UserManagementController::class, 'update'])->name('um.users.update')->middleware('admin');
     Route::delete('/user-management/users/{user}', [UserManagementController::class, 'destroy'])->name('um.users.destroy')->middleware('admin');

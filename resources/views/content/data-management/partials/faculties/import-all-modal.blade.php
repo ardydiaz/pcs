@@ -1,4 +1,70 @@
 @if ($canImportAll)
+    {{-- Convert Alternate Faculty Load Format to Import All Template --}}
+    <div class="modal fade" id="facultyConvertImportModal" tabindex="-1" aria-labelledby="facultyConvertImportModalLabel"
+        aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered evaluation-modal-dialog evaluation-modal-dialog--narrow">
+            <div class="modal-content evaluation-card">
+                <form method="POST" action="{{ route('faculties.convert-import-template') }}" enctype="multipart/form-data">
+                    @csrf
+                    <div class="modal-header evaluation-modal-header">
+                        <h5 class="modal-title mb-0" id="facultyConvertImportModalLabel">Convert Excel Template</h5>
+                        <button type="button" class="evaluation-modal-close" data-bs-dismiss="modal"
+                            aria-label="Close">Ã—</button>
+                    </div>
+                    <div class="modal-body evaluation-modal-body">
+                        <div class="mb-3">
+                            <label class="form-label" for="facultyConvertImportFile">Source Excel File</label>
+                            <input type="file" name="file" id="facultyConvertImportFile" class="form-control"
+                                accept=".csv,.xlsx,.xls" required>
+                            <small class="text-muted d-block mt-2">Accepted source headers: CLASS CODE, SUBJECT CODE,
+                                SECTION, INFORMATION, EMP. NO., FACULTY.</small>
+                        </div>
+
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label" for="facultyConvertAcademicYear">Academic Year</label>
+                                <input type="text" name="academic_year" id="facultyConvertAcademicYear"
+                                    class="form-control" value="2026-2027" placeholder="2026-2027" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label" for="facultyConvertSemester">Semester</label>
+                                <select name="semester" id="facultyConvertSemester" class="form-select" required>
+                                    <option value="1st Semester" selected>1st Semester</option>
+                                    <option value="2nd Semester">2nd Semester</option>
+                                    <option value="Summer">Summer</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label" for="facultyConvertSubjectType">Subject Type</label>
+                                <select name="subject_type" id="facultyConvertSubjectType" class="form-select" required>
+                                    <option value="major" selected>major</option>
+                                    <option value="minor">minor</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label" for="facultyConvertStatus">Status</label>
+                                <select name="status" id="facultyConvertStatus" class="form-select" required>
+                                    <option value="scheduled" selected>scheduled</option>
+                                    <option value="completed">completed</option>
+                                    <option value="cancelled">cancelled</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <small class="text-muted d-block mt-3">This only downloads a converted file. It will not change
+                            the database.</small>
+                    </div>
+                    <div class="modal-footer evaluation-modal-footer">
+                        <button type="button" class="btn btn-tertiary evaluation-modal-btn"
+                            data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-faculty-primary evaluation-modal-btn">Convert and
+                            Download</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     {{-- Import All Modal (Faculty, Course, Schedule) --}}
     <div class="modal fade" id="facultyImportAllModal" tabindex="-1" aria-labelledby="facultyImportAllModalLabel"
         aria-hidden="true">
@@ -17,10 +83,12 @@
                         <div id="facultyImportAllFileSection" class="mb-0">
                             <label class="form-label" for="facultyImportAllFile">Select File</label>
                             <input type="file" name="file" id="facultyImportAllFile" class="form-control"
-                                accept=".csv,.xlsx" required>
+                                accept=".csv,.xlsx,.xls" required>
                             <small class="text-muted d-block mt-2">Headers: employeeno, classcode, section,
-                                academicyear, semester, time, day (+ optional: subjectcode, status, name, department,
-                                jobtitle)</small>
+                                academicyear, semester, time, day, subjectcode (+ optional: subjecttype, status, name or
+                                fullname, department, jobtitle)</small>
+                            <small class="text-muted d-block mt-2">Import All adds new assignments and schedules without
+                                deleting previous data.</small>
                         </div>
 
                         <!-- Progress Section (hidden by default) -->
@@ -147,12 +215,13 @@
             };
 
             // Show success message and update UI after import completes
-            const showSuccess = (importedCount) => {
+            const showSuccess = (data) => {
+                const importedCount = data.imported || 0;
                 progressSection.classList.add('d-none');
                 fileSection.classList.add('d-none');
                 successSection.classList.remove('d-none');
                 successText.textContent =
-                    `${importedCount} schedule record${importedCount !== 1 ? 's have' : ' has'} been imported successfully with all related faculty, course, and evaluation data.`;
+                    `${importedCount} schedule record${importedCount !== 1 ? 's have' : ' has'} been imported successfully. Previous assignments and schedules were kept.`;
                 submitBtn.textContent = 'Done';
                 submitBtn.disabled = false;
                 submitBtn.addEventListener('click', () => {
@@ -276,15 +345,17 @@
                                 return;
                             }
 
-                            if (data.skipped && Array.isArray(data.skipped) && data.skipped.length >
+                            const skippedRecords = data.skipped_details || [];
+
+                            if (skippedRecords.length >
                                 0) {
-                                console.log('Showing skipped records:', data.skipped);
-                                showSkipped(data.skipped);
+                                console.log('Showing skipped records:', skippedRecords);
+                                showSkipped(skippedRecords);
                             } else {
                                 console.log('No skipped records');
                             }
 
-                            showSuccess(data.imported || 0);
+                            showSuccess(data);
 
                         }, 500);
                     })

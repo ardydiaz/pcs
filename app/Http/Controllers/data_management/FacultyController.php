@@ -11,6 +11,8 @@ use App\Models\Schedule; // Eloquent model representing the Schedule entity, use
 use App\Models\User; // Eloquent model representing the User entity, used for managing user accounts linked to faculty records
 use App\Imports\FacultyUserImport; // Import class for handling the import of faculty and user data from Excel files, utilizing the Maatwebsite Excel package for parsing and processing the data
 use App\Imports\ImportAll; // Import class for handling the import of faculty, course, and schedule data from Excel files, utilizing the Maatwebsite Excel package for parsing and processing the data
+use App\Exports\FacultyLoadTemplateExport;
+use App\Imports\FacultyLoadSourceConverter;
 use Maatwebsite\Excel\Facades\Excel; // Facade for the Maatwebsite Excel package, providing methods for importing and exporting Excel files, used in the import function to process uploaded faculty and user data from Excel files
 use Illuminate\Support\Facades\DB; // Facade for database operations, used for handling transactions when creating, updating, and deleting faculty records along with their related user accounts and assignments to ensure data integrity during complex operations that involve multiple database interactions
 use Illuminate\Support\Facades\Http; // Facade for making HTTP requests, integrating with external APIs to admin.mcu.edu.ph/MCU/CampusNet/FacultyLoad3.php to fetch EmployeeNo 
@@ -27,8 +29,10 @@ class FacultyController extends Controller // Controller class for managing facu
             $faculties = collect();
             $users = collect();
         } else {
-            $facultiesQuery = Faculty::with('user');
-            $usersQuery = User::whereNotIn('id', Faculty::pluck('user_id'));
+            $facultiesQuery = Faculty::with('user:id,name,email,department,job_title');
+            $usersQuery = User::select(['id', 'name', 'email', 'department', 'job_title', 'role'])
+                ->where('role', 'Faculty')
+                ->whereNotIn('id', Faculty::whereNotNull('user_id')->select('user_id'));
 
             if ($shouldFilter) {
                 $facultiesQuery->forDepartments($departmentFilters);
@@ -179,12 +183,30 @@ class FacultyController extends Controller // Controller class for managing facu
     $this->authorizeAdminOnly();
 
     $request->validate([
-        'file' => 'required|mimes:xlsx,csv'
+        'file' => 'required|mimes:xlsx,csv,xls',
     ]);
 
     $import = new ImportAll();
 
-    Excel::import($import, $request->file('file'));
+    try {
+        DB::transaction(function () use ($request, $import) {
+            Excel::import($import, $request->file('file'));
+
+            if ($import->getImportedCount() === 0) {
+                throw new \RuntimeException('No valid rows were found. No records were imported.');
+            }
+        });
+    } catch (\Throwable $e) {
+        $skipped = $import->getSkippedRecords();
+
+        return response()->json([
+            'success' => false,
+            'message' => $e->getMessage(),
+            'imported' => $import->getImportedCount(),
+            'skipped' => count($skipped),
+            'skipped_details' => array_slice($skipped, 0, 5),
+        ], 422);
+    }
 
     $imported = $import->getImportedCount();
     $skipped = $import->getSkippedRecords();
@@ -199,6 +221,38 @@ class FacultyController extends Controller // Controller class for managing facu
         'skipped_details' => array_slice($skipped, 0, 5),
     ]);
 }
+
+    public function convertImportTemplate(Request $request)
+    {
+        $this->authorizeAdminOnly();
+
+        $validated = $request->validate([
+            'file' => 'required|mimes:xlsx,csv,xls',
+            'academic_year' => ['required', 'string', 'regex:/^\d{4}-\d{4}$/'],
+            'semester' => 'required|string|in:1st Semester,2nd Semester,Summer',
+            'subject_type' => 'required|string|in:major,minor',
+            'status' => 'required|string|in:scheduled,completed,cancelled',
+        ]);
+
+        $converter = new FacultyLoadSourceConverter([
+            'academic_year' => $validated['academic_year'],
+            'semester' => $validated['semester'],
+            'subject_type' => $validated['subject_type'],
+            'status' => $validated['status'],
+        ]);
+
+        Excel::import($converter, $request->file('file'));
+
+        if (count($converter->rows()) === 0) {
+            return back()->withErrors([
+                'file' => 'No rows were found to convert.',
+            ]);
+        }
+
+        $filename = 'converted-import-all-template-' . now()->format('Ymd-His') . '.xlsx';
+
+        return Excel::download(new FacultyLoadTemplateExport($converter->rows()), $filename);
+    }
 
     public function store(Request $request): JsonResponse
     {

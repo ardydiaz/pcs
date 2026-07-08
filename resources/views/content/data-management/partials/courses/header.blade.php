@@ -7,7 +7,7 @@
                 <i class="fa-solid fa-book" style="font-size: 1.5rem;"></i>
                 Professional Course Actions
             </h5>
-            <p class="text-muted mb-0">Switch between managing courses or assignments, or import records from a file.</p>
+            <p class="text-muted mb-0">Switch between managing courses or assignments.</p>
         </div>
         <div class="course-tabs-panel">
             <div class="course-tabs-header">
@@ -19,14 +19,6 @@
                         Assign Course
                     </button>
                 </div>
-                @if ($canImport)
-                    <div class="course-tab-actions">
-                        <button type="button" class="btn btn-course-action" data-bs-toggle="modal"
-                            data-bs-target="#courseImportModal">
-                            <i class="fa-solid fa-upload me-2"></i> Import
-                        </button>
-                    </div>
-                @endif
             </div>
         </div>
     </div>

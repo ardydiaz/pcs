@@ -27,7 +27,20 @@ class CourseController extends Controller
             $faculties = collect();
             $facultyCourses = collect();
         } else {
-          $facultyCoursesQuery = FacultyCourse::with(['faculty.user', 'course'])
+          $facultyCoursesQuery = FacultyCourse::select([
+                'id',
+                'faculty_id',
+                'course_id',
+                'section',
+                'academic_year',
+                'semester',
+                'created_at',
+            ])
+            ->with([
+                'faculty:id,user_id,department,job_title',
+                'faculty.user:id,name,email',
+                'course:id,class_code,subject_code,subject_type',
+            ])
             ->whereHas('course', function ($query) {
                 $query->where('subject_type', 'major');
             });
@@ -35,8 +48,10 @@ class CourseController extends Controller
              //$facultyCoursesQuery = FacultyCourse::with(['faculty.user', 'course']);
 
         
-            $facultiesQuery = Faculty::with('user');
-            $coursesQuery = Course::where('subject_type', 'major');
+            $facultiesQuery = Faculty::select(['id', 'user_id', 'department', 'job_title'])
+                ->with('user:id,name,email');
+            $coursesQuery = Course::select(['id', 'class_code', 'subject_code', 'subject_type', 'created_at'])
+                ->where('subject_type', 'major');
             //$coursesQuery = Course::query();
 
             if ($shouldFilter) {
@@ -843,13 +858,27 @@ class CourseController extends Controller
         $shouldFilter = $user && $user->role !== 'Admin';
         $departmentFilters = $this->resolveDepartmentScope($user);
 
-        $facultyCoursesQuery = FacultyCourse::with(['faculty.user', 'course'])
+        $facultyCoursesQuery = FacultyCourse::select([
+                'id',
+                'faculty_id',
+                'course_id',
+                'section',
+                'academic_year',
+                'semester',
+            ])
+            ->with([
+                'faculty:id,user_id,department,job_title',
+                'faculty.user:id,name,email',
+                'course:id,class_code,subject_code,subject_type',
+            ])
             ->whereHas('course', function ($query) {
                 $query->where('subject_type', 'minor');
             });
 
-        $facultiesQuery = Faculty::with('user');
-        $coursesQuery = Course::where('subject_type', 'minor');
+        $facultiesQuery = Faculty::select(['id', 'user_id', 'department', 'job_title'])
+            ->with('user:id,name,email');
+        $coursesQuery = Course::select(['id', 'class_code', 'subject_code', 'subject_type'])
+            ->where('subject_type', 'minor');
 
         if ($shouldFilter) {
             if (empty($departmentFilters)) {

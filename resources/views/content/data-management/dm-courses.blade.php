@@ -87,7 +87,6 @@
     $canEdit = $canManageCourses;
     $canDelete = $isAdmin;
     $showDeleteDisabled = !$isAdmin && $canManageCourses;
-    $canImport = $isAdmin;
 @endphp
 
 <!-- Section for the page title, displayed in the browser tab and used by the layout -->
@@ -161,8 +160,6 @@
     <!-- Delete Assignment Alert & Bulk Component -->
     @include('content.data-management.partials.courses.delete-assignment-alert') <!-- This is included as a separate partial component for better organization -->
 
-    <!-- Excel Import Modal Component -->
-    @include('content.data-management.partials.courses.excel-import-modal') <!-- This is included as a separate partial component for better organization -->
 @endsection <!-- End of Course Page Content Section -->
 
 <!-- Section for Page Scripts. Functions and Event Listeners for the courses data management page -->
@@ -219,7 +216,6 @@
             canEdit: @json($canEdit),
             canDelete: @json($canDelete),
             showDeleteDisabled: @json($showDeleteDisabled),
-            canImport: @json($canImport),
         };
 
         document.addEventListener('DOMContentLoaded', () => {
@@ -731,14 +727,6 @@
                         event.preventDefault();
                         const data = this.formToObject(courseEditForm);
                         this.handleUpdateCourse(courseEditForm, data);
-                    });
-                }
-
-                const courseImportForm = document.getElementById('courseImportForm');
-                if (courseImportForm) {
-                    courseImportForm.addEventListener('submit', () => {
-                        const submitBtn = courseImportForm.querySelector('[type="submit"]');
-                        this.toggleButtonLoading(submitBtn, true, 'Import', 'Importing...');
                     });
                 }
 

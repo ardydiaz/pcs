@@ -23,10 +23,28 @@ class ScheduleController extends Controller
             $schedules = collect();
             $facultyCourses = collect();
         } else {
-            $schedulesQuery = Schedule::with(['facultyCourse.faculty.user', 'facultyCourse.course'])
+            $schedulesQuery = Schedule::select(['id', 'faculty_course_id', 'time', 'day', 'created_at'])
+                ->with([
+                    'facultyCourse:id,faculty_id,course_id,section,academic_year,semester',
+                    'facultyCourse.faculty:id,user_id,department,job_title',
+                    'facultyCourse.faculty.user:id,name,email',
+                    'facultyCourse.course:id,class_code,subject_code',
+                ])
                 ->orderBy('day', 'asc')
                 ->orderBy('time', 'asc');
-            $facultyCoursesQuery = FacultyCourse::with(['faculty.user', 'course']);
+            $facultyCoursesQuery = FacultyCourse::select([
+                    'id',
+                    'faculty_id',
+                    'course_id',
+                    'section',
+                    'academic_year',
+                    'semester',
+                ])
+                ->with([
+                    'faculty:id,user_id,department,job_title',
+                    'faculty.user:id,name,email',
+                    'course:id,class_code,subject_code',
+                ]);
 
             if ($shouldFilter) {
                 $schedulesQuery->whereHas('facultyCourse.faculty', function ($query) use ($departmentFilters) {

@@ -38,7 +38,7 @@ class ImportAll implements ToModel, WithHeadingRow // Class to handle the import
     {
          //dd($row);
         // Extract and validate employee number from the row
-        $employeeNo = isset($row['employeeno']) ? trim((string) $row['employeeno']) : '';
+        $employeeNo = $this->cell($row, 'employeeno');
         if ($employeeNo === '' || strlen($employeeNo) < 2) {
             $this->skippedRecords[] = ['row' => $row, 'reason' => 'Missing or invalid employee number'];
             $this->debugLog[] = [
@@ -50,15 +50,21 @@ class ImportAll implements ToModel, WithHeadingRow // Class to handle the import
         }
 
         // Extract and validate course details from the row
-        $classCode = isset($row['classcode']) ? trim((string) $row['classcode']) : '';
-        $subjectCode = isset($row['subjectcode']) ? trim((string) $row['subjectcode']) : '';
-        $section = isset($row['section']) ? trim((string) $row['section']) : '';
-        $academicYear = $this->normalizeAcademicYear(isset($row['academicyear']) ? trim((string) $row['academicyear']) : '');
+        $classCode = $this->cell($row, 'classcode');
+        $subjectCode = $this->cell($row, 'subjectcode');
+        $subjectType = strtolower($this->cell($row, 'subjecttype', 'major'));
+        $section = $this->cell($row, 'section');
+        $academicYear = $this->normalizeAcademicYear($this->cell($row, 'academicyear'));
         $semester = $this->normalizeSemester($row['semester'] ?? '');
 
         // Validate required course fields (subject_code is NOT NULL in database)
         if ($classCode === '' || $subjectCode === '' || $section === '' || $academicYear === '' || $semester === '') {
             $this->skippedRecords[] = ['row' => $row, 'reason' => 'Missing required course details'];
+            return null;
+        }
+
+        if (!in_array($subjectType, ['major', 'minor'], true)) {
+            $this->skippedRecords[] = ['row' => $row, 'reason' => 'Invalid subject type: ' . $subjectType . '. Must be major or minor'];
             return null;
         }
 
@@ -69,9 +75,9 @@ class ImportAll implements ToModel, WithHeadingRow // Class to handle the import
         }
 
         // Extract schedule details
-        $time = isset($row['time']) ? trim((string) $row['time']) : '';
-        $day = isset($row['day']) ? trim((string) $row['day']) : '';
-        $status = isset($row['status']) ? trim((string) $row['status']) : 'scheduled';
+        $time = $this->cell($row, 'time');
+        $day = $this->cell($row, 'day');
+        $status = strtolower($this->cell($row, 'status', 'scheduled'));
 
         if ($time === '' || $day === '') {
             $this->skippedRecords[] = ['row' => $row, 'reason' => 'Missing schedule time or day'];
@@ -84,22 +90,27 @@ class ImportAll implements ToModel, WithHeadingRow // Class to handle the import
             return null;
         }
 
-        // Validate that day contains valid day abbreviations
+        // Validate and normalize day abbreviations
         if (!$this->isValidDayFormat($day)) {
             $this->skippedRecords[] = ['row' => $row, 'reason' => 'Invalid day format: ' . $day];
             return null;
         }
+        $day = $this->normalizeDayInput($day);
 
         // Normalize time input to standard format (convert "to" to "-")
         $time = $this->normalizeTimeInput($time);
 
         try {
             // 1. Find or create Course
-            $course = Course::where('class_code', $classCode)->first();
+            $course = Course::where('class_code', $classCode)
+                ->where('subject_code', $subjectCode)
+                ->where('subject_type', $subjectType)
+                ->first();
             if (!$course) {
                 $course = Course::create([
                     'class_code' => $classCode,
                     'subject_code' => $subjectCode,
+                    'subject_type' => $subjectType,
                 ]);
             }
             
@@ -113,34 +124,31 @@ class ImportAll implements ToModel, WithHeadingRow // Class to handle the import
             $faculty = Faculty::where('employee_no', $employeeNo)->first();
 
             if (!$faculty) {
-                // Try to create faculty if name, department, and jobtitle are provided
-                $name = isset($row['name']) ? trim((string) $row['name']) : '';
-                $department = isset($row['department']) ? trim((string) $row['department']) : '';
-                $jobTitle = isset($row['jobtitle']) ? trim((string) $row['jobtitle']) : '';
+                // Create faculty even when optional profile details are missing.
+                $name = $this->cell($row, 'name') ?: $this->cell($row, 'fullname');
+                $department = $this->cell($row, 'department');
+                $jobTitle = $this->cell($row, 'jobtitle');
 
-                if ($name === '' || $department === '' || $jobTitle === '') {
-                    $this->skippedRecords[] = ['row' => $row, 'reason' => 'Faculty with employee number not found and insufficient data to create faculty'];
-                    return null;
+                $normalizedDepartment = $department === ''
+                    ? null
+                    : Faculty::serializeDepartmentList(Faculty::normalizeDepartmentList($department));
+
+                $user = null;
+                if ($name !== '') {
+                    $user = User::create([
+                        'name' => $name,
+                        'department' => $normalizedDepartment,
+                        'job_title' => $jobTitle === '' ? null : $jobTitle,
+                        'role' => 'Faculty',
+                        'status' => 'Active',
+                    ]);
                 }
 
-                // Normalize department and create user and faculty records
-                $normalizedDepartment = Faculty::serializeDepartmentList(
-                    Faculty::normalizeDepartmentList($department)
-                );
-
-                $user = User::create([
-                    'name' => $name,
-                    'department' => $normalizedDepartment,
-                    'job_title' => $jobTitle,
-                    'role' => 'Faculty',
-                    'status' => 'Active',
-                ]);
-
                 $faculty = Faculty::create([
-                    'user_id' => $user->id,
+                    'user_id' => $user?->id,
                     'employee_no' => $employeeNo,
                     'department' => $normalizedDepartment,
-                    'job_title' => $jobTitle,
+                    'job_title' => $jobTitle === '' ? null : $jobTitle,
                 ]);
             }
             
@@ -258,7 +266,7 @@ class ImportAll implements ToModel, WithHeadingRow // Class to handle the import
     // Helper function to normalize semester values to standard format matching enum values
     private function normalizeSemester($semester): string
     {
-        $value = preg_replace('/[^a-z0-9]+/', '', strtolower(trim((string) $semester)));
+        $value = preg_replace('/[^a-z0-9]+/', '', strtolower($this->cleanValue($semester)));
 
         return match ($value) {
             '1', '1st', '1stsemester', 'first', 'firstsem', 'firstsemester', 'semester1' => '1st',
@@ -285,7 +293,7 @@ class ImportAll implements ToModel, WithHeadingRow // Class to handle the import
      */
     private function normalizeAcademicYear(string $academicYear): string
     {
-        $academicYear = trim($academicYear);
+        $academicYear = $this->cleanValue($academicYear);
         
         // Remove all spaces and normalize dashes
         $normalized = preg_replace('/\s*-\s*/', '-', $academicYear);  // "2025 - 2026" → "2025-2026"
@@ -325,62 +333,73 @@ class ImportAll implements ToModel, WithHeadingRow // Class to handle the import
      */
     private function isValidDayFormat(string $day): bool
     {
-        $day = trim(strtoupper($day));
-        
+        return $this->normalizeDayInput($day) !== '';
+    }
+
+    private function normalizeDayInput(string $day): string
+    {
+        $day = strtoupper($this->cleanValue($day));
         if ($day === '') {
-            return false;
+            return '';
         }
-        
-        // Split by common delimiters and validate each part
-        // Allow formats like "M,T,W" or "M, T, W" or "MTW"
-        $parts = preg_split('/[,\s]+/', $day, -1, PREG_SPLIT_NO_EMPTY);
-        
-        if (empty($parts)) {
-            // Try treating as continuous string without delimiters
-            $parts = str_split($day);
-        }
-        
+
+        $tokens = str_contains($day, ',')
+            ? preg_split('/\s*,\s*/', $day, -1, PREG_SPLIT_NO_EMPTY)
+            : $this->parseContinuousDays(preg_replace('/\s+/', '', $day));
+
         $validDays = ['M', 'T', 'W', 'TH', 'F', 'S', 'SU'];
-        $processedDays = '';
-        $i = 0;
-        
-        while ($i < count($parts)) {
-            $part = trim($parts[$i]);
-            
-            // Check if this could be "TH" (2 characters)
-            if (strlen($part) >= 2 && substr($part, 0, 2) === 'TH' && in_array('TH', $validDays)) {
-                if (!in_array('TH', $processedDays != '' ? explode(',', $processedDays) : [])) {
-                    $processedDays .= ($processedDays ? ',' : '') . 'TH';
-                }
-                // Move past the "TH"
-                if (strlen($part) > 2) {
-                    array_splice($parts, $i, 1, [substr($part, 0, 2), substr($part, 2)]);
-                }
-                $i++;
+        $normalized = [];
+
+        foreach ($tokens as $token) {
+            $token = strtoupper(trim($token));
+            if (!in_array($token, $validDays, true)) {
+                return '';
             }
-            // Check if this could be "SU" (2 characters)
-            elseif (strlen($part) >= 2 && substr($part, 0, 2) === 'SU' && in_array('SU', $validDays)) {
-                if (!in_array('SU', $processedDays != '' ? explode(',', $processedDays) : [])) {
-                    $processedDays .= ($processedDays ? ',' : '') . 'SU';
-                }
-                // Move past the "SU"
-                if (strlen($part) > 2) {
-                    array_splice($parts, $i, 1, [substr($part, 0, 2), substr($part, 2)]);
-                }
-                $i++;
-            }
-            // Single character day
-            elseif (strlen($part) == 1 && in_array($part, $validDays)) {
-                if (!in_array($part, $processedDays != '' ? explode(',', $processedDays) : [])) {
-                    $processedDays .= ($processedDays ? ',' : '') . $part;
-                }
-                $i++;
-            } else {
-                // Invalid day abbreviation
-                return false;
+
+            if (!in_array($token, $normalized, true)) {
+                $normalized[] = $token;
             }
         }
-        
-        return !empty($processedDays);
+
+        return implode(',', $normalized);
+    }
+
+    private function parseContinuousDays(string $day): array
+    {
+        $tokens = [];
+        $index = 0;
+
+        while ($index < strlen($day)) {
+            $twoChars = substr($day, $index, 2);
+            if (in_array($twoChars, ['TH', 'SU'], true)) {
+                $tokens[] = $twoChars;
+                $index += 2;
+                continue;
+            }
+
+            $tokens[] = $day[$index];
+            $index++;
+        }
+
+        return $tokens;
+    }
+
+    private function cell(array $row, string $key, string $default = ''): string
+    {
+        if (!array_key_exists($key, $row) || $row[$key] === null) {
+            return $default;
+        }
+
+        $value = $this->cleanValue($row[$key]);
+
+        return $value === '' ? $default : $value;
+    }
+
+    private function cleanValue($value): string
+    {
+        $value = str_replace(["\xC2\xA0", "\u{00A0}"], ' ', (string) $value);
+        $value = preg_replace('/\s+/u', ' ', $value);
+
+        return trim($value ?? '');
     }
 }

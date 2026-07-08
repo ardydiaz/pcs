@@ -33,6 +33,36 @@
         ->sortBy('label')
         ->values();
 
+    $formatSemesterLabel = function ($value) {
+        $raw = trim((string) ($value ?? ''));
+        if ($raw === '') {
+            return 'Unknown Semester';
+        }
+
+        $normalized = strtolower(preg_replace('/[^a-z0-9]+/', '', $raw));
+
+        return [
+            '1' => '1st Semester',
+            '1st' => '1st Semester',
+            'first' => '1st Semester',
+            'firstsem' => '1st Semester',
+            'firstsemester' => '1st Semester',
+            'semester1' => '1st Semester',
+            '2' => '2nd Semester',
+            '2nd' => '2nd Semester',
+            'second' => '2nd Semester',
+            'secondsem' => '2nd Semester',
+            'secondsemester' => '2nd Semester',
+            'semester2' => '2nd Semester',
+            'summer' => 'Summer',
+            'summersem' => 'Summer',
+            'summersemester' => 'Summer',
+            'midyear' => 'Summer',
+            '3' => 'Summer',
+            '3rd' => 'Summer',
+        ][$normalized] ?? $raw;
+    };
+
     $predefinedDepartments = [
         'Academic Department',
         'Admissions and Financial Aid Department',
@@ -1248,9 +1278,11 @@
                                     $facultyDepartmentLabel = $facultyDepartments->isEmpty()
                                         ? 'N/A'
                                         : $facultyDepartments->implode(', ');
+                                    $programLabel = $evaluation->resolved_program_label;
                                     $facultyDepartmentSort = $facultyDepartments->isEmpty()
                                         ? 'n/a'
                                         : strtolower($facultyDepartments->implode(','));
+                                    $semesterLabel = $formatSemesterLabel($evaluation->semester);
                                     $searchTerms = strtolower(
                                         $facultyRawName .
                                             ' ' .
@@ -1258,9 +1290,13 @@
                                             ' ' .
                                             $facultyDepartmentLabel .
                                             ' ' .
+                                            $programLabel .
+                                            ' ' .
                                             $evaluation->academic_year .
                                             ' ' .
                                             $evaluation->semester .
+                                            ' ' .
+                                            $semesterLabel .
                                             ' ' .
                                             $statusTerm .
                                             ' ' .
@@ -1276,7 +1312,8 @@
                                     data-sort-responses="{{ $evaluation->responses->count() }}"
                                     data-label-faculty="{{ $facultyDisplayName }}"
                                     data-label-department="{{ $facultyDepartmentLabel }}"
-                                    data-label-semester="{{ $evaluation->semester }}"
+                                    data-label-program="{{ $programLabel }}"
+                                    data-label-semester="{{ $semesterLabel }}"
                                     data-label-status="{{ $evaluation->is_active ? 'Active' : 'Inactive' }}"
                                     data-search="{{ $searchTerms }}">
                                     @if ($canDelete || $showDeleteDisabled)
@@ -1311,7 +1348,7 @@
                                     </td>
                                     <td class="evaluation-pill-cell">
                                         <span class="evaluation-pill" data-pill-palette="blue"
-                                            data-pill-value="{{ strtolower($evaluation->semester) }}">{{ $evaluation->semester }}</span>
+                                            data-pill-value="{{ strtolower($evaluation->semester) }}">{{ $semesterLabel }}</span>
                                     </td>
                                     <td>
                                         <div class="evaluation-link-box">
@@ -1352,8 +1389,9 @@
                                                     <button type="button" class="dropdown-item" data-evaluation-preview
                                                         data-evaluation-id="{{ $evaluation->id }}"
                                                         data-evaluation-faculty="{{ e($facultyDisplayName) }}"
+                                                        data-evaluation-program="{{ e($programLabel) }}"
                                                         data-evaluation-year="{{ $evaluation->academic_year }}"
-                                                        data-evaluation-semester="{{ $evaluation->semester }}">
+                                                        data-evaluation-semester="{{ $semesterLabel }}">
                                                         Preview QR
                                                     </button>
                                                 </li>
@@ -1754,6 +1792,7 @@
                 <div class="modal-body evaluation-modal-body text-center">
                     <div class="mb-3">
                         <h6 id="qrFacultyName" class="text-primary mb-1"></h6>
+                        <div id="qrProgramLabel" class="fw-semibold mb-1"></div>
                         <small id="qrDetails" class="text-muted"></small>
                     </div>
                     <div class="qr-container mb-3">
@@ -2497,11 +2536,12 @@
                 button.addEventListener('click', () => {
                     const evaluationId = button.dataset.evaluationId;
                     const facultyName = button.dataset.evaluationFaculty || '';
+                    const programLabel = button.dataset.evaluationProgram || '';
                     const academicYear = button.dataset.evaluationYear || '';
                     const semester = button.dataset.evaluationSemester || '';
 
                     if (!evaluationId) return;
-                    showQrModal(evaluationId, facultyName, academicYear, semester);
+                    showQrModal(evaluationId, facultyName, academicYear, semester, programLabel);
                 });
             });
 
@@ -2916,9 +2956,14 @@
             });
         }
 
-        function showQrModal(evaluationId, facultyName, academicYear, semester) {
+        function showQrModal(evaluationId, facultyName, academicYear, semester, programLabel = '') {
             document.getElementById('qrFacultyName').textContent = facultyName;
-            document.getElementById('qrDetails').textContent = `${academicYear} - ${semester} Semester`;
+            const programEl = document.getElementById('qrProgramLabel');
+            if (programEl) {
+                programEl.textContent = programLabel;
+                programEl.classList.toggle('d-none', programLabel === '');
+            }
+            document.getElementById('qrDetails').textContent = `${academicYear} - ${semester}`;
 
             const qrContainer = document.getElementById('qrCodeContainer');
             const qrLoader = document.getElementById('qrLoader');

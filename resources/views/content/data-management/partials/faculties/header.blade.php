@@ -16,13 +16,11 @@
                     <i class="fa-solid fa-user-plus me-2"></i> Add Faculty
                 </button>
             @endif
-            @if ($canImport)
-                <button type="button" class="btn btn-faculty-action evaluation-modal-trigger" data-bs-toggle="modal"
-                    data-bs-target="#facultyImportModal">
-                    <i class="fa-solid fa-upload me-2"></i> Import Faculty
-                </button>
-            @endif
             @if ($canImportAll)
+                <button type="button" class="btn btn-faculty-action evaluation-modal-trigger" data-bs-toggle="modal"
+                    data-bs-target="#facultyConvertImportModal">
+                    <i class="fa-solid fa-file-excel me-2"></i> Convert Excel Template
+                </button>
                 <button type="button" class="btn btn-faculty-action evaluation-modal-trigger" data-bs-toggle="modal"
                     data-bs-target="#facultyImportAllModal">
                     <i class="fa-solid fa-file-import me-2"></i> Import Faculty and Schedule

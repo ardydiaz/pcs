@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Models\Faculty;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
@@ -19,12 +20,85 @@ class UserController extends Controller
      */
     public function index()
     {
-        $users = User::with('faculty')
-            ->orderBy('name')
-            ->get();
-
         return view('content.user-management.users', [
-            'users' => $users,
+            'users' => collect(),
+            'departmentOptions' => $this->getDistinctListOptions(['users.department', 'faculties.department']),
+            'jobTitleOptions' => $this->getDistinctListOptions(['users.job_title', 'faculties.job_title']),
+        ]);
+    }
+
+    public function list(Request $request): JsonResponse
+    {
+        $perPage = $request->input('per_page', 10);
+        $perPage = in_array((string) $perPage, ['10', '25', '50', '100'], true)
+            ? (int) $perPage
+            : 10;
+
+        $sortKey = $request->input('sort_key', 'name');
+        $sortDir = strtolower((string) $request->input('sort_dir', 'asc')) === 'desc' ? 'desc' : 'asc';
+        $search = trim((string) $request->input('search', ''));
+
+        $query = User::query()
+            ->select([
+                'users.id',
+                'users.name',
+                'users.email',
+                'users.department',
+                'users.job_title',
+                'users.role',
+                'users.access_level',
+                'users.status',
+            ])
+            ->with('faculty:id,user_id,department,job_title')
+            ->leftJoin('faculties as faculty_profiles', 'faculty_profiles.user_id', '=', 'users.id');
+
+        if ($search !== '') {
+            $query->where(function ($builder) use ($search) {
+                $like = '%' . str_replace(['%', '_'], ['\%', '\_'], $search) . '%';
+                $builder
+                    ->where('users.name', 'like', $like)
+                    ->orWhere('users.email', 'like', $like)
+                    ->orWhere('users.department', 'like', $like)
+                    ->orWhere('users.job_title', 'like', $like)
+                    ->orWhere('users.role', 'like', $like)
+                    ->orWhere('users.status', 'like', $like)
+                    ->orWhere('users.access_level', 'like', $like)
+                    ->orWhere('faculty_profiles.department', 'like', $like)
+                    ->orWhere('faculty_profiles.job_title', 'like', $like);
+            });
+        }
+
+        $this->applyListFilter($query, $request, 'department', ['users.department', 'faculty_profiles.department']);
+        $this->applyListFilter($query, $request, 'job', ['users.job_title', 'faculty_profiles.job_title']);
+        $this->applyListFilter($query, $request, 'role', ['users.role']);
+        $this->applyListFilter($query, $request, 'status', ['users.status']);
+
+        $sortColumns = [
+            'name' => 'users.name',
+            'department' => DB::raw('COALESCE(NULLIF(users.department, ""), faculty_profiles.department, "")'),
+            'job' => DB::raw('COALESCE(NULLIF(users.job_title, ""), faculty_profiles.job_title, "")'),
+            'role' => 'users.role',
+            'access' => 'users.access_level',
+            'status' => 'users.status',
+        ];
+
+        $query->orderBy($sortColumns[$sortKey] ?? 'users.name', $sortDir)
+            ->orderBy('users.id');
+
+        $users = $query->paginate($perPage)->withQueryString();
+
+        return response()->json([
+            'data' => $users->getCollection()
+                ->map(fn (User $user) => $this->serializeUserForList($user))
+                ->values(),
+            'meta' => [
+                'current_page' => $users->currentPage(),
+                'last_page' => $users->lastPage(),
+                'per_page' => $users->perPage(),
+                'total' => $users->total(),
+                'from' => $users->firstItem() ?? 0,
+                'to' => $users->lastItem() ?? 0,
+            ],
         ]);
     }
 
@@ -185,6 +259,103 @@ class UserController extends Controller
                 : 'User deleted successfully.',
             'deleted' => $ids,
         ]);
+    }
+
+    private function applyListFilter($query, Request $request, string $key, array $columns): void
+    {
+        $value = strtolower(trim((string) $request->input($key, 'all')));
+        if ($value === '' || $value === 'all') {
+            return;
+        }
+
+        $query->where(function ($builder) use ($columns, $value) {
+            foreach ($columns as $column) {
+                $builder->orWhereRaw("LOWER(COALESCE({$column}, '')) LIKE ?", ['%' . $value . '%']);
+            }
+        });
+    }
+
+    private function getDistinctListOptions(array $columns)
+    {
+        $options = collect();
+
+        foreach ($columns as $column) {
+            [$table, $field] = explode('.', $column, 2);
+            $options = $options->merge(
+                DB::table($table)
+                    ->whereNotNull($field)
+                    ->where($field, '!=', '')
+                    ->pluck($field)
+            );
+        }
+
+        return $options
+            ->flatMap(function ($value) {
+                return collect(explode(',', (string) $value))
+                    ->map(fn ($item) => trim($item))
+                    ->filter(fn ($item) => $item !== '');
+            })
+            ->unique()
+            ->sort()
+            ->values();
+    }
+
+    private function serializeUserForList(User $user): array
+    {
+        $resolvedDepartment = trim($user->department ?? '') !== ''
+            ? $user->department
+            : optional($user->faculty)->department;
+        $resolvedJobTitle = trim($user->job_title ?? '') !== ''
+            ? $user->job_title
+            : optional($user->faculty)->job_title;
+
+        $departmentRaw = trim($resolvedDepartment ?? '');
+        $departmentList = collect(explode(',', $departmentRaw))
+            ->map(fn ($value) => trim($value))
+            ->filter(fn ($value) => $value !== '')
+            ->values();
+        $resolvedDepartmentLabel = $departmentList->isEmpty()
+            ? '—'
+            : $departmentList->implode(', ');
+        $resolvedJobTitle = trim($resolvedJobTitle ?? '') !== '' ? $resolvedJobTitle : '—';
+        $rawStatus = $user->status ?? '';
+        $statusSlug = strtolower($rawStatus ?: 'inactive');
+        $statusClass = in_array($statusSlug, ['active', 'enabled'], true)
+            ? 'active'
+            : (in_array($statusSlug, ['pending', 'invited'], true) ? 'pending' : 'inactive');
+        $statusValue = $statusSlug === 'active'
+            ? 'Active'
+            : ($statusSlug === 'inactive' ? 'Inactive' : $rawStatus);
+        $rawRole = $user->role ?? '';
+        $roleLower = strtolower($rawRole);
+        $roleValue = $roleLower === 'admin'
+            ? 'Admin'
+            : ($roleLower === 'ntp'
+                ? 'NTP'
+                : ($roleLower === 'faculty'
+                    ? 'Faculty'
+                    : ($roleLower === 'student' ? 'Student' : $rawRole)));
+        $accessLevels = collect($user->access_level ?? [])
+            ->filter(fn ($level) => trim($level ?? '') !== '')
+            ->values();
+
+        return [
+            'id' => $user->id,
+            'name' => $user->name ?? 'Unnamed User',
+            'email' => $user->email ?? '',
+            'department_raw' => $departmentRaw,
+            'departments' => $departmentList->values(),
+            'department_label' => $resolvedDepartmentLabel,
+            'job_title' => $resolvedJobTitle,
+            'role' => $roleValue ?: 'User',
+            'access_levels' => $accessLevels->values(),
+            'access_levels_label' => $accessLevels->isEmpty() ? '—' : $accessLevels->implode(', '),
+            'status_label' => $statusValue ?: 'Inactive',
+            'status_value' => $statusValue ?: 'Inactive',
+            'status_slug' => $statusSlug,
+            'status_class' => $statusClass,
+            'is_current_user' => auth()->check() && auth()->id() === $user->id,
+        ];
     }
 
     private function normaliseAccessLevels(string $role, array $accessLevels): array

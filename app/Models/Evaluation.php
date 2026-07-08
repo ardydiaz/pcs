@@ -52,4 +52,34 @@ class Evaluation extends Model
     {
         return $this->faculty->department ?? $this->faculty_department_snapshot ?? '';
     }
+
+    public function getResolvedProgramLabelAttribute(): string
+    {
+        $department = strtolower($this->resolved_faculty_department);
+        if (!str_contains($department, 'college of dentistry')) {
+            return '';
+        }
+
+        $facultyProfile = Faculty::where('user_id', $this->faculty_id)->first();
+        if (!$facultyProfile) {
+            return '';
+        }
+
+        $hasOrthodonticsSchedule = Schedule::whereHas('facultyCourse', function ($query) use ($facultyProfile) {
+            $query->where('faculty_id', $facultyProfile->id)
+                ->where('academic_year', $this->academic_year)
+                ->where('semester', $this->semester)
+                ->whereHas('course', function ($courseQuery) {
+                    $courseQuery
+                        ->where('class_code', 'LIKE', 'MSDO%')
+                        ->orWhere('subject_code', 'LIKE', 'MSDO%')
+                        ->orWhere('subject_code', 'LIKE', '%Orthodontic%')
+                        ->orWhere('subject_code', 'LIKE', '%Orthodontics%');
+                });
+        })->exists();
+
+        return $hasOrthodonticsSchedule
+            ? 'Master of Science in Dentistry with specialization in Orthodontics'
+            : '';
+    }
 }

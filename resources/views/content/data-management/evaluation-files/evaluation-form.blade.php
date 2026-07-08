@@ -268,6 +268,7 @@
                 <div class="header-section">
                     <h1>{{ $evaluation->resolved_faculty_name }}</h1>
                     @php
+                        $programLabel = $evaluation->resolved_program_label;
                         $facultyDepartments = collect(explode(',', $evaluation->resolved_faculty_department ?? ''))
                             ->map(function ($value) {
                                 return trim($value);
@@ -284,6 +285,9 @@
                             <span class="department-pill">No department</span>
                         @endforelse
                     </div>
+                    @if ($programLabel !== '')
+                        <p class="fw-semibold mb-1">{{ $programLabel }}</p>
+                    @endif
                     <p class="text-muted">{{ $evaluation->semester }} Semester {{ $evaluation->academic_year }}
                         Post-Class Student Survey</p>
                 </div>

@@ -119,7 +119,6 @@
     $canEdit = $canManageFaculties;
     $canDelete = $isAdmin;
     $showDeleteDisabled = !$isAdmin && $canManageFaculties;
-    $canImport = $isAdmin;
     $canImportAll = $isAdmin;
 @endphp
 
@@ -168,7 +167,6 @@
             canEdit: @json($canEdit),
             canDelete: @json($canDelete),
             showDeleteDisabled: @json($showDeleteDisabled),
-            canImport: @json($canImport),
             canImportAll: @json($canImportAll),
         };
 
@@ -1858,9 +1856,6 @@
     @include('content.data-management.partials.faculties.edit-faculty-form-modal') <!-- Edit Faculty Form Modal -->
     @include('content.data-management.partials.faculties.delete-alert-modal') <!-- Delete Faculty Form Modal -->
     @include('content.data-management.partials.faculties.bulk-delete-modal') <!-- Bulk Delete Faculty Form Modal -->
-    @if ($canImport)
-        @include('content.data-management.partials.faculties.excel-import-modal') <!-- Excel Import Faculty Form Modal -->
-    @endif
     @if ($canImportAll)
         @include('content.data-management.partials.faculties.import-all-modal') <!-- Import All Modal -->
     @endif
