@@ -197,6 +197,43 @@
                 progressText.textContent = percentage + '%';
             };
 
+            const escapeHtml = (value) => String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+
+            const formatSkippedRecord = (record) => {
+                if (record.message) {
+                    return record.message;
+                }
+
+                const reason = record.reason || 'Unknown error';
+                const details = [];
+
+                if (record.row_number) {
+                    details.push(`Row ${record.row_number}`);
+                }
+
+                const employeeNo = record.employee_no || record.row?.employeeno || '';
+                details.push(`Employee: ${employeeNo || 'blank'}`);
+
+                const facultyName = record.faculty_name || record.row?.fullname || record.row?.name || '';
+                if (facultyName) details.push(`Faculty: ${facultyName}`);
+
+                const classCode = record.class_code || record.row?.classcode || '';
+                if (classCode) details.push(`Class: ${classCode}`);
+
+                const section = record.section || record.row?.section || '';
+                if (section) details.push(`Section: ${section}`);
+
+                const subjectCode = record.subject_code || record.row?.subjectcode || '';
+                if (subjectCode) details.push(`Subject: ${subjectCode}`);
+
+                return `${reason} (${details.join(', ')})`;
+            };
+
             // Show skipped records if there are any after import completes
             const showSkipped = (skippedRecords) => {
                 if (skippedRecords && skippedRecords.length > 0) {
@@ -204,12 +241,9 @@
                     skippedCount.textContent =
                         `${skippedRecords.length} record${skippedRecords.length !== 1 ? 's' : ''} could not be imported`;
                     skippedList.innerHTML = skippedRecords
-                        .map((record, idx) => {
-                            const reason = record.reason || 'Unknown error';
-                            const rowDisplay = record.row ? ` (Employee: ${record.row.employeeno || 'N/A'})` :
-                                '';
-                            return `<div class="py-1 px-2 bg-light rounded mb-1"><small>${reason}${rowDisplay}</small></div>`;
-                        })
+                        .map((record) =>
+                            `<div class="py-1 px-2 bg-light rounded mb-1"><small>${escapeHtml(formatSkippedRecord(record))}</small></div>`
+                        )
                         .join('');
                 }
             };
@@ -269,11 +303,7 @@
                     messageHtml += `<hr><strong>Skipped Records:</strong><ul class="mb-0 mt-2">`;
 
                     skipped.forEach((item, index) => {
-
-                        // FORCE STRING (important fix)
-                        const reason = String(item.reason || '');
-
-                        messageHtml += `<li>${index + 1}. ${reason}</li>`;
+                        messageHtml += `<li>${index + 1}. ${escapeHtml(formatSkippedRecord(item))}</li>`;
                     });
 
                     messageHtml += `</ul>`;

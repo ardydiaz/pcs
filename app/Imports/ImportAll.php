@@ -9,9 +9,12 @@ use App\Models\FacultyCourse; // Import FacultyCourse model to create records th
 use App\Models\Schedule; // Import Schedule model to create schedule records based on the imported data
 use Maatwebsite\Excel\Concerns\ToModel; // Interface to convert each row of the Excel file into a model instance
 use Maatwebsite\Excel\Concerns\WithHeadingRow; // Interface to indicate that the first row of the Excel file contains column headings, allowing us to access row data using those headings as keys
+use Maatwebsite\Excel\Concerns\RemembersRowNumber;
 
 class ImportAll implements ToModel, WithHeadingRow // Class to handle the import of all related data from an Excel file
 {
+    use RemembersRowNumber;
+
     protected $skippedRecords = []; // Array to track skipped records during import, such as those with missing required fields or duplicates
     protected $importedCount = 0; // Counter to track the number of successfully imported records, incremented each time a new faculty, course, and schedule record is created
     protected $debugLog = []; // Store detailed debug information for troubleshooting
@@ -40,7 +43,7 @@ class ImportAll implements ToModel, WithHeadingRow // Class to handle the import
         // Extract and validate employee number from the row
         $employeeNo = $this->cell($row, 'employeeno');
         if ($employeeNo === '' || strlen($employeeNo) < 2) {
-            $this->skippedRecords[] = ['row' => $row, 'reason' => 'Missing or invalid employee number'];
+            $this->skipRow($row, $employeeNo === '' ? 'Missing employee number' : 'Invalid employee number');
             $this->debugLog[] = [
                 'action' => 'Row skipped',
                 'reason' => 'Invalid employee number',
@@ -59,18 +62,18 @@ class ImportAll implements ToModel, WithHeadingRow // Class to handle the import
 
         // Validate required course fields (subject_code is NOT NULL in database)
         if ($classCode === '' || $subjectCode === '' || $section === '' || $academicYear === '' || $semester === '') {
-            $this->skippedRecords[] = ['row' => $row, 'reason' => 'Missing required course details'];
+            $this->skipRow($row, 'Missing required course details');
             return null;
         }
 
         if (!in_array($subjectType, ['major', 'minor'], true)) {
-            $this->skippedRecords[] = ['row' => $row, 'reason' => 'Invalid subject type: ' . $subjectType . '. Must be major or minor'];
+            $this->skipRow($row, 'Invalid subject type: ' . $subjectType . '. Must be major or minor');
             return null;
         }
 
         // Validate academic year format (should be something like "2023-2024")
         if (!$this->isValidAcademicYear($academicYear)) {
-            $this->skippedRecords[] = ['row' => $row, 'reason' => 'Invalid academic year format: ' . $academicYear . '. Use YYYY-YYYY, for example 2025-2026'];
+            $this->skipRow($row, 'Invalid academic year format: ' . $academicYear . '. Use YYYY-YYYY, for example 2025-2026');
             return null;
         }
 
@@ -80,19 +83,19 @@ class ImportAll implements ToModel, WithHeadingRow // Class to handle the import
         $status = strtolower($this->cell($row, 'status', 'scheduled'));
 
         if ($time === '' || $day === '') {
-            $this->skippedRecords[] = ['row' => $row, 'reason' => 'Missing schedule time or day'];
+            $this->skipRow($row, 'Missing schedule time or day');
             return null;
         }
 
         // Validate status matches enum values in database
         if (!$this->isValidStatus($status)) {
-            $this->skippedRecords[] = ['row' => $row, 'reason' => 'Invalid status: ' . $status . '. Must be one of: scheduled, completed, cancelled'];
+            $this->skipRow($row, 'Invalid status: ' . $status . '. Must be one of: scheduled, completed, cancelled');
             return null;
         }
 
         // Validate and normalize day abbreviations
         if (!$this->isValidDayFormat($day)) {
-            $this->skippedRecords[] = ['row' => $row, 'reason' => 'Invalid day format: ' . $day];
+            $this->skipRow($row, 'Invalid day format: ' . $day);
             return null;
         }
         $day = $this->normalizeDayInput($day);
@@ -116,7 +119,7 @@ class ImportAll implements ToModel, WithHeadingRow // Class to handle the import
             
             // Validate course was created/found successfully
             if (!$course || !$course->id) {
-                $this->skippedRecords[] = ['row' => $row, 'reason' => 'Failed to create or find course'];
+                $this->skipRow($row, 'Failed to create or find course');
                 return null;
             }
 
@@ -154,7 +157,7 @@ class ImportAll implements ToModel, WithHeadingRow // Class to handle the import
             
             // Validate faculty exists and has valid ID
             if (!$faculty || !$faculty->id) {
-                $this->skippedRecords[] = ['row' => $row, 'reason' => 'Failed to create or find faculty'];
+                $this->skipRow($row, 'Failed to create or find faculty');
                 return null;
             }
 
@@ -178,7 +181,7 @@ class ImportAll implements ToModel, WithHeadingRow // Class to handle the import
             
             // Validate FacultyCourse was created/found and can be queried back
             if (!$facultyCourse || !$facultyCourse->id) {
-                $this->skippedRecords[] = ['row' => $row, 'reason' => 'Failed to create or find faculty course assignment'];
+                $this->skipRow($row, 'Failed to create or find faculty course assignment');
                 return null;
             }
             
@@ -192,7 +195,7 @@ class ImportAll implements ToModel, WithHeadingRow // Class to handle the import
                 ->first();
             
             if (!$verifyFC) {
-                $this->skippedRecords[] = ['row' => $row, 'reason' => 'Faculty course assignment query verification failed'];
+                $this->skipRow($row, 'Faculty course assignment query verification failed');
                 return null;
             }
 
@@ -220,14 +223,14 @@ class ImportAll implements ToModel, WithHeadingRow // Class to handle the import
                         'status' => $status
                     ];
                 } catch (\Exception $scheduleError) {
-                    $this->skippedRecords[] = ['row' => $row, 'reason' => 'Failed to create schedule: ' . $scheduleError->getMessage()];
+                    $this->skipRow($row, 'Failed to create schedule: ' . $scheduleError->getMessage());
                     return null;
                 }
             }
             
             // Validate schedule was created and can be queried back
             if (!$schedule || !$schedule->id) {
-                $this->skippedRecords[] = ['row' => $row, 'reason' => 'Failed to create or find schedule'];
+                $this->skipRow($row, 'Failed to create or find schedule');
                 return null;
             }
 
@@ -238,7 +241,7 @@ class ImportAll implements ToModel, WithHeadingRow // Class to handle the import
                 ->first();
             
             if (!$verifySchedule) {
-                $this->skippedRecords[] = ['row' => $row, 'reason' => 'Schedule query verification failed'];
+                $this->skipRow($row, 'Schedule query verification failed');
                 return null;
             }
 
@@ -258,7 +261,7 @@ class ImportAll implements ToModel, WithHeadingRow // Class to handle the import
                 'error' => $e->getMessage(),
                 'employee_no' => $employeeNo ?? 'unknown'
             ];
-            $this->skippedRecords[] = ['row' => $row, 'reason' => 'Error: ' . $e->getMessage()];
+            $this->skipRow($row, 'Error: ' . $e->getMessage());
             return null;
         }
     }
@@ -393,6 +396,50 @@ class ImportAll implements ToModel, WithHeadingRow // Class to handle the import
         $value = $this->cleanValue($row[$key]);
 
         return $value === '' ? $default : $value;
+    }
+
+    private function skipRow(array $row, string $reason): void
+    {
+        $employeeNo = $this->cell($row, 'employeeno');
+        $facultyName = $this->cell($row, 'fullname') ?: $this->cell($row, 'name');
+        $classCode = $this->cell($row, 'classcode');
+        $section = $this->cell($row, 'section');
+        $subjectCode = $this->cell($row, 'subjectcode');
+        $rowNumber = $this->getRowNumber();
+
+        $summaryParts = [
+            'Employee: ' . ($employeeNo === '' ? 'blank' : $employeeNo),
+        ];
+
+        if ($facultyName !== '') {
+            $summaryParts[] = 'Faculty: ' . $facultyName;
+        }
+
+        if ($classCode !== '') {
+            $summaryParts[] = 'Class: ' . $classCode;
+        }
+
+        if ($section !== '') {
+            $summaryParts[] = 'Section: ' . $section;
+        }
+
+        if ($subjectCode !== '') {
+            $summaryParts[] = 'Subject: ' . $subjectCode;
+        }
+
+        $message = 'Row ' . ($rowNumber ?: 'unknown') . ': ' . $reason . ' (' . implode(', ', $summaryParts) . ')';
+
+        $this->skippedRecords[] = [
+            'row' => $row,
+            'row_number' => $rowNumber,
+            'reason' => $reason,
+            'message' => $message,
+            'employee_no' => $employeeNo,
+            'faculty_name' => $facultyName,
+            'class_code' => $classCode,
+            'section' => $section,
+            'subject_code' => $subjectCode,
+        ];
     }
 
     private function cleanValue($value): string
