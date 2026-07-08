@@ -22,6 +22,9 @@ class DashboardController extends Controller
     $isAdmin = $user && $user->role === 'Admin';
     $accessLevels = collect($user?->access_level ?? []);
     $canViewAllReports = $isAdmin;
+    $canAccessReports = $isAdmin
+      || $accessLevels->contains('View All Reports')
+      || $accessLevels->contains('View Department Reports');
 
     $departmentScope = $this->resolveDepartmentScope($user);
     if (!$canViewAllReports && empty($departmentScope)) {
@@ -31,6 +34,18 @@ class DashboardController extends Controller
     $currentTerm = $this->resolveCurrentTerm($canViewAllReports, $departmentScope);
     $currentAcademicYear = $currentTerm['academic_year'];
     $currentSemester = $currentTerm['semester'];
+    $currentSemesterValue = $currentTerm['semester_value'];
+    $reportDepartment = $canViewAllReports
+      ? 'all'
+      : collect($departmentScope)->first(fn ($department) => $department !== '__none__');
+    $smartReportUrl = $canAccessReports
+      ? route('reports', [
+        'department' => $reportDepartment ?: 'all',
+        'academic_year' => $currentAcademicYear !== 'No active term' ? $currentAcademicYear : 'all',
+        'semester' => $currentSemesterValue !== '' ? $currentSemesterValue : 'all',
+      ])
+      : null;
+    $smartReportLabel = $canViewAllReports ? 'View All Reports' : 'View My Department Report';
 
     // Total Statistics
     $totalFacultiesQuery = Faculty::query();
@@ -295,7 +310,10 @@ class DashboardController extends Controller
       'lastMonth',
       'activeEvaluations',
       'currentAcademicYear',
-      'currentSemester'
+      'currentSemester',
+      'smartReportUrl',
+      'smartReportLabel',
+      'canAccessReports'
     ));
   }
 
@@ -387,6 +405,7 @@ class DashboardController extends Controller
     return [
       'academic_year' => $term->academic_year ?? 'No active term',
       'semester' => $this->formatSemesterLabel($term->semester ?? ''),
+      'semester_value' => $term->semester ?? '',
     ];
   }
 

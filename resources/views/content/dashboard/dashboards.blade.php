@@ -21,7 +21,9 @@
               <h5 class="card-title text-primary mb-3">Welcome to Faculty Evaluation System! 📊</h5>
               <p class="mb-6">Track faculty performance and student feedback.<br>Academic Year: {{ $currentAcademicYear ?? '' }}
                 - {{ $currentSemester ?? '' }}</p>
-              <a href="{{ route('reports') }}" class="btn btn-sm btn-outline-primary">View Reports</a>
+              @if(!empty($canAccessReports) && !empty($smartReportUrl))
+                <a href="{{ $smartReportUrl }}" class="btn btn-sm btn-outline-primary">{{ $smartReportLabel }}</a>
+              @endif
             </div>
           </div>
           <div class="col-sm-5 text-center text-sm-left">
