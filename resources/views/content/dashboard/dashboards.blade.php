@@ -20,7 +20,7 @@
             <div class="card-body">
               <h5 class="card-title text-primary mb-3">Welcome to Faculty Evaluation System! 📊</h5>
               <p class="mb-6">Track faculty performance and student feedback.<br>Academic Year: {{ $currentAcademicYear ?? '' }}
-                - {{ $currentSemester ?? '' }} Semester</p>
+                - {{ $currentSemester ?? '' }}</p>
               <a href="{{ route('reports') }}" class="btn btn-sm btn-outline-primary">View Reports</a>
             </div>
           </div>

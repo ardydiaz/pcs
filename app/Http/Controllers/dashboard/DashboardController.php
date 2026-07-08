@@ -28,9 +28,9 @@ class DashboardController extends Controller
       $departmentScope = ['__none__'];
     }
 
-    // Get current academic year and semester (you might want to make this dynamic)
-    $currentAcademicYear = '2024-2025'; // Adjust as needed
-    $currentSemester = '1st'; // Adjust as needed
+    $currentTerm = $this->resolveCurrentTerm($canViewAllReports, $departmentScope);
+    $currentAcademicYear = $currentTerm['academic_year'];
+    $currentSemester = $currentTerm['semester'];
 
     // Total Statistics
     $totalFacultiesQuery = Faculty::query();
@@ -342,5 +342,61 @@ class DashboardController extends Controller
         $builder->orWhereRaw("FIND_IN_SET(?, $normalizedColumn)", [$department]);
       }
     });
+  }
+
+  private function resolveCurrentTerm(bool $canViewAllReports, array $departmentScope): array
+  {
+    $evaluationsQuery = Evaluation::query()
+      ->whereNotNull('academic_year')
+      ->where('academic_year', '!=', '')
+      ->whereNotNull('semester')
+      ->where('semester', '!=', '');
+
+    if (!$canViewAllReports) {
+      $this->applyDepartmentFilter($evaluationsQuery, $departmentScope, 'faculty_department_snapshot');
+    }
+
+    $term = $evaluationsQuery
+      ->select('academic_year', 'semester')
+      ->orderByDesc('academic_year')
+      ->orderByRaw("CASE semester WHEN '2nd' THEN 3 WHEN 'Summer' THEN 2 WHEN '1st' THEN 1 ELSE 0 END DESC")
+      ->latest('updated_at')
+      ->first();
+
+    if (!$term) {
+      $facultyCoursesQuery = FacultyCourse::query()
+        ->whereNotNull('academic_year')
+        ->where('academic_year', '!=', '')
+        ->whereNotNull('semester')
+        ->where('semester', '!=', '');
+
+      if (!$canViewAllReports) {
+        $facultyCoursesQuery->whereHas('faculty', function ($query) use ($departmentScope) {
+          $query->forDepartments($departmentScope);
+        });
+      }
+
+      $term = $facultyCoursesQuery
+        ->select('academic_year', 'semester')
+        ->orderByDesc('academic_year')
+        ->orderByRaw("CASE semester WHEN '2nd' THEN 3 WHEN 'Summer' THEN 2 WHEN '1st' THEN 1 ELSE 0 END DESC")
+        ->latest('updated_at')
+        ->first();
+    }
+
+    return [
+      'academic_year' => $term->academic_year ?? 'No active term',
+      'semester' => $this->formatSemesterLabel($term->semester ?? ''),
+    ];
+  }
+
+  private function formatSemesterLabel(?string $semester): string
+  {
+    return match ($semester) {
+      '1st' => '1st Semester',
+      '2nd' => '2nd Semester',
+      'Summer' => 'Summer',
+      default => trim((string) $semester) !== '' ? (string) $semester : 'No semester',
+    };
   }
 }
