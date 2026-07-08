@@ -49,6 +49,7 @@ Route::middleware(['auth'])->group(function () {
     
     // Faculty Management Routes
     Route::get('/data-management/faculties', [FacultyController::class, 'index'])->name('dm.faculties')->middleware('access.level:faculties');
+    Route::get('/data-management/faculties/list', [FacultyController::class, 'list'])->name('dm.faculties.list')->middleware('access.level:faculties');
     Route::post('/faculties/search-employee', [FacultyController::class, 'searchEmployeeNo'])->name('faculties.search-employee')->middleware('access.level:faculties');
     Route::post('/faculties/import', [FacultyController::class, 'import'])->name('faculties.import')->middleware('access.level:faculties');
     Route::post('/faculties/convert-import-template', [FacultyController::class, 'convertImportTemplate'])->name('faculties.convert-import-template')->middleware('access.level:faculties');

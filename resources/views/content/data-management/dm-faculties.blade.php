@@ -1,28 +1,6 @@
 @extends('layouts/contentNavbarLayout')
 
 @php
-    $facultyPayload = $faculties
-        ->sortByDesc(function ($faculty) {
-            return $faculty->created_at ?? $faculty->id ?? 0;
-        })
-        ->map(function ($faculty) {
-            $facultyUser = optional($faculty->user);
-
-            return [
-                'id' => $faculty->id,
-                'user_id' => $faculty->user_id,
-                'employee_no' => $faculty->employee_no,
-                'department' => $faculty->department,
-                'job_title' => $faculty->job_title ?? $facultyUser->job_title,
-                'user' => [
-                    'id' => $facultyUser->id,
-                    'name' => $facultyUser->name ?? $faculty->name ?? 'Unknown',
-                    'email' => $facultyUser->email,
-                    'job_title' => $facultyUser->job_title,
-                ],
-            ];
-        })->values();
-
     $registeredUserIds = $faculties
         ->pluck('user_id')
         ->filter()
@@ -46,8 +24,7 @@
         ];
     })->values();
 
-    $jobTitleOptions = collect()
-        ->merge($faculties->map(fn($faculty) => $faculty->job_title ?? optional($faculty->user)->job_title))
+    $jobTitleOptions = collect($jobTitleFilterOptions ?? [])
         ->merge($users->map(fn($user) => $user->job_title))
         ->map(fn($value) => trim((string) $value))
         ->filter(fn($value) => $value !== '')
@@ -89,15 +66,7 @@
     ];
 
     $departmentSelectOptions = collect($predefinedDepartments)
-        ->merge($faculties->flatMap(function ($faculty) {
-            return collect(explode(',', $faculty->department ?? ''))
-                ->map(function ($value) {
-                    return trim($value);
-                })
-                ->filter(function ($value) {
-                    return $value !== '';
-                });
-        }))
+        ->merge($departmentFilterOptions ?? [])
         ->merge($users->flatMap(function ($user) {
             return collect(explode(',', $user->department ?? ''))
                 ->map(function ($value) {
@@ -169,14 +138,20 @@
             showDeleteDisabled: @json($showDeleteDisabled),
             canImportAll: @json($canImportAll),
         };
+        const facultyListUrl = '{{ route('dm.faculties.list') }}';
+        const facultyFilterOptions = {
+            department: @json(collect($departmentFilterOptions ?? [])->map(fn($value) => ['value' => strtolower(trim($value)), 'label' => $value])->values()),
+            job: @json(collect($jobTitleOptions ?? [])->map(fn($value) => ['value' => strtolower(trim($value)), 'label' => $value])->values()),
+        };
 
         document.addEventListener('DOMContentLoaded', () => {
             initUserDropdowns();
             initDepartmentMultiselects();
 
             window.facultyPage = new FacultyPage({
-                faculties: @json($facultyPayload),
+                faculties: [],
                 users: @json($userOptions),
+                filterOptions: facultyFilterOptions,
             });
         });
 
@@ -609,17 +584,18 @@
         }
 
         class FacultyPage {
-            constructor({ faculties, users }) {
+            constructor({ faculties, users, filterOptions }) {
                 this.faculties = Array.isArray(faculties) ? faculties : [];
                 this.users = Array.isArray(users)
                     ? users.map((user) => this.normaliseUserOption(user)).filter(Boolean)
                     : [];
                 this.sortUserOptions();
+                this.filterOptions = filterOptions || { department: [], job: [] };
 
                 this.userDropdownEl = document.querySelector('[data-user-dropdown]');
 
                 this.selection = new Set();
-                this.sortState = { key: null, direction: 'asc' };
+                this.sortState = { key: 'id', direction: 'desc' };
                 this.filters = { department: 'all', job: 'all' };
                 this.lastSelectionScopeKey = this.getSelectionScopeKey();
 
@@ -628,6 +604,9 @@
                 this.selectAllEl = document.getElementById('facultySelectAll');
                 this.bulkBar = document.getElementById('facultyBulkBar');
                 this.selectedCountEl = document.getElementById('facultySelectedCount');
+                this.lengthSelect = document.getElementById('facultyRowsPerPage');
+                this.infoEl = this.tableRoot?.querySelector('[data-table-info]');
+                this.paginationEl = this.tableRoot?.querySelector('[data-table-pagination]');
 
                 this.alertContainer = document.getElementById('alertContainer');
                 this.searchInput = document.getElementById('facultySearch');
@@ -655,10 +634,17 @@
                 this.pendingBulkIds = null;
 
                 this.controller = null;
+                this.currentPage = 1;
+                this.searchTerm = '';
+                this.rowsPerPage = this.parseRowsPerPage(this.lengthSelect?.value || '10');
+                this.meta = { current_page: 1, last_page: 1, total: 0, from: 0, to: 0 };
+                this.requestToken = 0;
+                this.searchDebounce = null;
 
                 this.bindBaseEvents();
                 this.initSorting();
                 this.initSearchInput();
+                this.initPaginationControls();
                 this.initFilters();
                 this.renderTable();
             }
@@ -767,6 +753,7 @@
                         }
 
                         this.updateSortIndicators();
+                        this.currentPage = 1;
                         this.renderTable();
                     });
                 });
@@ -779,11 +766,11 @@
                 }
 
                 const toggleClear = () => {
-                    if (this.searchInput.value.trim() === '') {
-                        this.searchClear.classList.remove('is-visible');
-                    } else {
-                        this.searchClear.classList.add('is-visible');
-                    }
+                    this.searchTerm = this.searchInput.value.trim().toLowerCase();
+                    this.searchClear.classList.toggle('is-visible', this.searchTerm !== '');
+                    this.currentPage = 1;
+                    window.clearTimeout(this.searchDebounce);
+                    this.searchDebounce = window.setTimeout(() => this.renderTable(), 250);
                 };
 
                 this.searchInput.addEventListener('input', toggleClear);
@@ -794,6 +781,44 @@
                 });
 
                 toggleClear();
+            }
+
+            initPaginationControls() {
+                if (this.lengthSelect) {
+                    this.lengthSelect.addEventListener('change', () => {
+                        this.rowsPerPage = this.parseRowsPerPage(this.lengthSelect.value);
+                        this.currentPage = 1;
+                        this.renderTable();
+                    });
+                }
+
+                if (this.paginationEl) {
+                    this.paginationEl.addEventListener('click', (event) => {
+                        const link = event.target.closest('[data-page]');
+                        if (!link || link.closest('.page-item')?.classList.contains('disabled')) {
+                            return;
+                        }
+
+                        event.preventDefault();
+                        const page = parseInt(link.dataset.page, 10);
+                        if (!Number.isNaN(page)) {
+                            this.goToPage(page);
+                        }
+                    });
+                }
+
+                if (this.tableRoot) {
+                    window.tableControllers = window.tableControllers || {};
+                    window.tableControllers.facultyTable = {
+                        refresh: () => this.renderTable(),
+                        get searchTerm() {
+                            return window.facultyPage?.searchTerm || '';
+                        },
+                        get filteredRows() {
+                            return Array.from(document.querySelectorAll('#facultyTable tbody tr[data-faculty-id]'));
+                        },
+                    };
+                }
             }
 
             updateSortIndicators() {
@@ -814,23 +839,80 @@
             }
 
             renderTable() {
+                this.fetchFaculties();
+            }
+
+            fetchFaculties() {
                 if (!this.tableBody) {
                     return;
                 }
 
-                const data = this.getFilteredFaculties();
-                const availableIds = new Set(data.map((faculty) => String(faculty.id)));
+                const token = ++this.requestToken;
+                this.tableBody.innerHTML = this.buildLoadingRow();
+
+                fetch(`${facultyListUrl}?${this.buildQueryParams().toString()}`, {
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                })
+                    .then(async (response) => {
+                        const payload = await response.json().catch(() => ({}));
+                        if (!response.ok) {
+                            throw new Error(payload.message || 'Failed to load faculty members.');
+                        }
+                        return payload;
+                    })
+                    .then((payload) => {
+                        if (token !== this.requestToken) {
+                            return;
+                        }
+
+                        this.faculties = Array.isArray(payload.data) ? payload.data : [];
+                        this.meta = payload.meta || { current_page: 1, last_page: 1, total: 0, from: 0, to: 0 };
+                        this.currentPage = this.meta.current_page || this.currentPage;
+                        this.renderRows();
+                    })
+                    .catch((error) => {
+                        if (token !== this.requestToken) {
+                            return;
+                        }
+                        this.tableBody.innerHTML = this.buildErrorRow(error.message || 'Failed to load faculty members.');
+                        this.updatePaginationFromMeta();
+                    });
+            }
+
+            buildQueryParams() {
+                const params = new URLSearchParams();
+                params.set('page', this.currentPage);
+                params.set('per_page', this.rowsPerPage === Infinity ? 100 : this.rowsPerPage);
+                params.set('search', this.searchTerm || '');
+                params.set('sort_key', this.sortState.key || 'id');
+                params.set('sort_dir', this.sortState.direction || 'desc');
+                Object.entries(this.filters).forEach(([key, value]) => {
+                    params.set(key, value || 'all');
+                });
+
+                return params;
+            }
+
+            renderRows() {
+                if (!this.tableBody) {
+                    return;
+                }
+
+                const availableIds = new Set(this.faculties.map((faculty) => String(faculty.id)));
                 Array.from(this.selection).forEach((id) => {
                     if (!availableIds.has(String(id))) {
                         this.selection.delete(String(id));
                     }
                 });
 
-                const tableHtml = data.length === 0
-                    ? this.buildEmptyStateRow()
-                    : data.map((faculty) => this.buildRowHTML(faculty)).join('');
+                const tableHtml = this.meta.total === 0
+                    ? this.buildSearchEmptyRow().replace('style="display: none;"', '')
+                    : this.faculties.map((faculty) => this.buildRowHTML(faculty)).join('');
 
-                this.tableBody.innerHTML = tableHtml + this.buildSearchEmptyRow();
+                this.tableBody.innerHTML = tableHtml;
 
                 this.attachRowEventListeners();
                 this.attachRowSelectionHandlers();
@@ -838,13 +920,8 @@
                 this.updateBulkBar();
                 this.refreshPillPalettes();
 
-                if (this.controller) {
-                    this.controller.refresh();
-                } else if (this.tableRoot && window.TableController) {
-                    this.controller = new TableController(this.tableRoot);
-                    window.tableControllers = window.tableControllers || {};
-                    window.tableControllers.facultyTable = this.controller;
-                }
+                this.updatePaginationFromMeta();
+                this.emitTableUpdated(this.meta.total || 0, this.faculties.length);
                 this.updateFilterToggleState();
             }
 
@@ -888,6 +965,7 @@
                     if (!select) return;
                     select.addEventListener('change', (event) => {
                         this.filters[key] = event.target.value || 'all';
+                        this.currentPage = 1;
                         this.renderTable();
                     });
                 });
@@ -900,27 +978,15 @@
                                 this.filterControls[key].value = 'all';
                             }
                         });
+                        this.currentPage = 1;
                         this.renderTable();
                     });
                 }
             }
 
             refreshFilterOptions() {
-                const departmentOptions = this.getUniqueValues(this.faculties, (faculty) => {
-                    if (!faculty || typeof faculty !== 'object') {
-                        return [];
-                    }
-                    return this.parseDepartments(faculty.department);
-                });
-                const jobOptions = this.getUniqueValues(this.faculties, (faculty) => {
-                    if (!faculty || typeof faculty !== 'object') {
-                        return '';
-                    }
-                    if (faculty.job_title) {
-                        return faculty.job_title;
-                    }
-                    return faculty.user && faculty.user.job_title ? faculty.user.job_title : '';
-                });
+                const departmentOptions = Array.isArray(this.filterOptions.department) ? this.filterOptions.department : [];
+                const jobOptions = Array.isArray(this.filterOptions.job) ? this.filterOptions.job : [];
 
                 this.populateFilterSelect(this.filterControls.department, departmentOptions);
                 this.populateFilterSelect(this.filterControls.job, jobOptions);
@@ -1014,6 +1080,116 @@
                 }
             }
 
+            parseRowsPerPage(value) {
+                if (!value || value === 'all') {
+                    return Infinity;
+                }
+
+                const parsed = parseInt(value, 10);
+                return Number.isNaN(parsed) ? 10 : Math.max(parsed, 1);
+            }
+
+            getTotalPages() {
+                if (this.meta?.last_page) {
+                    return Math.max(1, this.meta.last_page);
+                }
+
+                return 1;
+            }
+
+            goToPage(page) {
+                const totalPages = this.getTotalPages();
+                const nextPage = Math.min(Math.max(page, 1), totalPages);
+                if (nextPage === this.currentPage) {
+                    return;
+                }
+
+                this.currentPage = nextPage;
+                this.renderTable();
+            }
+
+            updatePaginationFromMeta() {
+                this.updateInfoFromMeta();
+
+                if (!this.paginationEl) {
+                    return;
+                }
+
+                const totalRows = this.meta?.total || 0;
+                const totalPages = Math.max(1, this.meta?.last_page || 1);
+                if (totalPages <= 1 || totalRows === 0) {
+                    this.paginationEl.innerHTML = '';
+                    this.paginationEl.classList.add('d-none');
+                    return;
+                }
+
+                this.paginationEl.classList.remove('d-none');
+                const createPageItem = (label, page, disabled = false, active = false, isIcon = false) => {
+                    const classes = ['page-item'];
+                    if (disabled) classes.push('disabled');
+                    if (active) classes.push('active');
+                    const icon = isIcon ? `<i class="bx ${label}"></i>` : label;
+
+                    return `
+                        <li class="${classes.join(' ')}">
+                            <a class="page-link" href="#" data-page="${page}">${icon}</a>
+                        </li>
+                    `;
+                };
+
+                const startPage = Math.max(1, this.currentPage - 2);
+                const endPage = Math.min(totalPages, this.currentPage + 2);
+                const items = [
+                    createPageItem('bx-chevron-left', this.currentPage - 1, this.currentPage === 1, false, true),
+                ];
+
+                if (startPage > 1) {
+                    items.push(createPageItem('1', 1, false, this.currentPage === 1));
+                    if (startPage > 2) {
+                        items.push('<li class="page-item disabled"><span class="page-link">...</span></li>');
+                    }
+                }
+
+                for (let page = startPage; page <= endPage; page += 1) {
+                    items.push(createPageItem(String(page), page, false, page === this.currentPage));
+                }
+
+                if (endPage < totalPages) {
+                    if (endPage < totalPages - 1) {
+                        items.push('<li class="page-item disabled"><span class="page-link">...</span></li>');
+                    }
+                    items.push(createPageItem(String(totalPages), totalPages, false, this.currentPage === totalPages));
+                }
+
+                items.push(createPageItem('bx-chevron-right', this.currentPage + 1, this.currentPage === totalPages, false, true));
+                this.paginationEl.innerHTML = items.join('');
+            }
+
+            updateInfoFromMeta() {
+                if (!this.infoEl) {
+                    return;
+                }
+
+                this.infoEl.textContent = `Showing ${this.meta?.from || 0} to ${this.meta?.to || 0} of ${this.meta?.total || 0} entries`;
+            }
+
+            emitTableUpdated(totalRows, visibleRows) {
+                if (!this.tableRoot) {
+                    return;
+                }
+
+                this.tableRoot.dispatchEvent(new CustomEvent('table:updated', {
+                    detail: {
+                        tableId: 'facultyTable',
+                        total: this.faculties.length,
+                        filtered: totalRows,
+                        visible: visibleRows,
+                        page: this.currentPage,
+                        rowsPerPage: this.rowsPerPage,
+                    },
+                }));
+            }
+
             buildEmptyStateRow() {
                 return `
                     <tr data-empty>
@@ -1022,6 +1198,31 @@
                                 <i class="fa-solid fa-user-group display-4 text-muted mb-3"></i>
                                 <h5 class="mb-2">No faculty members found</h5>
                                 <p class="text-muted mb-0">Add your first faculty member using the actions above.</p>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }
+
+            buildLoadingRow() {
+                return `
+                    <tr data-ignore>
+                        <td colspan="{{ ($canDelete || $showDeleteDisabled) ? 6 : 5 }}" class="text-center py-5">
+                            <div class="spinner-border text-primary" role="status" aria-label="Loading"></div>
+                            <p class="text-muted mt-3 mb-0">Loading faculty members...</p>
+                        </td>
+                    </tr>
+                `;
+            }
+
+            buildErrorRow(message) {
+                return `
+                    <tr data-ignore>
+                        <td colspan="{{ ($canDelete || $showDeleteDisabled) ? 6 : 5 }}" class="text-center py-5">
+                            <div class="empty-state">
+                                <i class="fa-solid fa-triangle-exclamation display-4 text-danger mb-3"></i>
+                                <h5 class="mb-2">Unable to load faculty members</h5>
+                                <p class="text-muted mb-0">${this.escapeHtml(message)}</p>
                             </div>
                         </td>
                     </tr>
@@ -1216,7 +1417,7 @@
             }
 
             getSelectionScopeKey() {
-                const searchTerm = this.controller?.searchTerm ?? '';
+                const searchTerm = this.searchTerm ?? '';
                 const filterKey = JSON.stringify(this.filters);
                 return `${searchTerm}|${filterKey}`;
             }

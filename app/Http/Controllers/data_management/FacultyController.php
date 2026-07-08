@@ -29,23 +29,110 @@ class FacultyController extends Controller // Controller class for managing facu
             $faculties = collect();
             $users = collect();
         } else {
-            $facultiesQuery = Faculty::with('user:id,name,email,department,job_title');
             $usersQuery = User::select(['id', 'name', 'email', 'department', 'job_title', 'role'])
                 ->where('role', 'Faculty')
                 ->whereNotIn('id', Faculty::whereNotNull('user_id')->select('user_id'));
 
             if ($shouldFilter) {
-                $facultiesQuery->forDepartments($departmentFilters);
                 if (!empty($departmentFilters)) {
                     $usersQuery->whereIn('department', $departmentFilters);
                 }
             }
 
-            $faculties = $facultiesQuery->get();
+            $faculties = collect();
             $users = $usersQuery->get();
         }
 
-        return view('content.data-management.dm-faculties', compact('faculties', 'users'));
+        $departmentFilterOptions = $this->getFacultyListOptions('department', $departmentFilters, $shouldFilter);
+        $jobTitleFilterOptions = $this->getFacultyListOptions('job_title', $departmentFilters, $shouldFilter);
+
+        return view('content.data-management.dm-faculties', compact(
+            'faculties',
+            'users',
+            'departmentFilterOptions',
+            'jobTitleFilterOptions'
+        ));
+    }
+
+    public function list(Request $request): JsonResponse
+    {
+        $user = auth()->user();
+        $shouldFilter = $user && $user->role !== 'Admin';
+        $departmentFilters = $this->resolveDepartmentScope($user);
+
+        if ($shouldFilter && empty($departmentFilters)) {
+            return response()->json([
+                'data' => [],
+                'meta' => [
+                    'current_page' => 1,
+                    'last_page' => 1,
+                    'per_page' => 10,
+                    'total' => 0,
+                    'from' => 0,
+                    'to' => 0,
+                ],
+            ]);
+        }
+
+        $perPage = $request->input('per_page', 10);
+        $perPage = in_array((string) $perPage, ['10', '25', '50', '100'], true)
+            ? (int) $perPage
+            : 10;
+        $sortKey = $request->input('sort_key', 'id');
+        $sortDir = strtolower((string) $request->input('sort_dir', 'desc')) === 'asc' ? 'asc' : 'desc';
+        $search = trim((string) $request->input('search', ''));
+
+        $query = Faculty::query()
+            ->select('faculties.*')
+            ->with('user:id,name,email,department,job_title')
+            ->leftJoin('users as faculty_users', 'faculty_users.id', '=', 'faculties.user_id');
+
+        if ($shouldFilter) {
+            $query->forDepartments($departmentFilters);
+        }
+
+        if ($search !== '') {
+            $like = '%' . str_replace(['%', '_'], ['\%', '\_'], $search) . '%';
+            $query->where(function ($builder) use ($like) {
+                $builder
+                    ->where('faculty_users.name', 'like', $like)
+                    ->orWhere('faculty_users.email', 'like', $like)
+                    ->orWhere('faculties.employee_no', 'like', $like)
+                    ->orWhere('faculties.department', 'like', $like)
+                    ->orWhere('faculties.job_title', 'like', $like)
+                    ->orWhere('faculty_users.job_title', 'like', $like);
+            });
+        }
+
+        $this->applyFacultyListFilter($query, $request, 'department', ['faculties.department']);
+        $this->applyFacultyListFilter($query, $request, 'job', ['faculties.job_title', 'faculty_users.job_title']);
+
+        $sortColumns = [
+            'name' => 'faculty_users.name',
+            'employee' => 'faculties.employee_no',
+            'department' => 'faculties.department',
+            'job' => DB::raw('COALESCE(NULLIF(faculties.job_title, ""), faculty_users.job_title, "")'),
+            'id' => 'faculties.id',
+        ];
+
+        $query->orderBy($sortColumns[$sortKey] ?? 'faculties.id', $sortDir)
+            ->orderBy('faculties.id', 'desc');
+
+        $faculties = $query->paginate($perPage)->withQueryString();
+
+        return response()->json([
+            'data' => $faculties->getCollection()
+                ->map(fn (Faculty $faculty) => $this->serializeFacultyForList($faculty))
+                ->values(),
+            'meta' => [
+                'current_page' => $faculties->currentPage(),
+                'last_page' => $faculties->lastPage(),
+                'per_page' => $faculties->perPage(),
+                'total' => $faculties->total(),
+                'from' => $faculties->firstItem() ?? 0,
+                'to' => $faculties->lastItem() ?? 0,
+            ],
+        ]);
     }
 
     // Function to integrate Faculty to https://admin.mcu.edu.ph/MCU/HRNet/FindEmployee.rs.php fetch EmployeeNo using their Surname
@@ -427,6 +514,77 @@ class FacultyController extends Controller // Controller class for managing facu
             Faculty::normalizeDepartmentList($user->department ?? ''),
             Faculty::normalizeDepartmentList(optional($user->faculty)->department ?? '')
         )));
+    }
+
+    private function applyFacultyListFilter($query, Request $request, string $key, array $columns): void
+    {
+        $value = strtolower(trim((string) $request->input($key, 'all')));
+        if ($value === '' || $value === 'all') {
+            return;
+        }
+
+        $query->where(function ($builder) use ($columns, $value) {
+            foreach ($columns as $column) {
+                $builder->orWhereRaw("LOWER(COALESCE({$column}, '')) LIKE ?", ['%' . $value . '%']);
+            }
+        });
+    }
+
+    private function getFacultyListOptions(string $field, array $departmentFilters = [], bool $shouldFilter = false)
+    {
+        $facultyValues = Faculty::query();
+        if ($shouldFilter) {
+            $facultyValues->forDepartments($departmentFilters);
+        }
+
+        $options = $facultyValues
+            ->whereNotNull($field)
+            ->where($field, '!=', '')
+            ->pluck($field);
+
+        $userField = $field === 'job_title' ? 'job_title' : 'department';
+        $userValues = User::query()
+            ->where('role', 'Faculty')
+            ->whereNotNull($userField)
+            ->where($userField, '!=', '');
+
+        if ($shouldFilter && !empty($departmentFilters)) {
+            $userValues->where(function ($query) use ($departmentFilters) {
+                foreach ($departmentFilters as $department) {
+                    $query->orWhereRaw("LOWER(COALESCE(department, '')) LIKE ?", ['%' . strtolower($department) . '%']);
+                }
+            });
+        }
+
+        return $options
+            ->merge($userValues->pluck($userField))
+            ->flatMap(function ($value) {
+                return collect(explode(',', (string) $value))
+                    ->map(fn ($item) => trim($item))
+                    ->filter(fn ($item) => $item !== '');
+            })
+            ->unique()
+            ->sort()
+            ->values();
+    }
+
+    private function serializeFacultyForList(Faculty $faculty): array
+    {
+        $facultyUser = optional($faculty->user);
+
+        return [
+            'id' => $faculty->id,
+            'user_id' => $faculty->user_id,
+            'employee_no' => $faculty->employee_no,
+            'department' => $faculty->department,
+            'job_title' => $faculty->job_title ?? $facultyUser->job_title,
+            'user' => [
+                'id' => $facultyUser->id,
+                'name' => $facultyUser->name ?? $faculty->name ?? 'Unknown',
+                'email' => $facultyUser->email,
+                'job_title' => $facultyUser->job_title,
+            ],
+        ];
     }
 
     private function authorizeFacultyDepartmentAccess(Faculty $faculty): void
