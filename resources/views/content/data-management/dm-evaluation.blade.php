@@ -1104,6 +1104,13 @@
                         <i class="fa-solid fa-file-pen me-2"></i>
                         Create Form
                     </button>
+                    @if ($canManageEvaluationQr)
+                        <button type="button" class="btn btn-evaluation-action" data-bs-toggle="modal"
+                            data-bs-target="#downloadQrLinksModal" data-mdb-ripple-init>
+                            <i class="fa-solid fa-file-excel me-2"></i>
+                            Download All QR Links
+                        </button>
+                    @endif
                 </div>
             </div>
         </div>
@@ -1401,6 +1408,13 @@
                                                         Download QR
                                                     </a>
                                                 </li>
+                                                <li>
+                                                    <a class="dropdown-item"
+                                                        href="{{ route('dm.evaluation.qr.poster', $evaluation) }}"
+                                                        target="_blank" rel="noopener">
+                                                        QR Poster
+                                                    </a>
+                                                </li>
                                                 @if ($canEdit)
                                                     <li>
                                                         <button type="button" class="dropdown-item"
@@ -1501,6 +1515,62 @@
                         </nav>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    {{-- Download All QR Links Modal --}}
+    <div class="modal fade" id="downloadQrLinksModal" tabindex="-1" aria-labelledby="downloadQrLinksModalLabel"
+        aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered evaluation-modal-dialog evaluation-modal-dialog--narrow">
+            <div class="modal-content evaluation-card">
+                <form method="GET" action="{{ route('dm.evaluation.qr-links.export') }}" id="downloadQrLinksForm">
+                    <div class="modal-header evaluation-modal-header">
+                        <h5 class="modal-title mb-0" id="downloadQrLinksModalLabel">Download All QR Links</h5>
+                        <button type="button" class="evaluation-modal-close" data-bs-dismiss="modal"
+                            aria-label="Close">Ã—</button>
+                    </div>
+                    <div class="modal-body evaluation-modal-body">
+                        <div class="mb-3">
+                            <label class="form-label" for="downloadQrLinksAcademicYear">Academic Year</label>
+                            <select name="academic_year" id="downloadQrLinksAcademicYear" class="form-select" required>
+                                <option value="">-- Select Academic Year --</option>
+                                @foreach ($availableAcademicYears as $year)
+                                    @php $yearValue = trim($year); @endphp
+                                    <option value="{{ $yearValue }}">{{ $yearValue }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="mb-0">
+                            <label class="form-label" for="downloadQrLinksSemester">Semester</label>
+                            <select name="semester" id="downloadQrLinksSemester" class="form-select" required>
+                                <option value="">-- Select Semester --</option>
+                                @foreach ($availableSemesters as $option)
+                                    <option value="{{ $option['value'] }}">{{ $option['label'] }}</option>
+                                @endforeach
+                            </select>
+                            <small class="text-muted d-block mt-2">The export will only include QR links within your
+                                allowed department.</small>
+                        </div>
+                        <div id="downloadQrLinksProgressSection" class="mt-3 d-none">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <label class="form-label mb-0">Download Progress</label>
+                                <small id="downloadQrLinksProgressText" class="text-muted">Preparing...</small>
+                            </div>
+                            <div class="progress" style="height: 6px;">
+                                <div id="downloadQrLinksProgressBar" class="progress-bar progress-bar-animated"
+                                    role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0"
+                                    aria-valuemax="100"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer evaluation-modal-footer">
+                        <button type="button" class="btn btn-tertiary evaluation-modal-btn"
+                            data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" id="downloadQrLinksSubmitBtn"
+                            class="btn btn-faculty-primary evaluation-modal-btn">Download Excel</button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
@@ -2569,6 +2639,96 @@
             toast.textContent = message;
             document.body.appendChild(toast);
             setTimeout(() => toast.remove(), 3000);
+        }
+
+        const downloadQrLinksForm = document.getElementById('downloadQrLinksForm');
+        if (downloadQrLinksForm) {
+            const progressSection = document.getElementById('downloadQrLinksProgressSection');
+            const progressBar = document.getElementById('downloadQrLinksProgressBar');
+            const progressText = document.getElementById('downloadQrLinksProgressText');
+            const submitBtn = document.getElementById('downloadQrLinksSubmitBtn');
+
+            const setQrLinksProgress = (percent, text) => {
+                if (progressBar) {
+                    progressBar.style.width = `${percent}%`;
+                    progressBar.setAttribute('aria-valuenow', percent);
+                }
+                if (progressText) {
+                    progressText.textContent = text;
+                }
+            };
+
+            const resetQrLinksDownload = () => {
+                progressSection?.classList.add('d-none');
+                setQrLinksProgress(0, 'Preparing...');
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Download Excel';
+                }
+            };
+
+            downloadQrLinksForm.addEventListener('submit', async (event) => {
+                event.preventDefault();
+
+                if (!downloadQrLinksForm.checkValidity()) {
+                    downloadQrLinksForm.reportValidity();
+                    return;
+                }
+
+                progressSection?.classList.remove('d-none');
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                    submitBtn.textContent = 'Downloading...';
+                }
+                setQrLinksProgress(15, 'Preparing file...');
+
+                let simulatedProgress = 15;
+                const progressTimer = setInterval(() => {
+                    simulatedProgress = Math.min(simulatedProgress + 10, 85);
+                    setQrLinksProgress(simulatedProgress, 'Generating Excel...');
+                }, 350);
+
+                try {
+                    const params = new URLSearchParams(new FormData(downloadQrLinksForm));
+                    const response = await fetch(`${downloadQrLinksForm.action}?${params.toString()}`, {
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest'
+                        }
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('Unable to download QR links.');
+                    }
+
+                    setQrLinksProgress(92, 'Starting download...');
+                    const blob = await response.blob();
+                    const disposition = response.headers.get('content-disposition') || '';
+                    const filenameMatch = disposition.match(/filename="?([^"]+)"?/i);
+                    const filename = filenameMatch ? filenameMatch[1] : 'evaluation-qr-links.xlsx';
+                    const downloadUrl = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+
+                    link.href = downloadUrl;
+                    link.download = filename;
+                    document.body.appendChild(link);
+                    link.click();
+                    link.remove();
+                    URL.revokeObjectURL(downloadUrl);
+
+                    clearInterval(progressTimer);
+                    setQrLinksProgress(100, 'Downloaded');
+                    showTemporaryToast('QR links Excel downloaded successfully.');
+
+                    setTimeout(() => {
+                        bootstrap.Modal.getInstance(document.getElementById('downloadQrLinksModal'))?.hide();
+                        resetQrLinksDownload();
+                    }, 800);
+                } catch (error) {
+                    clearInterval(progressTimer);
+                    resetQrLinksDownload();
+                    showTemporaryToast(error.message || 'Download failed.', 'danger');
+                }
+            });
         }
 
         function initEvaluationSearch() {

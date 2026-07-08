@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\data_management;
 
 use App\Http\Controllers\Controller;
+use App\Exports\EvaluationQrLinksExport;
 use Illuminate\Http\Request;
 use App\Models\{Evaluation, EvaluationResponse, Schedule, User, FacultyCourse, Faculty};
 use Illuminate\Support\Str;
@@ -10,6 +11,7 @@ use App\Support\AuditLogger;
 use chillerlan\QRCode\QRCode;
 use chillerlan\QRCode\QROptions;
 use Illuminate\Http\Response;
+use Maatwebsite\Excel\Facades\Excel;
 use Carbon\Carbon;
 
 class EvaluationController extends Controller
@@ -573,6 +575,130 @@ class EvaluationController extends Controller
         return response($qrCodeImage)->header('Content-Type', 'image/png');
     }
 
+    public function qrPoster(Evaluation $evaluation)
+    {
+        $this->enforceEvaluationAccess($evaluation);
+
+        $facultyRecord = Faculty::where('user_id', $evaluation->faculty_id)->first();
+        if (!$facultyRecord) {
+            abort(404, 'Faculty record not found');
+        }
+
+        $schedules = Schedule::with(['facultyCourse.course'])
+            ->whereHas('facultyCourse', function ($query) use ($facultyRecord, $evaluation) {
+                $query->where('faculty_id', $facultyRecord->id)
+                    ->where('academic_year', $evaluation->academic_year)
+                    ->where('semester', $evaluation->semester);
+            })
+            ->orderBy('day')
+            ->orderBy('time')
+            ->get();
+
+        $options = new QROptions([
+            'version' => 10,
+            'outputType' => QRCode::OUTPUT_IMAGE_PNG,
+            'eccLevel' => QRCode::ECC_L,
+            'scale' => 8,
+            'imageBase64' => false,
+        ]);
+
+        $qrCodeImage = (new QRCode($options))->render($evaluation->form_link);
+        $qrCodeDataUri = 'data:image/png;base64,' . base64_encode($qrCodeImage);
+
+        AuditLogger::log('evaluation_qr_poster_viewed', [
+            'module' => 'Evaluation',
+            'description' => "Opened QR poster for {$evaluation->resolved_faculty_name} ({$evaluation->academic_year} - {$evaluation->semester}).",
+            'target_type' => Evaluation::class,
+            'target_id' => $evaluation->id,
+            'after_values' => [
+                'faculty_id' => $evaluation->faculty_id,
+                'faculty_name' => $evaluation->resolved_faculty_name,
+                'academic_year' => $evaluation->academic_year,
+                'semester' => $evaluation->semester,
+                'schedule_count' => $schedules->count(),
+            ],
+            'severity' => 'info',
+        ]);
+
+        return view('content.data-management.evaluation-files.qr-poster', compact(
+            'evaluation',
+            'schedules',
+            'qrCodeDataUri'
+        ));
+    }
+
+    public function exportQrLinks(Request $request)
+    {
+        $validated = $request->validate([
+            'academic_year' => 'required|string',
+            'semester' => 'required|in:1st,2nd,Summer',
+        ]);
+
+        $academicYear = $this->normalizeAcademicYear($validated['academic_year']);
+        $semester = $this->normalizeSemesterValue($validated['semester']) ?? $validated['semester'];
+        $user = auth()->user();
+        $isAdmin = $user && $user->role === 'Admin';
+        $departmentFilters = $this->resolveDepartmentScope($user);
+
+        $evaluationsQuery = Evaluation::with('faculty')
+            ->withCount('responses')
+            ->where('academic_year', $academicYear)
+            ->where('semester', $semester)
+            ->latest();
+
+        if (!$isAdmin) {
+            if (empty($departmentFilters)) {
+                return back()->with('error', 'No department assigned. Please contact the administrator.');
+            }
+
+            $departmentFacultyIds = Faculty::forDepartments($departmentFilters)->pluck('user_id');
+            $evaluationsQuery->where(function ($query) use ($departmentFacultyIds, $departmentFilters) {
+                if ($departmentFacultyIds->isNotEmpty()) {
+                    $query->whereIn('faculty_id', $departmentFacultyIds);
+                }
+
+                $query->orWhere(function ($snapshotQuery) use ($departmentFilters) {
+                    $this->applyDepartmentFilter($snapshotQuery, $departmentFilters, 'faculty_department_snapshot');
+                });
+            });
+        }
+
+        $rows = $evaluationsQuery->get()
+            ->map(function (Evaluation $evaluation) {
+                return [
+                    $evaluation->resolved_faculty_name,
+                    $evaluation->resolved_faculty_department,
+                    $evaluation->resolved_program_label,
+                    $evaluation->academic_year,
+                    $this->formatSemesterLabel($evaluation->semester),
+                    $evaluation->form_link,
+                ];
+            })
+            ->values()
+            ->all();
+
+        AuditLogger::log('evaluation_qr_links_exported', [
+            'module' => 'Evaluation',
+            'description' => $isAdmin
+                ? 'Exported all evaluation QR links.'
+                : 'Exported department evaluation QR links.',
+            'after_values' => [
+                'department_scope' => $isAdmin ? ['All Departments'] : $departmentFilters,
+                'academic_year' => $academicYear,
+                'semester' => $semester,
+                'exported_count' => count($rows),
+            ],
+            'severity' => 'info',
+        ]);
+
+        $departmentTag = $isAdmin
+            ? 'all-departments'
+            : Str::slug(implode('-', $departmentFilters));
+        $filename = 'evaluation-qr-links-' . $departmentTag . '-' . $academicYear . '-' . $semester . '-' . now()->format('Ymd-His') . '.xlsx';
+
+        return Excel::download(new EvaluationQrLinksExport($rows), $filename);
+    }
+
     public function showForm($token)
     {
         $evaluation = Evaluation::where('form_link', 'LIKE', "%{$token}%")
@@ -1076,6 +1202,18 @@ class EvaluationController extends Controller
             'faculty_email_snapshot' => $user->email,
             'faculty_department_snapshot' => $department,
         ];
+    }
+
+    private function resolveDepartmentScope(?User $user): array
+    {
+        if (!$user) {
+            return [];
+        }
+
+        return array_values(array_unique(array_merge(
+            Faculty::normalizeDepartmentList($user->department ?? ''),
+            Faculty::normalizeDepartmentList(optional($user->faculty)->department ?? '')
+        )));
     }
 
     private function enforceDepartmentAccess(Faculty $facultyProfile): void
