@@ -118,6 +118,7 @@
     $canManageEvaluationQr = $isAdmin || $accessLevels->contains('Manage Evaluation QR/Link');
     $canViewReports =
         $isAdmin || $accessLevels->contains('View All Reports') || $accessLevels->contains('View Department Reports');
+    $canDownloadQrLinks = $canManageEvaluationQr || $canViewReports;
     $canEvaluationQrOnly = $canManageEvaluationQr && !$canManageEvaluations;
     $canAdd = $isAdmin;
     $canEdit = $canManageEvaluations;
@@ -1104,7 +1105,7 @@
                         <i class="fa-solid fa-file-pen me-2"></i>
                         Create Form
                     </button>
-                    @if ($canManageEvaluationQr)
+                    @if ($canDownloadQrLinks)
                         <button type="button" class="btn btn-evaluation-action" data-bs-toggle="modal"
                             data-bs-target="#downloadQrLinksModal" data-mdb-ripple-init>
                             <i class="fa-solid fa-file-excel me-2"></i>

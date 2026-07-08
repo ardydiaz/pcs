@@ -40,10 +40,14 @@ class AccessLevelMiddleware
             'courses' => $accessLevels->contains('Manage Courses'),
             'schedules' => $accessLevels->contains('Manage Schedules'),
             'evaluations' => $accessLevels->contains('Manage Evaluations')
-                || $accessLevels->contains('Manage Evaluation QR/Link'),
+                || $accessLevels->contains('Manage Evaluation QR/Link')
+                || $accessLevels->contains('View All Reports')
+                || $accessLevels->contains('View Department Reports'),
             'evaluations.manage' => $accessLevels->contains('Manage Evaluations'),
             'evaluations.qr' => $accessLevels->contains('Manage Evaluations')
-                || $accessLevels->contains('Manage Evaluation QR/Link'),
+                || $accessLevels->contains('Manage Evaluation QR/Link')
+                || $accessLevels->contains('View All Reports')
+                || $accessLevels->contains('View Department Reports'),
             'forms' => $isStudent || $accessLevels->contains('View/Answer Forms'),
             default => false,
         };

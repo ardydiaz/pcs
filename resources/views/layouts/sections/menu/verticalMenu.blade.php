@@ -42,7 +42,7 @@
       'dm' => $canManageCourses,
       'dm.courses' => $canManageCourses,
       'dm.schedules' => $canManageSchedules,
-      'dm.evaluation' => $canManageEvaluations || $canManageEvaluationQr,
+      'dm.evaluation' => $canManageEvaluations || $canManageEvaluationQr || $canViewReports,
       'um.users' => $canAccessUsers,
       'um.audit-logs' => $canAccessAuditLogs, // Visibility only to admins for audit logs menu item
       'settings' => $canAccessSettings,
