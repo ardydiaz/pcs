@@ -594,16 +594,7 @@ class EvaluationController extends Controller
             ->orderBy('time')
             ->get();
 
-        $options = new QROptions([
-            'version' => 10,
-            'outputType' => QRCode::OUTPUT_IMAGE_PNG,
-            'eccLevel' => QRCode::ECC_L,
-            'scale' => 8,
-            'imageBase64' => false,
-        ]);
-
-        $qrCodeImage = (new QRCode($options))->render($evaluation->form_link);
-        $qrCodeDataUri = 'data:image/png;base64,' . base64_encode($qrCodeImage);
+        $qrCodeDataUri = $this->makeQrCodeSvgDataUri($evaluation->form_link);
 
         AuditLogger::log('evaluation_qr_poster_viewed', [
             'module' => 'Evaluation',
@@ -625,6 +616,22 @@ class EvaluationController extends Controller
             'schedules',
             'qrCodeDataUri'
         ));
+    }
+
+    private function makeQrCodeSvgDataUri(string $url): string
+    {
+        $options = new QROptions([
+            'version' => 10,
+            'outputType' => QRCode::OUTPUT_MARKUP_SVG,
+            'eccLevel' => QRCode::ECC_L,
+            'scale' => 8,
+            'imageBase64' => false,
+            'drawLightModules' => true,
+        ]);
+
+        $qrCodeSvg = (new QRCode($options))->render($url);
+
+        return 'data:image/svg+xml;base64,' . base64_encode($qrCodeSvg);
     }
 
     public function exportQrLinks(Request $request)
