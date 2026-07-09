@@ -311,6 +311,43 @@
             color: #1f2937;
         }
 
+        .course-handler-btn {
+            border: 1px solid rgba(92, 41, 124, 0.18);
+            background: linear-gradient(135deg, #fff8e8, #f4e8ff);
+            color: #5c297c;
+            border-radius: 999px;
+            min-width: 3.2rem;
+            height: 2.15rem;
+            padding: 0 0.8rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.35rem;
+            font-weight: 700;
+            box-shadow: 0 10px 22px rgba(92, 41, 124, 0.08);
+            transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+        }
+
+        .course-handler-btn i {
+            font-size: 1.05rem;
+        }
+
+        .course-handler-btn:hover:not(:disabled),
+        .course-handler-btn:focus:not(:disabled) {
+            border-color: rgba(92, 41, 124, 0.35);
+            color: #3a0050;
+            transform: translateY(-1px);
+            box-shadow: 0 14px 26px rgba(92, 41, 124, 0.14);
+        }
+
+        .course-handler-btn.is-empty {
+            background: #f8fafc;
+            color: #94a3b8;
+            border-color: #e2e8f0;
+            box-shadow: none;
+            cursor: not-allowed;
+        }
+
         .evaluation-search-wrapper {
             display: flex;
             align-items: center;
@@ -420,6 +457,178 @@
         .evaluation-modal-body .form-control {
             border-radius: 0.6rem;
             padding: 0.6rem 0.85rem;
+        }
+
+        .course-handlers-modal {
+            border: 0;
+            overflow: hidden;
+        }
+
+        .course-handlers-modal-header {
+            background:
+                radial-gradient(circle at 100% 0%, rgba(255, 183, 54, 0.28), transparent 34%),
+                linear-gradient(135deg, #3a0050, #6f2a8f);
+            border-bottom: 0;
+            color: #ffffff;
+            position: relative;
+        }
+
+        .course-handlers-modal-header .modal-title,
+        .course-handlers-modal-header .course-handlers-subtitle,
+        .course-handlers-modal-header .evaluation-modal-close {
+            color: #ffffff;
+        }
+
+        .course-handlers-eyebrow {
+            display: inline-flex;
+            align-items: center;
+            margin-bottom: 0.25rem;
+            color: #ffcf45;
+            font-size: 0.72rem;
+            font-weight: 800;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+        }
+
+        .course-handlers-subtitle {
+            font-size: 0.85rem;
+            opacity: 0.82;
+        }
+
+        .course-handlers-summary {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.85rem;
+            margin-bottom: 1rem;
+        }
+
+        .course-handlers-summary>div {
+            border: 1px solid #eef2f6;
+            border-radius: 0.75rem;
+            background: #fbfcff;
+            padding: 0.85rem 1rem;
+            min-width: 0;
+        }
+
+        .course-handlers-summary span,
+        .course-handler-field span {
+            display: block;
+            color: #8a9bb3;
+            font-size: 0.72rem;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            margin-bottom: 0.3rem;
+        }
+
+        .course-handlers-summary strong {
+            display: block;
+            color: #2f3b52;
+            font-size: 0.95rem;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .course-handlers-list {
+            display: grid;
+            gap: 0.85rem;
+            max-height: min(58vh, 34rem);
+            overflow-y: auto;
+            padding-right: 0.2rem;
+        }
+
+        .course-handler-card {
+            border: 1px solid #e8edf5;
+            border-radius: 0.8rem;
+            background: linear-gradient(180deg, #ffffff, #fbfcff);
+            padding: 1rem;
+        }
+
+        .course-handler-card-header {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            align-items: flex-start;
+            margin-bottom: 0.85rem;
+        }
+
+        .course-handler-card h6 {
+            margin: 0 0 0.25rem;
+            color: #2f3b52;
+            font-weight: 800;
+            line-height: 1.25;
+        }
+
+        .course-handler-card p {
+            margin: 0;
+            color: #64748b;
+            font-size: 0.82rem;
+            line-height: 1.35;
+        }
+
+        .course-handler-employee {
+            flex: 0 0 auto;
+            border-radius: 999px;
+            background: #f4e8ff;
+            color: #5c297c;
+            padding: 0.25rem 0.7rem;
+            font-size: 0.78rem;
+            font-weight: 800;
+        }
+
+        .course-handler-fields {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 0.65rem;
+        }
+
+        .course-handler-field {
+            border: 1px solid #eef2f6;
+            border-radius: 0.65rem;
+            background: #ffffff;
+            padding: 0.75rem;
+            min-width: 0;
+        }
+
+        .course-handler-field strong {
+            display: block;
+            color: #2f3b52;
+            font-size: 0.9rem;
+            line-height: 1.3;
+            overflow-wrap: anywhere;
+        }
+
+        .course-handlers-empty {
+            border: 1px dashed #d9e1ec;
+            border-radius: 0.85rem;
+            padding: 2rem 1rem;
+            text-align: center;
+            color: #64748b;
+            background: #fbfcff;
+        }
+
+        .course-handlers-empty i {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 2.75rem;
+            height: 2.75rem;
+            border-radius: 999px;
+            background: #fff1c7;
+            color: #5c297c;
+            font-size: 1.4rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .course-handlers-empty h6 {
+            color: #2f3b52;
+            font-weight: 800;
+            margin-bottom: 0.25rem;
+        }
+
+        .course-handlers-empty p {
+            margin: 0;
         }
 
         .evaluation-modal-body .form-select {
@@ -926,6 +1135,20 @@
         @media (max-width: 768px) {
             .evaluation-table tbody td {
                 padding: 0.75rem;
+            }
+
+            .course-handlers-summary,
+            .course-handler-fields {
+                grid-template-columns: 1fr;
+            }
+
+            .course-handler-card-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .course-handlers-list {
+                max-height: 60vh;
             }
 
             .evaluation-bulk-bar {

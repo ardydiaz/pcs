@@ -22,6 +22,183 @@
             border-color: #ffb736 !important;
             background: rgba(255, 183, 54, 0.08) !important;
         }
+
+        .course-handler-btn {
+            border: 1px solid rgba(92, 41, 124, 0.18);
+            background: linear-gradient(135deg, #fff8e8, #f4e8ff);
+            color: #5c297c;
+            border-radius: 999px;
+            min-width: 3.2rem;
+            height: 2.15rem;
+            padding: 0 0.8rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.35rem;
+            font-weight: 700;
+            box-shadow: 0 10px 22px rgba(92, 41, 124, 0.08);
+        }
+
+        .course-handler-btn.is-empty {
+            background: #f8fafc;
+            color: #94a3b8;
+            border-color: #e2e8f0;
+            box-shadow: none;
+            cursor: not-allowed;
+        }
+
+        .course-handlers-modal {
+            border: 0;
+            overflow: hidden;
+        }
+
+
+
+        .modal-header.course-handlers-modal-header .modal-title,
+        .modal-header.course-handlers-modal-header .course-handlers-subtitle {
+            color: #ffffff;
+        }
+
+        .course-handlers-close {
+            width: 2rem;
+            height: 2rem;
+            flex: 0 0 auto;
+            margin-left: auto;
+            border: 1px solid rgba(255, 255, 255, 0.28);
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.12);
+            color: #ffffff;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.35rem;
+            line-height: 1;
+            padding: 0;
+            transition: background-color 0.18s ease, transform 0.18s ease;
+        }
+
+        .course-handlers-close:hover,
+        .course-handlers-close:focus {
+            background: rgba(255, 255, 255, 0.2);
+            color: #ffffff;
+            transform: translateY(-1px);
+        }
+
+        .course-handlers-eyebrow {
+            color: #ffcf45;
+            font-size: 0.72rem;
+            font-weight: 800;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+        }
+
+        .course-handlers-summary,
+        .course-handler-fields {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.85rem;
+        }
+
+        .course-handlers-summary {
+            margin-bottom: 1rem;
+        }
+
+        .course-handlers-summary>div,
+        .course-handler-field {
+            border: 1px solid #eef2f6;
+            border-radius: 0.75rem;
+            background: #fbfcff;
+            padding: 0.85rem 1rem;
+            min-width: 0;
+        }
+
+        .course-handler-fields {
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+        }
+
+        .course-handlers-summary span,
+        .course-handler-field span {
+            display: block;
+            color: #8a9bb3;
+            font-size: 0.72rem;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            margin-bottom: 0.3rem;
+        }
+
+        .course-handlers-summary strong,
+        .course-handler-field strong {
+            display: block;
+            color: #2f3b52;
+            font-size: 0.92rem;
+            line-height: 1.3;
+            overflow-wrap: anywhere;
+        }
+
+        .course-handlers-list {
+            display: grid;
+            gap: 0.85rem;
+            max-height: min(58vh, 34rem);
+            overflow-y: auto;
+        }
+
+        .course-handler-card {
+            border: 1px solid #e8edf5;
+            border-radius: 0.8rem;
+            background: linear-gradient(180deg, #ffffff, #fbfcff);
+            padding: 1rem;
+        }
+
+        .course-handler-card-header {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            align-items: flex-start;
+            margin-bottom: 0.85rem;
+        }
+
+        .course-handler-card h6 {
+            margin: 0 0 0.25rem;
+            color: #2f3b52;
+            font-weight: 800;
+        }
+
+        .course-handler-card p {
+            margin: 0;
+            color: #64748b;
+            font-size: 0.82rem;
+        }
+
+        .course-handler-employee {
+            flex: 0 0 auto;
+            border-radius: 999px;
+            background: #f4e8ff;
+            color: #5c297c;
+            padding: 0.25rem 0.7rem;
+            font-size: 0.78rem;
+            font-weight: 800;
+        }
+
+        .course-handlers-empty {
+            border: 1px dashed #d9e1ec;
+            border-radius: 0.85rem;
+            padding: 2rem 1rem;
+            text-align: center;
+            color: #64748b;
+            background: #fbfcff;
+        }
+
+        @media (max-width: 768px) {
+            .course-handlers-summary,
+            .course-handler-fields {
+                grid-template-columns: 1fr;
+            }
+
+            .course-handler-card-header {
+                flex-direction: column;
+            }
+        }
     </style>
 @endsection
 
@@ -115,7 +292,7 @@
                             <th>Class Code</th>
                             <th>Subject</th>
                             <th>Subject Type</th>
-                            <th>Assignments</th>
+                            <th>Handlers</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
@@ -684,6 +861,35 @@
         </div>
     </div>
 
+    <div class="modal fade" id="minorCourseHandlersModal" tabindex="-1" aria-labelledby="minorCourseHandlersTitle"
+        aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content course-handlers-modal">
+                <div class="modal-header course-handlers-modal-header">
+                    <div>
+                        <span class="course-handlers-eyebrow">Faculty Handlers</span>
+                        <h5 class="modal-title mb-1" id="minorCourseHandlersTitle">Course Handlers</h5>
+                        <div class="course-handlers-subtitle">Faculty handlers, sections, school year, semester, and
+                            schedule</div>
+                    </div>
+                </div>
+                <div class="modal-body">
+                    <div class="course-handlers-summary">
+                        <div>
+                            <span>Class Code</span>
+                            <strong id="minorCourseHandlersClassCode">N/A</strong>
+                        </div>
+                        <div>
+                            <span>Total Handlers</span>
+                            <strong id="minorCourseHandlersCount">0</strong>
+                        </div>
+                    </div>
+                    <div class="course-handlers-list" id="minorCourseHandlersBody"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
 @endsection
 
 
@@ -761,6 +967,118 @@
             },
             assignCourse: function(e) {
                 $('#add-modal-assign').modal('show');
+            },
+            viewMinorHandlers: function(e) {
+                const id = $(e).attr('data-id');
+                if (!id) {
+                    return;
+                }
+
+                $('#minorCourseHandlersTitle').text('Loading handlers...');
+                $('#minorCourseHandlersClassCode').text('N/A');
+                $('#minorCourseHandlersCount').text('0');
+                $('#minorCourseHandlersBody').html(`
+                    <div class="course-handlers-empty">
+                        <h6 class="mb-1">Loading faculty handlers...</h6>
+                        <p class="mb-0">Please wait.</p>
+                    </div>
+                `);
+                $('#minorCourseHandlersModal').modal('show');
+
+                $.ajax({
+                    url: "{{ url('data-management/minor-courses') }}/" + id + "/handlers",
+                    method: 'GET',
+                    success: function(response) {
+                        const course = response.course || {};
+                        const handlers = Array.isArray(response.handlers) ? response.handlers : [];
+
+                        $('#minorCourseHandlersTitle').text(course.subject_code || 'Course Handlers');
+                        $('#minorCourseHandlersClassCode').text(course.class_code || 'N/A');
+                        $('#minorCourseHandlersCount').text(handlers.length);
+                        $('#minorCourseHandlersBody').html(
+                            handlers.length ?
+                            handlers.map((handler) => list_methods.buildMinorHandlerCard(handler)).join('') :
+                            list_methods.buildMinorHandlersEmptyState()
+                        );
+                    },
+                    error: function(xhr) {
+                        $('#minorCourseHandlersTitle').text('Course Handlers');
+                        $('#minorCourseHandlersBody').html(`
+                            <div class="course-handlers-empty">
+                                <h6 class="mb-1">Unable to load handlers</h6>
+                                <p class="mb-0">${list_methods.escapeHtml(xhr.responseJSON?.message || 'Please try again.')}</p>
+                            </div>
+                        `);
+                    }
+                });
+            },
+            buildMinorHandlerCard: function(handler) {
+                const name = handler.faculty_name || 'N/A';
+                const employeeNo = handler.employee_no || 'N/A';
+                const section = handler.section || 'N/A';
+                const academicYear = handler.academic_year || 'N/A';
+                const semester = list_methods.formatMinorSemester(handler.semester || '');
+                const schedule = handler.schedule_label || 'N/A';
+                const jobTitle = handler.job_title || 'Faculty';
+                const department = handler.department || '';
+
+                return `
+                    <article class="course-handler-card">
+                        <div class="course-handler-card-header">
+                            <div>
+                                <h6>${list_methods.escapeHtml(name)}</h6>
+                                <p>${list_methods.escapeHtml(jobTitle)}${department ? ` <span>&middot;</span> ${list_methods.escapeHtml(department)}` : ''}</p>
+                            </div>
+                            <span class="course-handler-employee">${list_methods.escapeHtml(employeeNo)}</span>
+                        </div>
+                        <div class="course-handler-fields">
+                            ${list_methods.buildMinorHandlerField('Section', section)}
+                            ${list_methods.buildMinorHandlerField('School Year', academicYear)}
+                            ${list_methods.buildMinorHandlerField('Semester', semester)}
+                            ${list_methods.buildMinorHandlerField('Schedule', schedule)}
+                        </div>
+                    </article>
+                `;
+            },
+            buildMinorHandlerField: function(label, value) {
+                return `
+                    <div class="course-handler-field">
+                        <span>${list_methods.escapeHtml(label)}</span>
+                        <strong>${list_methods.escapeHtml(value || 'N/A')}</strong>
+                    </div>
+                `;
+            },
+            buildMinorHandlersEmptyState: function() {
+                return `
+                    <div class="course-handlers-empty">
+                        <h6 class="mb-1">No handlers assigned</h6>
+                        <p class="mb-0">This GenEd course has no faculty handler or schedule yet.</p>
+                    </div>
+                `;
+            },
+            formatMinorSemester: function(value) {
+                const normalised = String(value || '').toLowerCase();
+                if (normalised === '1st' || normalised === 'first') {
+                    return '1st Semester';
+                }
+                if (normalised === '2nd' || normalised === 'second') {
+                    return '2nd Semester';
+                }
+                if (normalised === 'summer') {
+                    return 'Summer';
+                }
+                return value || 'N/A';
+            },
+            escapeHtml: function(value) {
+                return String(value ?? '').replace(/[&<>"']/g, function(char) {
+                    return ({
+                        '&': '&amp;',
+                        '<': '&lt;',
+                        '>': '&gt;',
+                        '"': '&quot;',
+                        "'": '&#39;'
+                    })[char] || char;
+                });
             },
             saveAddMinorAssign: function(e) {
 

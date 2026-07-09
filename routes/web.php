@@ -64,6 +64,7 @@ Route::middleware(['auth'])->group(function () {
     
     Route::get('/data-management/minor-courses', [CourseController::class, 'minorSubject'])->name('dm.minor.courses')->middleware('access.level:courses');
     Route::get('/data-management/minor-courses/list', [CourseController::class, 'minorCoursesList'])->name('dm.minor.courses.list')->middleware('access.level:courses');
+    Route::get('/data-management/minor-courses/{id}/handlers', [CourseController::class, 'minorCourseHandlers'])->name('dm.minor.courses.handlers')->middleware('access.level:courses');
     Route::get('/data-management/minor-courses-assign/list', [CourseController::class, 'minorAssignmentsList'])->name('dm.minor.courses.assign.list')->middleware('access.level:courses');
     Route::get('/data-management/minor-courses/show/{id}', [CourseController::class, 'showMinorCourse'])->middleware('access.level:courses');
     Route::get('/data-management/minor-assign-courses/show/{id}', [CourseController::class, 'showMinorAssignment'])->middleware('access.level:courses');

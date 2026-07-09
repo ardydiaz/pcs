@@ -76,7 +76,7 @@
                             </th>
                             <th data-sort-key="assignments" class="sortable" data-sort-state="none">
                                 <span class="evaluation-sort-wrapper">
-                                    <span class="evaluation-sort-label">Assignments</span>
+                                    <span class="evaluation-sort-label">Handlers</span>
                                     <span class="evaluation-sort-indicator">
                                         <i class="bx bx-chevron-up icon-up"></i>
                                         <i class="bx bx-chevron-down icon-down"></i>

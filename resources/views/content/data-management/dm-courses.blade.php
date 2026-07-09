@@ -7,17 +7,66 @@
     and deleting courses and assignments.
 -->
 @php
+    $formatScheduleLabel = function ($schedule) {
+        $day = trim((string) ($schedule->day ?? ''));
+        $time = trim((string) ($schedule->time ?? ''));
+        $dayUpper = strtoupper($day);
+        $displayDay = in_array($dayUpper, ['N/A', 'NA', 'NONE', '-'], true) ? '' : $day;
+        $label = trim(($displayDay !== '' ? $displayDay . ' ' : '') . $time);
+
+        return $label !== '' ? $label : 'N/A';
+    };
+
+    $handlersByCourseId = $facultyCourses
+        ->groupBy('course_id')
+        ->map(function ($assignments) use ($formatScheduleLabel) {
+            return $assignments
+                ->sortBy(function ($assignment) {
+                    return optional(optional($assignment->faculty)->user)->name ?? '';
+                })
+                ->map(function ($assignment) use ($formatScheduleLabel) {
+                    $faculty = optional($assignment->faculty);
+                    $facultyUser = optional($faculty->user);
+                    $schedules = $assignment->schedules
+                        ? $assignment->schedules->map(function ($schedule) use ($formatScheduleLabel) {
+                            return [
+                                'id' => $schedule->id,
+                                'day' => $schedule->day ?? '',
+                                'time' => $schedule->time ?? '',
+                                'status' => $schedule->status ?? '',
+                                'label' => $formatScheduleLabel($schedule),
+                            ];
+                        })->values()
+                        : collect();
+
+                    return [
+                        'id' => $assignment->id,
+                        'faculty_name' => $facultyUser->name ?? ($faculty->name ?? 'N/A'),
+                        'employee_no' => $faculty->employee_no ?? '',
+                        'department' => $faculty->department ?? '',
+                        'job_title' => $faculty->job_title ?? '',
+                        'section' => $assignment->section ?? '',
+                        'academic_year' => $assignment->academic_year ?? '',
+                        'semester' => $assignment->semester ?? '',
+                        'schedules' => $schedules,
+                        'schedule_label' => $schedules->pluck('label')->filter()->unique()->implode(' | ') ?: 'N/A',
+                    ];
+                })
+                ->values();
+        });
+
     $courseItems = $courses
         ->sortByDesc(function ($course) {
             return $course->created_at ?? ($course->id ?? 0);
         })
-        ->map(function ($course) {
+        ->map(function ($course) use ($handlersByCourseId) {
             return [
                 'id' => $course->id,
                 'class_code' => $course->class_code,
                 'subject_code' => $course->subject_code,
                 'subject_type' => $course->subject_type,
                 'assignments' => $course->faculty_courses_count ?? 0,
+                'handlers' => $handlersByCourseId->get($course->id, collect())->values(),
             ];
         })
         ->values();
@@ -159,6 +208,37 @@
 
     <!-- Delete Assignment Alert & Bulk Component -->
     @include('content.data-management.partials.courses.delete-assignment-alert') <!-- This is included as a separate partial component for better organization -->
+
+    <div class="modal fade" id="courseHandlersModal" tabindex="-1" aria-labelledby="courseHandlersModalTitle"
+        aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content evaluation-card course-handlers-modal">
+                <div class="modal-header evaluation-modal-header course-handlers-modal-header">
+                    <div>
+                        <span class="course-handlers-eyebrow">Faculty Handlers</span>
+                        <h5 class="modal-title mb-1" id="courseHandlersModalTitle">Course Handlers</h5>
+                        <div class="course-handlers-subtitle" id="courseHandlersModalSubtitle">Assigned faculty and
+                            schedules</div>
+                    </div>
+                    <button type="button" class="evaluation-modal-close" data-bs-dismiss="modal"
+                        aria-label="Close">&times;</button>
+                </div>
+                <div class="modal-body evaluation-modal-body">
+                    <div class="course-handlers-summary">
+                        <div>
+                            <span>Class Code</span>
+                            <strong id="courseHandlersClassCode">N/A</strong>
+                        </div>
+                        <div>
+                            <span>Total Handlers</span>
+                            <strong id="courseHandlersCount">0</strong>
+                        </div>
+                    </div>
+                    <div class="course-handlers-list" id="courseHandlersModalBody"></div>
+                </div>
+            </div>
+        </div>
+    </div>
 
 @endsection <!-- End of Course Page Content Section -->
 
@@ -600,6 +680,12 @@
                 this.courseEditModalEl = document.getElementById('courseEditModal');
                 this.courseDeleteModalEl = document.getElementById('courseDeleteModal');
                 this.courseBulkDeleteModalEl = document.getElementById('courseBulkDeleteModal');
+                this.courseHandlersModalEl = document.getElementById('courseHandlersModal');
+                this.courseHandlersTitle = document.getElementById('courseHandlersModalTitle');
+                this.courseHandlersSubtitle = document.getElementById('courseHandlersModalSubtitle');
+                this.courseHandlersClassCode = document.getElementById('courseHandlersClassCode');
+                this.courseHandlersCount = document.getElementById('courseHandlersCount');
+                this.courseHandlersBody = document.getElementById('courseHandlersModalBody');
 
                 this.assignmentCreateModalEl = document.getElementById('assignmentCreateModal');
                 this.assignmentEditModalEl = document.getElementById('assignmentEditModal');
@@ -615,6 +701,8 @@
                     .courseDeleteModalEl) : null;
                 this.courseBulkDeleteModal = this.courseBulkDeleteModalEl && hasBootstrap ? new bootstrap.Modal(this
                     .courseBulkDeleteModalEl) : null;
+                this.courseHandlersModal = this.courseHandlersModalEl && hasBootstrap ? new bootstrap.Modal(this
+                    .courseHandlersModalEl) : null;
 
                 this.assignmentCreateModal = this.assignmentCreateModalEl && hasBootstrap ? new bootstrap.Modal(this
                     .assignmentCreateModalEl) : null;
@@ -1374,8 +1462,14 @@
                     course.subject_type === 'minor' ?
                     '<span class="badge bg-warning text-dark">Minor Course</span>' :
                     '<span class="badge bg-secondary">N/A</span>';
-                const assignments = Number(course.assignments ?? 0);
-                const searchTerms = [course.class_code ?? '', course.subject_code ?? ''].join(' ').toLowerCase();
+                const handlers = Array.isArray(course.handlers) ? course.handlers : [];
+                const assignments = Number(course.assignments ?? handlers.length ?? 0);
+                const hasHandlers = assignments > 0;
+                const searchTerms = [
+                    course.class_code ?? '',
+                    course.subject_code ?? '',
+                    this.getHandlersSearchText(handlers)
+                ].join(' ').toLowerCase();
 
                 const selectionCell = (coursePermissions.canDelete || coursePermissions.showDeleteDisabled) ?
                     `
@@ -1435,7 +1529,15 @@
                             <span class="table-text-truncate is-wide" title="">${subjectType}</span>
                         </td>
                         <td>
-                            <span class="evaluation-count-pill">${assignments}</span>
+                            <button type="button"
+                                    class="course-handler-btn ${hasHandlers ? '' : 'is-empty'}"
+                                    data-action="view-handlers"
+                                    data-id="${id}"
+                                    ${hasHandlers ? '' : 'disabled aria-disabled="true"'}
+                                    title="${hasHandlers ? 'View faculty handlers' : 'No handlers assigned'}">
+                                <i class="bx bx-group"></i>
+                                <span>${assignments}</span>
+                            </button>
                         </td>
                         ${actionsCell}
                     </tr>
@@ -1613,6 +1715,17 @@
                 if (!this.courseTableBody) {
                     return;
                 }
+
+                this.courseTableBody.querySelectorAll('[data-action="view-handlers"]').forEach((button) => {
+                    if (button.dataset.bound === 'true') {
+                        return;
+                    }
+                    button.dataset.bound = 'true';
+                    button.addEventListener('click', () => {
+                        const id = Number(button.dataset.id);
+                        this.openCourseHandlersModal(id);
+                    });
+                });
 
                 this.courseTableBody.querySelectorAll('[data-action="edit-course"]').forEach((button) => {
                     if (button.dataset.bound === 'true') {
@@ -1987,6 +2100,101 @@
                 }
             }
 
+            openCourseHandlersModal(courseId) {
+                const course = this.courses.find((item) => Number(item.id) === Number(courseId));
+                if (!course) {
+                    this.showAlert('error', 'Selected course record was not found.');
+                    return;
+                }
+
+                const handlers = Array.isArray(course.handlers) ? course.handlers : [];
+                const courseTitle = this.formatCourseText(course.subject_code, 'Course Handlers');
+                const classCode = this.formatCourseText(course.class_code, 'N/A');
+
+                if (this.courseHandlersTitle) {
+                    this.courseHandlersTitle.textContent = courseTitle;
+                }
+                if (this.courseHandlersSubtitle) {
+                    this.courseHandlersSubtitle.textContent = 'Faculty handlers, sections, school year, semester, and schedule';
+                }
+                if (this.courseHandlersClassCode) {
+                    this.courseHandlersClassCode.textContent = classCode;
+                }
+                if (this.courseHandlersCount) {
+                    this.courseHandlersCount.textContent = String(handlers.length);
+                }
+                if (this.courseHandlersBody) {
+                    this.courseHandlersBody.innerHTML = handlers.length ?
+                        handlers.map((handler) => this.buildCourseHandlerCard(handler)).join('') :
+                        this.buildCourseHandlersEmptyState();
+                }
+
+                this.courseHandlersModal?.show();
+            }
+
+            buildCourseHandlerCard(handler) {
+                const name = this.formatDisplayText(handler.faculty_name ?? 'N/A') || 'N/A';
+                const employeeNo = this.formatDisplayText(handler.employee_no ?? '') || 'N/A';
+                const section = this.formatDisplayText(handler.section ?? '') || 'N/A';
+                const academicYear = this.formatDisplayText(handler.academic_year ?? '') || 'N/A';
+                const semester = this.formatSemester(handler.semester ?? '');
+                const schedule = this.formatDisplayText(handler.schedule_label ?? '') || 'N/A';
+                const jobTitle = this.formatDisplayText(handler.job_title ?? '') || 'Faculty';
+                const department = this.formatDisplayText(handler.department ?? '');
+
+                return `
+                    <article class="course-handler-card">
+                        <div class="course-handler-card-header">
+                            <div>
+                                <h6>${this.escapeHtml(name)}</h6>
+                                <p>${this.escapeHtml(jobTitle)}${department ? ` <span>&middot;</span> ${this.escapeHtml(department)}` : ''}</p>
+                            </div>
+                            <span class="course-handler-employee">${this.escapeHtml(employeeNo)}</span>
+                        </div>
+                        <div class="course-handler-fields">
+                            ${this.buildCourseHandlerField('Section', section)}
+                            ${this.buildCourseHandlerField('School Year', academicYear)}
+                            ${this.buildCourseHandlerField('Semester', semester)}
+                            ${this.buildCourseHandlerField('Schedule', schedule, true)}
+                        </div>
+                    </article>
+                `;
+            }
+
+            buildCourseHandlerField(label, value, wide = false) {
+                return `
+                    <div class="course-handler-field ${wide ? 'is-wide' : ''}">
+                        <span>${this.escapeHtml(label)}</span>
+                        <strong>${this.escapeHtml(value || 'N/A')}</strong>
+                    </div>
+                `;
+            }
+
+            buildCourseHandlersEmptyState() {
+                return `
+                    <div class="course-handlers-empty">
+                        <i class="bx bx-group"></i>
+                        <h6>No handlers assigned</h6>
+                        <p>This course has no faculty handler or schedule yet.</p>
+                    </div>
+                `;
+            }
+
+            getHandlersSearchText(handlers) {
+                if (!Array.isArray(handlers)) {
+                    return '';
+                }
+
+                return handlers.map((handler) => [
+                    handler.faculty_name ?? '',
+                    handler.employee_no ?? '',
+                    handler.section ?? '',
+                    handler.academic_year ?? '',
+                    this.formatSemester(handler.semester ?? ''),
+                    handler.schedule_label ?? ''
+                ].join(' ')).join(' ');
+            }
+
             openCourseEditModal(courseId) {
                 const course = this.courses.find((item) => Number(item.id) === Number(courseId));
                 if (!course) {
@@ -2160,7 +2368,13 @@
                     const normalised = this.normaliseCourse(payload.data);
                     const index = this.courses.findIndex((item) => Number(item.id) === Number(this.currentCourseId));
                     if (index !== -1) {
-                        this.courses[index] = normalised;
+                        this.courses[index] = {
+                            ...this.courses[index],
+                            ...normalised,
+                            handlers: Array.isArray(normalised.handlers) && normalised.handlers.length ?
+                                normalised.handlers :
+                                (this.courses[index].handlers ?? []),
+                        };
                     }
                     this.refreshCourseDropdownOptions();
                     this.updateAssignmentsForCourseDetails(normalised);
@@ -2445,7 +2659,9 @@
                     id: payload.id,
                     class_code: payload.class_code,
                     subject_code: payload.subject_code,
+                    subject_type: payload.subject_type,
                     assignments: payload.faculty_courses_count ?? payload.assignments ?? 0,
+                    handlers: Array.isArray(payload.handlers) ? payload.handlers : [],
                 };
             }
 

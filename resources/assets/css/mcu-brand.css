@@ -46,6 +46,15 @@ body {
     var(--mcu-page);
 }
 
+  .modal-header.course-handlers-modal-header {
+      background:
+          radial-gradient(circle at 100% 0%, rgba(255, 183, 54, 0.28), transparent 34%),
+          linear-gradient(135deg, #3a0050, #6f2a8f);
+      border-bottom: 0;
+      color: #ffffff;
+      padding-bottom: 25px !important;
+  }
+
 a {
   color: var(--mcu-heritage-purple);
 }

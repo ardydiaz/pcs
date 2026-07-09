@@ -37,9 +37,10 @@ class CourseController extends Controller
                 'created_at',
             ])
             ->with([
-                'faculty:id,user_id,department,job_title',
+                'faculty:id,user_id,employee_no,department,job_title',
                 'faculty.user:id,name,email',
                 'course:id,class_code,subject_code,subject_type',
+                'schedules:id,faculty_course_id,time,day,status',
             ])
             ->whereHas('course', function ($query) {
                 $query->where('subject_type', 'major');
@@ -205,7 +206,27 @@ class CourseController extends Controller
             $query->where(function ($q) use ($search) {
 
                 $q->where('class_code', 'like', "%{$search}%")
-                ->orWhere('subject_code', 'like', "%{$search}%");
+                ->orWhere('subject_code', 'like', "%{$search}%")
+                ->orWhereHas('facultyCourses', function ($facultyCourseQuery) use ($search) {
+                    $facultyCourseQuery
+                        ->where('section', 'like', "%{$search}%")
+                        ->orWhere('academic_year', 'like', "%{$search}%")
+                        ->orWhere('semester', 'like', "%{$search}%")
+                        ->orWhereHas('faculty', function ($facultyQuery) use ($search) {
+                            $facultyQuery
+                                ->where('employee_no', 'like', "%{$search}%")
+                                ->orWhere('department', 'like', "%{$search}%")
+                                ->orWhere('job_title', 'like', "%{$search}%")
+                                ->orWhereHas('user', function ($userQuery) use ($search) {
+                                    $userQuery->where('name', 'like', "%{$search}%");
+                                });
+                        })
+                        ->orWhereHas('schedules', function ($scheduleQuery) use ($search) {
+                            $scheduleQuery
+                                ->where('day', 'like', "%{$search}%")
+                                ->orWhere('time', 'like', "%{$search}%");
+                        });
+                });
 
             });
         }
@@ -253,6 +274,23 @@ class CourseController extends Controller
                             <i class="icon-base bx bx-trash me-1"></i> Delete
                         </a>'
                 : '';
+            $handlerButton = $assignments > 0
+                ? '<button type="button"
+                        class="course-handler-btn"
+                        onclick="list_methods.viewMinorHandlers(this)"
+                        data-id="'.$course->id.'"
+                        title="View faculty handlers">
+                        <i class="bx bx-group"></i>
+                        <span>'.$assignments.'</span>
+                    </button>'
+                : '<button type="button"
+                        class="course-handler-btn is-empty"
+                        disabled
+                        aria-disabled="true"
+                        title="No handlers assigned">
+                        <i class="bx bx-group"></i>
+                        <span>0</span>
+                    </button>';
 
             $actions = '
                 <div class="dropdown">
@@ -280,7 +318,7 @@ class CourseController extends Controller
                 '<span class="evaluation-pill course-pill--class" data-pill-palette="purple" data-pill-value="course-code" style="--pill-bg: #e4c7ff; --pill-color: #4c1d95;">'.$course->class_code.'</span>',
                 $course->subject_code,
                 $subjectType,
-                '<span class="evaluation-count-pill">'.$assignments.'</span>',
+                $handlerButton,
                 $actions
             ];
         }
@@ -290,6 +328,97 @@ class CourseController extends Controller
             "recordsTotal" => $recordsTotal,
             "recordsFiltered" => $recordsFiltered,
             "data" => $data
+        ]);
+    }
+
+    public function minorCourseHandlers($id): JsonResponse
+    {
+        $user = auth()->user();
+        $shouldFilter = $user && $user->role !== 'Admin';
+        $departmentFilters = $this->resolveDepartmentScope($user);
+
+        if ($shouldFilter && empty($departmentFilters)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You do not have a department scope for this course.',
+            ], 403);
+        }
+
+        $courseQuery = Course::query()
+            ->where('subject_type', 'minor')
+            ->whereKey($id);
+
+        if ($shouldFilter) {
+            $courseQuery->whereHas('facultyCourses.faculty', function ($query) use ($departmentFilters) {
+                $query->forDepartments($departmentFilters);
+            });
+        }
+
+        $course = $courseQuery->firstOrFail();
+
+        $assignmentsQuery = FacultyCourse::select([
+                'id',
+                'faculty_id',
+                'course_id',
+                'section',
+                'academic_year',
+                'semester',
+            ])
+            ->with([
+                'faculty:id,user_id,employee_no,department,job_title',
+                'faculty.user:id,name,email',
+                'schedules:id,faculty_course_id,time,day,status',
+            ])
+            ->where('course_id', $course->id);
+
+        if ($shouldFilter) {
+            $assignmentsQuery->whereHas('faculty', function ($query) use ($departmentFilters) {
+                $query->forDepartments($departmentFilters);
+            });
+        }
+
+        $handlers = $assignmentsQuery
+            ->get()
+            ->sortBy(function ($assignment) {
+                return optional(optional($assignment->faculty)->user)->name ?? '';
+            })
+            ->map(function ($assignment) {
+                $faculty = optional($assignment->faculty);
+                $facultyUser = optional($faculty->user);
+                $schedules = $assignment->schedules->map(function ($schedule) {
+                    return [
+                        'id' => $schedule->id,
+                        'day' => $schedule->day ?? '',
+                        'time' => $schedule->time ?? '',
+                        'status' => $schedule->status ?? '',
+                        'label' => $this->formatScheduleLabel($schedule),
+                    ];
+                })->values();
+
+                return [
+                    'id' => $assignment->id,
+                    'faculty_name' => $facultyUser->name ?? ($faculty->name ?? 'N/A'),
+                    'employee_no' => $faculty->employee_no ?? '',
+                    'department' => $faculty->department ?? '',
+                    'job_title' => $faculty->job_title ?? '',
+                    'section' => $assignment->section ?? '',
+                    'academic_year' => $assignment->academic_year ?? '',
+                    'semester' => $assignment->semester ?? '',
+                    'schedules' => $schedules,
+                    'schedule_label' => $schedules->pluck('label')->filter()->unique()->implode(' | ') ?: 'N/A',
+                ];
+            })
+            ->values();
+
+        return response()->json([
+            'success' => true,
+            'course' => [
+                'id' => $course->id,
+                'class_code' => $course->class_code,
+                'subject_code' => $course->subject_code,
+                'subject_type' => $course->subject_type,
+            ],
+            'handlers' => $handlers,
         ]);
     }
     public function saveAddMinorCourse(Request $request){
@@ -1191,6 +1320,17 @@ class CourseController extends Controller
         }
 
         Schedule::whereIn('faculty_course_id', $assignmentIds)->delete();
+    }
+
+    private function formatScheduleLabel($schedule): string
+    {
+        $day = trim((string) ($schedule->day ?? ''));
+        $time = trim((string) ($schedule->time ?? ''));
+        $dayUpper = strtoupper($day);
+        $displayDay = in_array($dayUpper, ['N/A', 'NA', 'NONE', '-'], true) ? '' : $day;
+        $label = trim(($displayDay !== '' ? $displayDay.' ' : '').$time);
+
+        return $label !== '' ? $label : 'N/A';
     }
 
     private function authorizeAdminOnly(): void
