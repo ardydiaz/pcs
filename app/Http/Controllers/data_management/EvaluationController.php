@@ -8,8 +8,7 @@ use Illuminate\Http\Request;
 use App\Models\{Evaluation, EvaluationResponse, Schedule, User, FacultyCourse, Faculty};
 use Illuminate\Support\Str;
 use App\Support\AuditLogger;
-use chillerlan\QRCode\QRCode;
-use chillerlan\QRCode\QROptions;
+use App\Support\BrandedQrCode;
 use Illuminate\Http\Response;
 use Maatwebsite\Excel\Facades\Excel;
 use Carbon\Carbon;
@@ -513,16 +512,7 @@ class EvaluationController extends Controller
         $fileName = "evaluation_qr_{$faculty->name}_{$evaluation->academic_year}_{$evaluation->semester}.png";
         $fileName = preg_replace('/[^A-Za-z0-9_\-\.]/', '_', $fileName);
 
-        $options = new QROptions([
-            'version' => 10,
-            'outputType' => QRCode::OUTPUT_IMAGE_PNG,
-            'eccLevel' => QRCode::ECC_L,
-            'scale' => 8,
-            'imageBase64' => false,
-        ]);
-
-        $qrcode = new QRCode($options);
-        $qrCodeImage = $qrcode->render($evaluation->form_link);
+        $qrCodeImage = BrandedQrCode::png($evaluation->form_link, 8);
 
         AuditLogger::log('evaluation_qr_downloaded', [
             'module' => 'Evaluation',
@@ -547,16 +537,7 @@ class EvaluationController extends Controller
     public function showQrCode(Evaluation $evaluation)
     {
         $this->enforceEvaluationAccess($evaluation);
-        $options = new QROptions([
-            'version' => 10,
-            'outputType' => QRCode::OUTPUT_IMAGE_PNG,
-            'eccLevel' => QRCode::ECC_L,
-            'scale' => 6,
-            'imageBase64' => false,
-        ]);
-
-        $qrcode = new QRCode($options);
-        $qrCodeImage = $qrcode->render($evaluation->form_link);
+        $qrCodeImage = BrandedQrCode::png($evaluation->form_link, 6);
 
         AuditLogger::log('evaluation_qr_generated', [
             'module' => 'Evaluation',
@@ -595,6 +576,7 @@ class EvaluationController extends Controller
             ->get();
 
         $qrCodeDataUri = $this->makeQrCodeSvgDataUri($evaluation->form_link);
+        $qrLogoDataUri = BrandedQrCode::logoDataUri();
 
         AuditLogger::log('evaluation_qr_poster_viewed', [
             'module' => 'Evaluation',
@@ -614,24 +596,14 @@ class EvaluationController extends Controller
         return view('content.data-management.evaluation-files.qr-poster', compact(
             'evaluation',
             'schedules',
-            'qrCodeDataUri'
+            'qrCodeDataUri',
+            'qrLogoDataUri'
         ));
     }
 
     private function makeQrCodeSvgDataUri(string $url): string
     {
-        $options = new QROptions([
-            'version' => 10,
-            'outputType' => QRCode::OUTPUT_MARKUP_SVG,
-            'eccLevel' => QRCode::ECC_L,
-            'scale' => 8,
-            'imageBase64' => false,
-            'drawLightModules' => true,
-        ]);
-
-        $qrCodeSvg = (new QRCode($options))->render($url);
-
-        return 'data:image/svg+xml;base64,' . base64_encode($qrCodeSvg);
+        return BrandedQrCode::svgDataUri($url, 8);
     }
 
     public function exportQrLinks(Request $request)

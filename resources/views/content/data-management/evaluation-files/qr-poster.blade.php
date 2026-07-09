@@ -188,11 +188,31 @@
             border: 1px solid var(--line);
         }
 
-        .qr-section img {
+        .qr-frame {
+            position: relative;
+            width: min(3.2in, 100%);
+            margin: 0 auto 0.9rem;
+        }
+
+        .qr-section img.qr-code-image {
             width: min(3.2in, 100%);
             height: auto;
             display: block;
-            margin: 0 auto 0.9rem;
+            margin: 0 auto;
+        }
+
+        .qr-logo {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            width: 18%;
+            aspect-ratio: 1 / 1;
+            object-fit: contain;
+            padding: 4%;
+            border-radius: 0.22in;
+            background: #ffffff;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 0 0 1px rgba(17, 24, 39, 0.08);
         }
 
         .scan-text {
@@ -319,9 +339,13 @@
                 border-radius: 0.55rem;
             }
 
-            .qr-section img {
+            .qr-frame {
                 width: 2.55in;
                 margin-bottom: 0.45rem;
+            }
+
+            .qr-section img.qr-code-image {
+                width: 2.55in;
             }
 
             .scan-text {
@@ -410,7 +434,12 @@
 
                     <div>
                         <div class="qr-section">
-                            <img src="{{ $qrCodeDataUri }}" alt="Evaluation QR code">
+                            <div class="qr-frame">
+                                <img src="{{ $qrCodeDataUri }}" alt="Evaluation QR code" class="qr-code-image">
+                                @if (!empty($qrLogoDataUri))
+                                    <img src="{{ $qrLogoDataUri }}" alt="MCU logo" class="qr-logo">
+                                @endif
+                            </div>
                             <p class="scan-text">Scan this QR code after class</p>
                             <div class="link-box">{{ $evaluation->form_link }}</div>
                         </div>

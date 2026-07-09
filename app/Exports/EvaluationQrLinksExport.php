@@ -2,8 +2,7 @@
 
 namespace App\Exports;
 
-use chillerlan\QRCode\QRCode;
-use chillerlan\QRCode\QROptions;
+use App\Support\BrandedQrCode;
 use Maatwebsite\Excel\Concerns\FromArray;
 use Maatwebsite\Excel\Concerns\ShouldAutoSize;
 use Maatwebsite\Excel\Concerns\WithColumnWidths;
@@ -47,13 +46,6 @@ class EvaluationQrLinksExport implements FromArray, ShouldAutoSize, WithColumnWi
     public function drawings(): array
     {
         $drawings = [];
-        $options = new QROptions([
-            'version' => 10,
-            'outputType' => QRCode::OUTPUT_IMAGE_PNG,
-            'eccLevel' => QRCode::ECC_L,
-            'scale' => 5,
-            'imageBase64' => false,
-        ]);
 
         foreach ($this->rows as $index => $row) {
             $link = trim((string) ($row[5] ?? ''));
@@ -69,7 +61,7 @@ class EvaluationQrLinksExport implements FromArray, ShouldAutoSize, WithColumnWi
 
                 $pngPath = $path . '.png';
                 @rename($path, $pngPath);
-                file_put_contents($pngPath, (new QRCode($options))->render($link));
+                file_put_contents($pngPath, BrandedQrCode::png($link, 5));
                 $this->qrImagePaths[] = $pngPath;
 
                 $drawing = new Drawing();
