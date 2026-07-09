@@ -9,6 +9,7 @@ use App\Models\{Evaluation, EvaluationResponse, Schedule, User, FacultyCourse, F
 use Illuminate\Support\Str;
 use App\Support\AuditLogger;
 use App\Support\BrandedQrCode;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Response;
 use Maatwebsite\Excel\Facades\Excel;
 use Carbon\Carbon;
@@ -599,6 +600,112 @@ class EvaluationController extends Controller
             'qrCodeDataUri',
             'qrLogoDataUri'
         ));
+    }
+
+    public function facultyProfile(Evaluation $evaluation): JsonResponse
+    {
+        $this->enforceEvaluationAccess($evaluation);
+
+        $facultyRecord = Faculty::where('user_id', $evaluation->faculty_id)->first();
+        $termSchedules = collect();
+        if ($facultyRecord) {
+            $termSchedules = Schedule::with(['facultyCourse.course'])
+                ->whereHas('facultyCourse', function ($query) use ($facultyRecord, $evaluation) {
+                    $query->where('faculty_id', $facultyRecord->id)
+                        ->where('academic_year', $evaluation->academic_year)
+                        ->where('semester', $evaluation->semester);
+                })
+                ->orderBy('day')
+                ->orderBy('time')
+                ->get();
+        }
+
+        $facultyEvaluationIds = Evaluation::where('faculty_id', $evaluation->faculty_id)->pluck('id');
+        $facultyResponses = EvaluationResponse::whereIn('evaluation_id', $facultyEvaluationIds)->get();
+        $termResponses = EvaluationResponse::with(['schedule.facultyCourse.course'])
+            ->where('evaluation_id', $evaluation->id)
+            ->get();
+
+        $activeLinksCount = Evaluation::where('faculty_id', $evaluation->faculty_id)
+            ->where('is_active', true)
+            ->count();
+
+        $qrLinks = Evaluation::where('faculty_id', $evaluation->faculty_id)
+            ->latest()
+            ->limit(6)
+            ->get()
+            ->map(function (Evaluation $item) {
+                return [
+                    'id' => $item->id,
+                    'academic_year' => $item->academic_year,
+                    'semester' => $this->formatSemesterLabel($item->semester),
+                    'status' => $item->is_active ? 'Active' : 'Inactive',
+                    'form_link' => $item->form_link,
+                    'download_url' => route('dm.evaluation.qr.download', $item),
+                    'poster_url' => route('dm.evaluation.qr.poster', $item),
+                ];
+            })
+            ->values();
+
+        $courses = $termSchedules
+            ->map(function (Schedule $schedule) {
+                $assignment = $schedule->facultyCourse;
+                $course = optional($assignment)->course;
+
+                return [
+                    'course' => trim(($course->class_code ?? 'N/A') . (($course->subject_code ?? '') !== '' ? ' - ' . $course->subject_code : '')),
+                    'subject_type' => ($course->subject_type ?? '') === 'minor' ? 'GenEd' : 'Professional',
+                    'section' => $assignment->section ?? 'N/A',
+                    'schedule' => trim(($schedule->day ?? 'N/A') . ' ' . ($schedule->time ?? 'N/A')),
+                ];
+            })
+            ->unique(fn($item) => $item['course'] . '|' . $item['section'] . '|' . $item['schedule'])
+            ->values();
+
+        $latestFeedback = $termResponses
+            ->filter(fn($response) => trim((string) $response->feedback_comments) !== '')
+            ->sortByDesc('created_at')
+            ->take(5)
+            ->map(function (EvaluationResponse $response) {
+                $course = optional(optional($response->schedule)->facultyCourse)->course;
+
+                return [
+                    'feedback' => Str::limit((string) $response->feedback_comments, 140),
+                    'rating' => $response->effectiveness_rating ? $response->effectiveness_rating . '/4' : 'N/A',
+                    'course' => $course->class_code ?? $response->course_code_snapshot ?? 'N/A',
+                    'submitted' => optional($response->created_at)->format('M d, Y h:i A') ?? 'N/A',
+                ];
+            })
+            ->values();
+
+        return response()->json([
+            'success' => true,
+            'faculty' => [
+                'name' => $evaluation->resolved_faculty_name,
+                'email' => $evaluation->resolved_faculty_email,
+                'department' => $evaluation->resolved_faculty_department ?: 'N/A',
+                'program' => $evaluation->resolved_program_label,
+                'academic_year' => $evaluation->academic_year,
+                'semester' => $this->formatSemesterLabel($evaluation->semester),
+            ],
+            'metrics' => [
+                'active_links' => $activeLinksCount,
+                'total_responses' => $termResponses->count(),
+                'faculty_total_responses' => $facultyResponses->count(),
+                'average_rating' => $termResponses->count()
+                    ? number_format((float) $termResponses->avg('effectiveness_rating'), 2)
+                    : 'N/A',
+                'courses_handled' => $courses->count(),
+            ],
+            'courses' => $courses,
+            'latest_feedback' => $latestFeedback,
+            'qr_links' => $qrLinks,
+            'actions' => [
+                'responses_url' => route('dm.evaluation.responses', $evaluation) . '?from=dm',
+                'download_qr_url' => route('dm.evaluation.qr.download', $evaluation),
+                'poster_url' => route('dm.evaluation.qr.poster', $evaluation),
+            ],
+        ]);
     }
 
     private function makeQrCodeSvgDataUri(string $url): string

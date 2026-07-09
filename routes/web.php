@@ -102,6 +102,7 @@ Route::middleware(['auth'])->group(function () {
     Route::patch('/data-management/evaluation/{evaluation}/toggle', [EvaluationController::class, 'toggleStatus'])->name('dm.evaluation.toggle')->middleware('access.level:evaluations.manage');
     Route::delete('/data-management/evaluation/{evaluation}', [EvaluationController::class, 'destroy'])->name('dm.evaluation.destroy')->middleware('access.level:evaluations.manage');
     Route::delete('/data-management/evaluation', [EvaluationController::class, 'bulkDestroy'])->name('dm.evaluation.bulkDestroy')->middleware('access.level:evaluations.manage');
+    Route::get('/data-management/evaluation/{evaluation}/faculty-profile', [EvaluationController::class, 'facultyProfile'])->name('dm.evaluation.faculty-profile')->middleware('access.level:evaluations');
     Route::get('/data-management/evaluation/{evaluation}/responses', [EvaluationController::class, 'viewResponses'])->name('dm.evaluation.responses')->middleware('access.level:responses');
     Route::get('/data-management/evaluation/{evaluation}/responses/export', [EvaluationController::class, 'exportResponses'])->name('dm.evaluation.responses.export')->middleware('access.level:responses');
     Route::get('/data-management/evaluation/qr-links/export', [EvaluationController::class, 'exportQrLinks'])->name('dm.evaluation.qr-links.export')->middleware('access.level:evaluations.qr');

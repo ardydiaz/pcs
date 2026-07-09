@@ -631,6 +631,100 @@
             color: #1f2937;
         }
 
+        .faculty-profile-trigger {
+            appearance: none;
+            background: transparent;
+            border: 0;
+            color: #32445c;
+            cursor: pointer;
+            font: inherit;
+            font-weight: 700;
+            padding: 0;
+            text-align: left;
+        }
+
+        .faculty-profile-trigger:hover,
+        .faculty-profile-trigger:focus {
+            color: #5c297c;
+            text-decoration: underline;
+        }
+
+        .faculty-profile-view-indicator {
+            align-items: center;
+            color: #5c297c;
+            display: inline-flex;
+            font-size: 0.72rem;
+            font-weight: 700;
+            gap: 0.25rem;
+            margin-top: 0.15rem;
+        }
+
+        .faculty-profile-trigger:hover + .faculty-profile-view-indicator,
+        .faculty-profile-trigger:focus + .faculty-profile-view-indicator {
+            text-decoration: underline;
+        }
+
+        .faculty-profile-metrics {
+            display: grid;
+            gap: 0.85rem;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+        }
+
+        .faculty-profile-metric,
+        .faculty-profile-panel {
+            background: #ffffff;
+            border: 1px solid #e7edf5;
+            border-radius: 10px;
+            padding: 1rem;
+        }
+
+        .faculty-profile-metric small,
+        .faculty-profile-panel-label {
+            color: #8a9bb3;
+            display: block;
+            font-size: 0.72rem;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .faculty-profile-metric strong {
+            color: #2f4056;
+            display: block;
+            font-size: 1.25rem;
+            margin-top: 0.35rem;
+        }
+
+        .faculty-profile-list {
+            display: grid;
+            gap: 0.75rem;
+        }
+
+        .faculty-profile-list-item {
+            border: 1px solid #e7edf5;
+            border-radius: 10px;
+            padding: 0.85rem;
+        }
+
+        .faculty-profile-link-row {
+            align-items: center;
+            display: flex;
+            gap: 0.75rem;
+            justify-content: space-between;
+        }
+
+        @media (max-width: 1199.98px) {
+            .faculty-profile-metrics {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+
+        @media (max-width: 575.98px) {
+            .faculty-profile-metrics {
+                grid-template-columns: 1fr;
+            }
+        }
+
         .evaluation-toolbar {
             display: flex;
             align-items: center;
@@ -1333,7 +1427,14 @@
                                     @endif
                                     <td>
                                         <div class="table-cell-stack is-wide" title="{{ $facultyTitle }}">
-                                            <span class="faculty-name">{{ $facultyDisplayName }}</span>
+                                            <button type="button" class="faculty-profile-trigger faculty-name"
+                                                data-faculty-profile
+                                                data-profile-url="{{ route('dm.evaluation.faculty-profile', $evaluation) }}">
+                                                {{ $facultyDisplayName }}
+                                            </button>
+                                            <span class="faculty-profile-view-indicator">
+                                                <i class="bx bx-show"></i> View details
+                                            </span>
                                             @if ($facultyEmail)
                                                 <small class="text-muted">{{ $facultyEmail }}</small>
                                             @endif
@@ -1385,14 +1486,6 @@
                                                 <i class="bx bx-dots-horizontal-rounded"></i>
                                             </button>
                                             <ul class="dropdown-menu dropdown-menu-end">
-                                                @if ($canViewReports || $canManageEvaluations || $canManageEvaluationQr)
-                                                    <li>
-                                                        <a class="dropdown-item"
-                                                            href="{{ route('dm.evaluation.responses', $evaluation) }}?from=dm">
-                                                            View Responses
-                                                        </a>
-                                                    </li>
-                                                @endif
                                                 <li>
                                                     <button type="button" class="dropdown-item" data-evaluation-preview
                                                         data-evaluation-id="{{ $evaluation->id }}"
@@ -1402,19 +1495,6 @@
                                                         data-evaluation-semester="{{ $semesterLabel }}">
                                                         Preview QR
                                                     </button>
-                                                </li>
-                                                <li>
-                                                    <a class="dropdown-item"
-                                                        href="{{ route('dm.evaluation.qr.download', $evaluation) }}">
-                                                        Download QR
-                                                    </a>
-                                                </li>
-                                                <li>
-                                                    <a class="dropdown-item"
-                                                        href="{{ route('dm.evaluation.qr.poster', $evaluation) }}"
-                                                        target="_blank" rel="noopener">
-                                                        QR Poster
-                                                    </a>
                                                 </li>
                                                 @if ($canEdit)
                                                     <li>
@@ -1851,6 +1931,42 @@
         </div>
     </div>
 
+    {{-- Faculty Evaluation Profile Modal --}}
+    <div class="modal fade" id="facultyProfileModal" tabindex="-1" aria-labelledby="facultyProfileModalLabel"
+        aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable evaluation-modal-dialog">
+            <div class="modal-content evaluation-card">
+                <div class="modal-header evaluation-modal-header">
+                    <div>
+                        <small class="text-warning fw-bold text-uppercase">Faculty Evaluation Profile</small>
+                        <h5 class="modal-title mb-0" id="facultyProfileModalLabel">Loading profile...</h5>
+                        <small id="facultyProfileSubtitle" class="text-white-50"></small>
+                    </div>
+                    <button type="button" class="evaluation-modal-close" data-bs-dismiss="modal"
+                        aria-label="Close">×</button>
+                </div>
+                <div class="modal-body evaluation-modal-body" id="facultyProfileBody">
+                    <div class="text-center py-5">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading profile...</span>
+                        </div>
+                        <p class="text-muted mt-2 mb-0">Loading faculty profile...</p>
+                    </div>
+                </div>
+                <div class="modal-footer evaluation-modal-footer">
+                    <button type="button" class="btn btn-tertiary evaluation-modal-btn"
+                        data-bs-dismiss="modal">Close</button>
+                    <a id="facultyProfileResponsesBtn" href="#" class="btn btn-outline-primary evaluation-modal-btn">
+                        View Responses
+                    </a>
+                    <a id="facultyProfileQrBtn" href="#" class="btn btn-faculty-primary evaluation-modal-btn">
+                        Download QR
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
     {{-- QR Code Modal --}}
     <div class="modal fade" id="qrModal" tabindex="-1" aria-labelledby="qrModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered evaluation-modal-dialog evaluation-modal-dialog--narrow">
@@ -2029,6 +2145,7 @@
             initEvaluationSearch();
             attachEvaluationDeleteHandlers();
             attachEvaluationActionHandlers();
+            attachFacultyProfileHandlers();
             initEvaluationFormLoading();
             initEvaluationSelectDropdowns();
             updateEvaluationEmptyState();
@@ -2195,6 +2312,7 @@
                 updateEvaluationBulkBar(bulkBar, selectedCountEl);
                 attachEvaluationDeleteHandlers();
                 attachEvaluationActionHandlers();
+                attachFacultyProfileHandlers();
                 applyEvaluationPillColors(controllerRoot);
             });
 
@@ -2624,6 +2742,237 @@
                     handleEvaluationToggle(button);
                 });
             });
+        }
+
+        function attachFacultyProfileHandlers() {
+            document.querySelectorAll('[data-faculty-profile]').forEach((button) => {
+                if (button.dataset.profileBound === 'true') return;
+
+                button.dataset.profileBound = 'true';
+                button.addEventListener('click', () => {
+                    showFacultyProfile(button.dataset.profileUrl);
+                });
+            });
+        }
+
+        function showFacultyProfile(profileUrl) {
+            if (!profileUrl) {
+                return;
+            }
+
+            const modalEl = document.getElementById('facultyProfileModal');
+            const titleEl = document.getElementById('facultyProfileModalLabel');
+            const subtitleEl = document.getElementById('facultyProfileSubtitle');
+            const bodyEl = document.getElementById('facultyProfileBody');
+            const responsesBtn = document.getElementById('facultyProfileResponsesBtn');
+            const qrBtn = document.getElementById('facultyProfileQrBtn');
+
+            if (titleEl) titleEl.textContent = 'Loading profile...';
+            if (subtitleEl) subtitleEl.textContent = '';
+            if (responsesBtn) responsesBtn.classList.add('disabled');
+            if (qrBtn) qrBtn.classList.add('disabled');
+            if (bodyEl) {
+                bodyEl.innerHTML = `
+                    <div class="text-center py-5">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading profile...</span>
+                        </div>
+                        <p class="text-muted mt-2 mb-0">Loading faculty profile...</p>
+                    </div>
+                `;
+            }
+
+            bootstrap.Modal.getOrCreateInstance(modalEl).show();
+
+            fetch(profileUrl, {
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                    cache: 'no-store',
+                })
+                .then(async (response) => {
+                    const payload = await response.json().catch(() => ({}));
+                    if (!response.ok || payload.success === false) {
+                        throw new Error(payload.message || 'Unable to load faculty profile.');
+                    }
+                    return payload;
+                })
+                .then((payload) => renderFacultyProfile(payload))
+                .catch((error) => {
+                    if (titleEl) titleEl.textContent = 'Faculty Evaluation Profile';
+                    if (bodyEl) {
+                        bodyEl.innerHTML = `
+                            <div class="text-center py-5">
+                                <i class="bx bx-error-circle text-danger mb-2" style="font-size: 2rem;"></i>
+                                <h6 class="text-danger mb-2">Unable to load profile</h6>
+                                <p class="text-muted mb-0">${escapeEvaluationHtml(error.message || 'Please try again.')}</p>
+                            </div>
+                        `;
+                    }
+                });
+        }
+
+        function renderFacultyProfile(payload) {
+            const faculty = payload.faculty || {};
+            const metrics = payload.metrics || {};
+            const courses = Array.isArray(payload.courses) ? payload.courses : [];
+            const feedback = Array.isArray(payload.latest_feedback) ? payload.latest_feedback : [];
+            const qrLinks = Array.isArray(payload.qr_links) ? payload.qr_links : [];
+            const actions = payload.actions || {};
+
+            const titleEl = document.getElementById('facultyProfileModalLabel');
+            const subtitleEl = document.getElementById('facultyProfileSubtitle');
+            const bodyEl = document.getElementById('facultyProfileBody');
+            const responsesBtn = document.getElementById('facultyProfileResponsesBtn');
+            const qrBtn = document.getElementById('facultyProfileQrBtn');
+
+            if (titleEl) titleEl.textContent = faculty.name || 'Unknown Faculty';
+            if (subtitleEl) {
+                subtitleEl.textContent = `${faculty.department || 'N/A'} • ${faculty.academic_year || ''} ${faculty.semester || ''}`;
+            }
+            if (responsesBtn) {
+                responsesBtn.href = actions.responses_url || '#';
+                responsesBtn.classList.toggle('disabled', !actions.responses_url);
+            }
+            if (qrBtn) {
+                qrBtn.href = actions.download_qr_url || '#';
+                qrBtn.classList.toggle('disabled', !actions.download_qr_url);
+            }
+
+            if (!bodyEl) return;
+
+            bodyEl.innerHTML = `
+                <div class="mb-4">
+                    ${faculty.program ? `<div class="alert alert-primary py-2 mb-3">${escapeEvaluationHtml(faculty.program)}</div>` : ''}
+                    <div class="faculty-profile-metrics">
+                        ${renderFacultyMetric('Active Links', metrics.active_links)}
+                        ${renderFacultyMetric('Term Responses', metrics.total_responses)}
+                        ${renderFacultyMetric('Faculty Responses', metrics.faculty_total_responses)}
+                        ${renderFacultyMetric('Average Rating', metrics.average_rating === 'N/A' ? 'N/A' : `${metrics.average_rating}/4`)}
+                        ${renderFacultyMetric('Courses Handled', metrics.courses_handled)}
+                    </div>
+                </div>
+                <div class="row g-3">
+                    <div class="col-lg-7">
+                        <div class="faculty-profile-panel h-100">
+                            <span class="faculty-profile-panel-label mb-3">Courses Handled This Term</span>
+                            ${renderFacultyCourses(courses)}
+                        </div>
+                    </div>
+                    <div class="col-lg-5">
+                        <div class="faculty-profile-panel h-100">
+                            <span class="faculty-profile-panel-label mb-3">Latest Feedback</span>
+                            ${renderFacultyFeedback(feedback)}
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <div class="faculty-profile-panel">
+                            <span class="faculty-profile-panel-label mb-3">QR Links For This Faculty</span>
+                            ${renderFacultyQrLinks(qrLinks)}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderFacultyMetric(label, value) {
+            return `
+                <div class="faculty-profile-metric">
+                    <small>${escapeEvaluationHtml(label)}</small>
+                    <strong>${escapeEvaluationHtml(value ?? '0')}</strong>
+                </div>
+            `;
+        }
+
+        function renderFacultyCourses(courses) {
+            if (!courses.length) {
+                return '<p class="text-muted mb-0">No courses found for this term.</p>';
+            }
+
+            return `
+                <div class="faculty-profile-list">
+                    ${courses.map((course) => `
+                        <div class="faculty-profile-list-item">
+                            <div class="fw-semibold">${escapeEvaluationHtml(course.course || 'N/A')}</div>
+                            <div class="text-muted small">${escapeEvaluationHtml(course.subject_type || 'N/A')}</div>
+                            <div class="row g-2 mt-2">
+                                <div class="col-sm-5"><small class="text-muted d-block">Section</small><strong>${escapeEvaluationHtml(course.section || 'N/A')}</strong></div>
+                                <div class="col-sm-7"><small class="text-muted d-block">Schedule</small><strong>${escapeEvaluationHtml(course.schedule || 'N/A')}</strong></div>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        function renderFacultyFeedback(feedback) {
+            if (!feedback.length) {
+                return '<p class="text-muted mb-0">No feedback submitted yet.</p>';
+            }
+
+            return `
+                <div class="faculty-profile-list">
+                    ${feedback.map((item) => `
+                        <div class="faculty-profile-list-item">
+                            <div class="d-flex justify-content-between gap-2 mb-1">
+                                <strong>${escapeEvaluationHtml(item.course || 'N/A')}</strong>
+                                <span class="badge bg-label-primary">${escapeEvaluationHtml(item.rating || 'N/A')}</span>
+                            </div>
+                            <p class="mb-1">${escapeEvaluationHtml(item.feedback || '')}</p>
+                            <small class="text-muted">${escapeEvaluationHtml(item.submitted || 'N/A')}</small>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        function renderFacultyQrLinks(qrLinks) {
+            if (!qrLinks.length) {
+                return '<p class="text-muted mb-0">No QR links found for this faculty.</p>';
+            }
+
+            return `
+                <div class="faculty-profile-list">
+                    ${qrLinks.map((link) => `
+                        <div class="faculty-profile-list-item faculty-profile-link-row">
+                            <div class="min-w-0">
+                                <div class="fw-semibold">${escapeEvaluationHtml(link.academic_year || 'N/A')} • ${escapeEvaluationHtml(link.semester || 'N/A')}</div>
+                                <div class="text-muted small text-truncate">${escapeEvaluationHtml(link.form_link || '')}</div>
+                                <span class="badge ${link.status === 'Active' ? 'bg-label-success' : 'bg-label-secondary'} mt-1">${escapeEvaluationHtml(link.status || 'N/A')}</span>
+                            </div>
+                            <div class="d-flex gap-2 flex-shrink-0">
+                                <button type="button" class="evaluation-icon-btn" title="Copy link" onclick="copyToClipboard('${escapeEvaluationJs(link.form_link || '')}')">
+                                    <i class="bx bx-copy"></i>
+                                </button>
+                                <a class="evaluation-icon-btn" href="${escapeEvaluationHtml(link.download_url || '#')}" title="Download QR">
+                                    <i class="bx bx-download"></i>
+                                </a>
+                                <a class="evaluation-icon-btn" href="${escapeEvaluationHtml(link.poster_url || '#')}" target="_blank" rel="noopener" title="QR Poster">
+                                    <i class="bx bx-printer"></i>
+                                </a>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        function escapeEvaluationHtml(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function escapeEvaluationJs(value) {
+            return String(value ?? '')
+                .replace(/\\/g, '\\\\')
+                .replace(/'/g, "\\'")
+                .replace(/\n/g, '\\n')
+                .replace(/\r/g, '\\r');
         }
 
         function showTemporaryToast(message, type = 'success') {
