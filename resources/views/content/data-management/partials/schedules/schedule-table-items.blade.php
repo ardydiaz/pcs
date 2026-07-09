@@ -26,6 +26,30 @@
                         </button>
                         <div class="dropdown-menu dropdown-menu-end p-3">
                             <div class="mb-3">
+                                <label class="form-label text-uppercase small">Academic Year</label>
+                                <select id="scheduleFilterAcademicYear" class="form-select">
+                                    <option value="all">All</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label text-uppercase small">Semester</label>
+                                <select id="scheduleFilterSemester" class="form-select">
+                                    <option value="all">All</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label text-uppercase small">Faculty</label>
+                                <select id="scheduleFilterFaculty" class="form-select">
+                                    <option value="all">All</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label text-uppercase small">Section</label>
+                                <select id="scheduleFilterSection" class="form-select">
+                                    <option value="all">All</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
                                 <label class="form-label text-uppercase small">Time</label>
                                 <select id="scheduleFilterTime" class="form-select">
                                     <option value="all">All</option>

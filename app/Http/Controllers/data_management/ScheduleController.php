@@ -23,12 +23,12 @@ class ScheduleController extends Controller
             $schedules = collect();
             $facultyCourses = collect();
         } else {
-            $schedulesQuery = Schedule::select(['id', 'faculty_course_id', 'time', 'day', 'created_at'])
+            $schedulesQuery = Schedule::select(['id', 'faculty_course_id', 'time', 'day', 'status', 'created_at'])
                 ->with([
                     'facultyCourse:id,faculty_id,course_id,section,academic_year,semester',
                     'facultyCourse.faculty:id,user_id,department,job_title',
                     'facultyCourse.faculty.user:id,name,email',
-                    'facultyCourse.course:id,class_code,subject_code',
+                    'facultyCourse.course:id,class_code,subject_code,subject_type',
                 ])
                 ->orderBy('day', 'asc')
                 ->orderBy('time', 'asc');
@@ -43,7 +43,7 @@ class ScheduleController extends Controller
                 ->with([
                     'faculty:id,user_id,department,job_title',
                     'faculty.user:id,name,email',
-                    'course:id,class_code,subject_code',
+                    'course:id,class_code,subject_code,subject_type',
                 ]);
 
             if ($shouldFilter) {
@@ -67,7 +67,7 @@ class ScheduleController extends Controller
         $this->authorizeAdminOnly();
 
         $request->validate([
-            'file' => 'required|mimes:csv,txt,xlsx'
+            'file' => 'required|file|mimes:csv,txt,xlsx|max:10240'
         ]);
 
         $import = new ScheduleImport();
@@ -115,7 +115,10 @@ class ScheduleController extends Controller
         }
 
         $schedule = Schedule::create($validated);
-        $schedule->load('facultyCourse.course');
+        $schedule->load([
+            'facultyCourse.course',
+            'facultyCourse.faculty.user',
+        ]);
         return response()->json([
             'success' => true,
             'message' => 'Schedule created successfully',
@@ -153,7 +156,10 @@ class ScheduleController extends Controller
         }
 
         $schedule->update($validated);
-        $schedule->load('facultyCourse.course');
+        $schedule->load([
+            'facultyCourse.course',
+            'facultyCourse.faculty.user',
+        ]);
         return response()->json([
             'success' => true,
             'message' => 'Schedule updated successfully!',

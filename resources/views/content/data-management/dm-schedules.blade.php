@@ -8,16 +8,24 @@
         ->map(function ($schedule) {
             $course = optional($schedule->facultyCourse)->course;
             $faculty = optional($schedule->facultyCourse)->faculty;
+            $facultyUser = optional($faculty)->user;
 
             return [
                 'id' => $schedule->id,
                 'faculty_course_id' => $schedule->faculty_course_id,
                 'course_code' => optional($course)->class_code,
                 'course_subject' => $course->subject_code ?? '',
+                'subject_type' => $course->subject_type ?? '',
                 'section' => optional($schedule->facultyCourse)->section ?? '',
-                'faculty_name' => optional(optional($faculty)->user)->name ?? ($faculty->name ?? ''),
+                'faculty_name' => optional($facultyUser)->name ?? ($faculty->name ?? ''),
+                'faculty_email' => optional($facultyUser)->email ?? '',
+                'department' => optional($faculty)->department ?? optional($facultyUser)->department ?? '',
+                'job_title' => optional($faculty)->job_title ?? optional($facultyUser)->job_title ?? '',
+                'academic_year' => optional($schedule->facultyCourse)->academic_year ?? '',
+                'semester' => optional($schedule->facultyCourse)->semester ?? '',
                 'time' => $schedule->time,
                 'day' => $schedule->day,
+                'status' => $schedule->status ?? 'scheduled',
             ];
         })
         ->values();
@@ -157,6 +165,27 @@
 
     <!-- Excel Import Modal Component render from partials/schedules/excel-import -->
     @include('content.data-management.partials.schedules.excel-import') <!-- This includes the excel import modal -->
+
+    <div class="modal fade" id="scheduleDetailsModal" tabindex="-1" aria-labelledby="scheduleDetailsModalLabel"
+        aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg schedule-modal-dialog">
+            <div class="modal-content schedule-card">
+                <div class="modal-header schedule-modal-header">
+                    <div>
+                        <small class="text-muted fw-bold text-uppercase">Schedule Details</small>
+                        <h5 class="modal-title mb-0" id="scheduleDetailsModalLabel">Schedule</h5>
+                    </div>
+                    <button type="button" class="schedule-modal-close" data-bs-dismiss="modal"
+                        aria-label="Close">×</button>
+                </div>
+                <div class="modal-body schedule-modal-body" id="scheduleDetailsBody"></div>
+                <div class="modal-footer schedule-modal-footer">
+                    <button type="button" class="btn btn-tertiary schedule-modal-btn"
+                        data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
 @endsection
 
@@ -798,11 +827,19 @@
                     this.bulkBar = document.getElementById('scheduleBulkBar');
                     this.selectedCountEl = document.getElementById('scheduleSelectedCount');
                     this.filters = {
+                        academicYear: 'all',
+                        semester: 'all',
+                        faculty: 'all',
+                        section: 'all',
                         time: 'all',
                         day: 'all'
                     };
                     this.lastSelectionScopeKey = this.getSelectionScopeKey();
                     this.filterControls = {
+                        academicYear: document.getElementById('scheduleFilterAcademicYear'),
+                        semester: document.getElementById('scheduleFilterSemester'),
+                        faculty: document.getElementById('scheduleFilterFaculty'),
+                        section: document.getElementById('scheduleFilterSection'),
                         time: document.getElementById('scheduleFilterTime'),
                         day: document.getElementById('scheduleFilterDay'),
                     };
@@ -813,6 +850,7 @@
                     this.editModalEl = document.getElementById('scheduleEditModal');
                     this.deleteModalEl = document.getElementById('scheduleDeleteModal');
                     this.bulkDeleteModalEl = document.getElementById('scheduleBulkDeleteModal');
+                    this.detailsModalEl = document.getElementById('scheduleDetailsModal');
 
                     const hasBootstrap = typeof bootstrap !== 'undefined' && bootstrap?.Modal;
                     this.createModal = this.createModalEl && hasBootstrap ? new bootstrap.Modal(this.createModalEl) : null;
@@ -820,6 +858,8 @@
                     this.deleteModal = this.deleteModalEl && hasBootstrap ? new bootstrap.Modal(this.deleteModalEl) : null;
                     this.bulkDeleteModal = this.bulkDeleteModalEl && hasBootstrap ? new bootstrap.Modal(this
                         .bulkDeleteModalEl) : null;
+                    this.detailsModal = this.detailsModalEl && hasBootstrap ? new bootstrap.Modal(this.detailsModalEl) :
+                        null;
 
                     this.alertContainer = document.getElementById('scheduleAlertContainer');
 
@@ -1067,6 +1107,26 @@
                 }
 
                 refreshFilterOptions() {
+                    const academicYearOptions = this.getUniqueFilterValues(
+                        this.schedules,
+                        (schedule) => schedule?.academic_year ?? '',
+                        (value) => value || 'N/A'
+                    );
+                    const semesterOptions = this.getUniqueFilterValues(
+                        this.schedules,
+                        (schedule) => schedule?.semester ?? '',
+                        (value) => this.formatSemesterLabel(value)
+                    );
+                    const facultyOptions = this.getUniqueFilterValues(
+                        this.schedules,
+                        (schedule) => schedule?.faculty_name ?? '',
+                        (value) => value || 'N/A'
+                    );
+                    const sectionOptions = this.getUniqueFilterValues(
+                        this.schedules,
+                        (schedule) => schedule?.section ?? '',
+                        (value) => value || 'N/A'
+                    );
                     const timeOptions = this.getUniqueFilterValues(
                         this.schedules,
                         (schedule) => schedule?.time ?? '',
@@ -1081,6 +1141,10 @@
                         }
                     );
 
+                    this.populateFilterSelect(this.filterControls.academicYear, academicYearOptions);
+                    this.populateFilterSelect(this.filterControls.semester, semesterOptions);
+                    this.populateFilterSelect(this.filterControls.faculty, facultyOptions);
+                    this.populateFilterSelect(this.filterControls.section, sectionOptions);
                     this.populateFilterSelect(this.filterControls.time, timeOptions);
                     this.populateFilterSelect(this.filterControls.day, dayOptions);
                     this.updateFilterToggleState();
@@ -1117,6 +1181,30 @@
 
                 matchesFilters(schedule) {
                     if (!schedule) return false;
+                    if (this.filters.academicYear !== 'all') {
+                        const academicYearValue = this.normaliseValue(schedule.academic_year ?? '');
+                        if (academicYearValue !== this.filters.academicYear) {
+                            return false;
+                        }
+                    }
+                    if (this.filters.semester !== 'all') {
+                        const semesterValue = this.normaliseValue(schedule.semester ?? '');
+                        if (semesterValue !== this.filters.semester) {
+                            return false;
+                        }
+                    }
+                    if (this.filters.faculty !== 'all') {
+                        const facultyValue = this.normaliseValue(schedule.faculty_name ?? '');
+                        if (facultyValue !== this.filters.faculty) {
+                            return false;
+                        }
+                    }
+                    if (this.filters.section !== 'all') {
+                        const sectionValue = this.normaliseValue(schedule.section ?? '');
+                        if (sectionValue !== this.filters.section) {
+                            return false;
+                        }
+                    }
                     if (this.filters.time !== 'all') {
                         const timeValue = this.normaliseValue(schedule.time ?? '');
                         if (timeValue !== this.filters.time) {
@@ -1155,7 +1243,14 @@
                     const daySearch = dayDisplay.join(' ');
                     const searchTerms = [
                         courseCodeSource,
+                        courseSubjectSource,
                         subtitleSource,
+                        schedule.faculty_name ?? '',
+                        schedule.academic_year ?? '',
+                        this.formatSemesterLabel(schedule.semester ?? ''),
+                        schedule.section ?? '',
+                        schedule.department ?? '',
+                        schedule.status ?? '',
                         schedule.time ?? '',
                         timeParts.join(' '),
                         daySearch,
@@ -1206,6 +1301,10 @@
                         '';
 
                     const actionItems = `
+                    <li>
+                        <button type="button" class="dropdown-item" data-action="details" data-id="${id}">View Details</button>
+                    </li>
+                    ${(schedulePermissions.canEdit || schedulePermissions.canDelete || schedulePermissions.showDeleteDisabled) ? '<li><hr class="dropdown-divider"></li>' : ''}
                     ${schedulePermissions.canEdit ? `
                                         <li>
                                             <button type="button" class="dropdown-item" data-action="edit" data-id="${id}">Edit</button>
@@ -1224,9 +1323,7 @@
                                     ` : ''}
                 `;
 
-                    const actionsCell = (schedulePermissions.canEdit || schedulePermissions.canDelete || schedulePermissions
-                            .showDeleteDisabled) ?
-                        `
+                    const actionsCell = `
                         <td class="actions-cell">
                             <div class="dropdown">
                                 <button class="schedule-icon-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false">
@@ -1237,8 +1334,7 @@
                                 </ul>
                             </div>
                         </td>
-                    ` :
-                        '<td class="text-muted">—</td>';
+                    `;
 
                     return `
                     <tr data-schedule-id="${id}" class="${isSelected ? 'is-selected' : ''}" data-search="${this.escapeAttribute(searchTerms)}">
@@ -1290,6 +1386,15 @@
 
                 attachRowEvents() {
                     if (!this.tableBody) return;
+
+                    this.tableBody.querySelectorAll('[data-action="details"]').forEach((button) => {
+                        if (button.dataset.bound === 'true') return;
+                        button.dataset.bound = 'true';
+                        button.addEventListener('click', () => {
+                            const id = Number(button.dataset.id);
+                            this.openDetailsModal(id);
+                        });
+                    });
 
                     this.tableBody.querySelectorAll('[data-action="edit"]').forEach((button) => {
                         if (button.dataset.bound === 'true') return;
@@ -1489,6 +1594,56 @@
                     }
                     this.pendingDeleteId = scheduleId;
                     this.deleteModal?.show();
+                }
+
+                openDetailsModal(scheduleId) {
+                    const schedule = this.schedules.find((item) => Number(item.id) === Number(scheduleId));
+                    if (!schedule) {
+                        this.showAlert('error', 'Selected schedule record was not found.');
+                        return;
+                    }
+
+                    const title = document.getElementById('scheduleDetailsModalLabel');
+                    const body = document.getElementById('scheduleDetailsBody');
+                    if (title) {
+                        title.textContent = this.formatCourseText(schedule.course_code, 'Schedule Details');
+                    }
+                    if (body) {
+                        const courseLabel = [
+                            this.formatCourseText(schedule.course_code, ''),
+                            this.formatCourseText(schedule.course_subject, ''),
+                        ].filter(Boolean).join(' - ') || 'N/A';
+                        const subjectType = schedule.subject_type === 'minor' ? 'GenEd Course' :
+                            (schedule.subject_type === 'major' ? 'Professional Course' : 'N/A');
+                        const dayLabel = this.formatDayDisplay(schedule.day).join(', ') || 'N/A';
+                        const statusLabel = this.formatDisplayText(schedule.status || 'scheduled');
+
+                        body.innerHTML = `
+                            <div class="schedule-detail-grid">
+                                ${this.renderScheduleDetail('Course', courseLabel, true)}
+                                ${this.renderScheduleDetail('Subject Type', subjectType)}
+                                ${this.renderScheduleDetail('Faculty Handler', schedule.faculty_name || 'N/A')}
+                                ${this.renderScheduleDetail('Department', schedule.department || 'N/A')}
+                                ${this.renderScheduleDetail('Job Title', schedule.job_title || 'N/A')}
+                                ${this.renderScheduleDetail('Section', schedule.section || 'N/A')}
+                                ${this.renderScheduleDetail('Academic Year', schedule.academic_year || 'N/A')}
+                                ${this.renderScheduleDetail('Semester', this.formatSemesterLabel(schedule.semester))}
+                                ${this.renderScheduleDetail('Day(s)', dayLabel)}
+                                ${this.renderScheduleDetail('Time', schedule.time || 'N/A')}
+                                ${this.renderScheduleDetail('Status', statusLabel)}
+                            </div>
+                        `;
+                    }
+                    this.detailsModal?.show();
+                }
+
+                renderScheduleDetail(label, value, wide = false) {
+                    return `
+                        <div class="schedule-detail-item ${wide ? 'is-wide' : ''}">
+                            <small>${this.escapeHtml(label)}</small>
+                            <strong>${this.escapeHtml(value ?? 'N/A')}</strong>
+                        </div>
+                    `;
                 }
 
                 promptBulkDelete() {
@@ -1800,19 +1955,50 @@
                     return this.splitDayString(dayString).map((code) => mapping[code] || code);
                 }
 
+                formatSemesterLabel(value) {
+                    const raw = String(value ?? '').trim();
+                    const normalized = raw.toLowerCase().replace(/[^a-z0-9]+/g, '');
+                    const labels = {
+                        '1': '1st Semester',
+                        '1st': '1st Semester',
+                        'first': '1st Semester',
+                        'firstsem': '1st Semester',
+                        'firstsemester': '1st Semester',
+                        '2': '2nd Semester',
+                        '2nd': '2nd Semester',
+                        'second': '2nd Semester',
+                        'secondsem': '2nd Semester',
+                        'secondsemester': '2nd Semester',
+                        'summer': 'Summer',
+                        'summersem': 'Summer',
+                        'summersemester': 'Summer',
+                    };
+
+                    return labels[normalized] || raw || 'N/A';
+                }
+
                 normaliseSchedule(payload) {
                     if (!payload) return {};
                     const facultyCourse = payload.faculty_course;
                     const course = facultyCourse?.course;
                     const faculty = facultyCourse?.faculty;
+                    const facultyUser = faculty?.user;
                     return {
                         id: payload.id,
                         faculty_course_id: payload.faculty_course_id,
                         course_code: course?.class_code,
                         course_subject: course?.subject_code ?? '',
-                        faculty_name: faculty?.user?.name ?? faculty?.name ?? '',
+                        subject_type: course?.subject_type ?? '',
+                        section: facultyCourse?.section ?? '',
+                        faculty_name: facultyUser?.name ?? faculty?.name ?? '',
+                        faculty_email: facultyUser?.email ?? '',
+                        department: faculty?.department ?? facultyUser?.department ?? '',
+                        job_title: faculty?.job_title ?? facultyUser?.job_title ?? '',
+                        academic_year: facultyCourse?.academic_year ?? '',
+                        semester: facultyCourse?.semester ?? '',
                         time: payload.time,
                         day: payload.day,
+                        status: payload.status ?? 'scheduled',
                     };
                 }
 

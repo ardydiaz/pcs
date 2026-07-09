@@ -647,6 +647,44 @@
             color: #1f2937;
         }
 
+        .schedule-detail-grid {
+            display: grid;
+            gap: 0.85rem;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .schedule-detail-item {
+            background: #ffffff;
+            border: 1px solid #e7edf5;
+            border-radius: 10px;
+            padding: 0.9rem 1rem;
+        }
+
+        .schedule-detail-item small {
+            color: #8a9bb3;
+            display: block;
+            font-size: 0.72rem;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            margin-bottom: 0.35rem;
+            text-transform: uppercase;
+        }
+
+        .schedule-detail-item strong {
+            color: #2f4056;
+            white-space: normal;
+        }
+
+        .schedule-detail-item.is-wide {
+            grid-column: 1 / -1;
+        }
+
+        @media (max-width: 575.98px) {
+            .schedule-detail-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
         .schedule-search-wrapper {
             display: flex;
             align-items: center;
