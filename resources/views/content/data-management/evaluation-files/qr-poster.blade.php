@@ -205,10 +205,10 @@
             position: absolute;
             left: 50%;
             top: 50%;
-            width: 18%;
+            width: 24%;
             aspect-ratio: 1 / 1;
             object-fit: contain;
-            padding: 4%;
+            padding: 5%;
             border-radius: 0.22in;
             background: #ffffff;
             transform: translate(-50%, -50%);

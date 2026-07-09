@@ -78,12 +78,12 @@ class BrandedQrCode
         $qrHeight = imagesy($qr);
         $logoWidth = imagesx($logo);
         $logoHeight = imagesy($logo);
-        $targetLogoSize = (int) round(min($qrWidth, $qrHeight) * 0.18);
+        $targetLogoSize = (int) round(min($qrWidth, $qrHeight) * 0.26);
 
         $scale = min($targetLogoSize / max($logoWidth, 1), $targetLogoSize / max($logoHeight, 1));
         $targetWidth = max(1, (int) round($logoWidth * $scale));
         $targetHeight = max(1, (int) round($logoHeight * $scale));
-        $padding = max(6, (int) round($targetLogoSize * 0.18));
+        $padding = max(10, (int) round($targetLogoSize * 0.24));
         $boxWidth = $targetWidth + ($padding * 2);
         $boxHeight = $targetHeight + ($padding * 2);
         $boxX = (int) round(($qrWidth - $boxWidth) / 2);
@@ -118,6 +118,10 @@ class BrandedQrCode
     private static function logoPath(): ?string
     {
         $candidates = [
+            public_path('storage/images/logo_color.png'),
+            storage_path('app/public/images/logo_color.png'),
+            public_path('storage/images/new/logo_color.png'),
+            storage_path('app/public/images/new/logo_color.png'),
             public_path('storage/images/logo light.png'),
             storage_path('app/public/images/logo light.png'),
             public_path('storage/images/logo.png'),
