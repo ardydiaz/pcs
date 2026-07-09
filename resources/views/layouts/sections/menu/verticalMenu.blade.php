@@ -99,16 +99,15 @@
       if ($currentRouteName === $menu->slug) {
         $activeClass = 'active';
       } elseif (isset($menu->submenu)) {
-        if (gettype($menu->slug) === 'array') {
-        foreach ($menu->slug as $slug) {
-        if (str_contains($currentRouteName, $slug) and strpos($currentRouteName, $slug) === 0) {
-        $activeClass = 'active open';
-        }
-        }
-        } else {
-        if (str_contains($currentRouteName, $menu->slug) and strpos($currentRouteName, $menu->slug) === 0) {
-        $activeClass = 'active open';
-        }
+        foreach ($menu->submenu as $submenu) {
+          $submenuSlugs = is_array($submenu->slug ?? null) ? $submenu->slug : [($submenu->slug ?? null)];
+
+          foreach ($submenuSlugs as $slug) {
+            if ($slug && ($currentRouteName === $slug || str_starts_with((string) $currentRouteName, $slug . '.'))) {
+              $activeClass = 'active open';
+              break 2;
+            }
+          }
         }
       }
       @endphp

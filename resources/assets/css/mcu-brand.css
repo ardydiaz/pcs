@@ -1,0 +1,271 @@
+:root {
+  --mcu-gold-burst: #ffd400;
+  --mcu-gold-ignite: #ffc20e;
+  --mcu-heritage-gold: #f6b62d;
+  --mcu-gold-medallion: #d89a07;
+  --mcu-purple-haze: #74318a;
+  --mcu-purple-sunset: #64266e;
+  --mcu-heritage-purple: #5c297c;
+  --mcu-purple-panther: #4a1766;
+  --mcu-purple-midnight: #2c003f;
+  --mcu-oat: #e8dbb3;
+  --mcu-sage: #b8c89d;
+  --mcu-mist: #b6cfca;
+  --mcu-rose: #d79692;
+  --mcu-vintage: #cd7659;
+  --mcu-sunlit-yellow: #ffd400;
+  --mcu-fresh-green: #b8d843;
+  --mcu-calm-blue: #10a8b4;
+  --mcu-blazing-pink: #ec0f5a;
+  --mcu-flame-red: #ef1c24;
+  --mcu-honey: #f3a91d;
+  --mcu-forest: #78a43d;
+  --mcu-stone: #4c818a;
+  --mcu-crimson: #a0004b;
+  --mcu-rust: #961d0b;
+  --mcu-ink: #243044;
+  --mcu-muted: #718096;
+  --mcu-line: #e8edf5;
+  --mcu-page: #f7f4fb;
+  --mcu-surface: #ffffff;
+  --bs-primary: var(--mcu-heritage-purple);
+  --bs-primary-rgb: 92, 41, 124;
+  --bs-link-color: var(--mcu-heritage-purple);
+  --bs-link-hover-color: var(--mcu-purple-panther);
+  --bs-body-color: var(--mcu-ink);
+  --bs-body-bg: var(--mcu-page);
+  --bs-border-color: var(--mcu-line);
+  --bs-card-border-radius: 0.85rem;
+}
+
+body {
+  color: var(--mcu-ink);
+  background:
+    radial-gradient(circle at top left, rgba(255, 194, 14, 0.12), transparent 28rem),
+    radial-gradient(circle at top right, rgba(92, 41, 124, 0.12), transparent 32rem),
+    var(--mcu-page);
+}
+
+a {
+  color: var(--mcu-heritage-purple);
+}
+
+a:hover {
+  color: var(--mcu-purple-panther);
+}
+
+.layout-page,
+.content-wrapper {
+  background: transparent;
+}
+
+.layout-menu {
+  background:
+    linear-gradient(180deg, var(--mcu-purple-midnight), var(--mcu-purple-panther) 58%, var(--mcu-heritage-purple));
+  color: #f8f1ff;
+  box-shadow: 0.8rem 0 2rem rgba(44, 0, 63, 0.16);
+}
+
+.layout-menu .app-brand {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.layout-menu .app-brand img {
+  filter: drop-shadow(0 0.45rem 0.8rem rgba(0, 0, 0, 0.2));
+}
+
+.layout-menu .menu-link,
+.layout-menu .menu-header {
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.layout-menu .menu-icon {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.layout-menu .menu-item.open > .menu-link,
+.layout-menu .menu-item.active > .menu-link,
+.layout-menu .menu-link:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.layout-menu .menu-item.active > .menu-link {
+  background: linear-gradient(135deg, var(--mcu-gold-ignite), var(--mcu-heritage-gold));
+  color: var(--mcu-purple-midnight);
+  box-shadow: 0 0.55rem 1rem rgba(246, 182, 45, 0.26);
+}
+
+.layout-menu .menu-item.active > .menu-link .menu-icon {
+  color: var(--mcu-purple-midnight);
+}
+
+.layout-navbar,
+.navbar-detached {
+  border: 1px solid rgba(232, 237, 245, 0.85);
+  border-radius: 0.9rem;
+  background: rgba(255, 255, 255, 0.9) !important;
+  box-shadow: 0 0.75rem 1.75rem rgba(44, 0, 63, 0.08);
+  backdrop-filter: blur(14px);
+}
+
+.card,
+.evaluation-card,
+.modal-content {
+  border: 1px solid rgba(232, 237, 245, 0.92);
+  border-radius: 0.9rem;
+  box-shadow: 0 0.9rem 2rem rgba(44, 0, 63, 0.08);
+}
+
+.card-header,
+.modal-header,
+.evaluation-modal-header {
+  border-bottom-color: var(--mcu-line);
+}
+
+.btn-primary,
+.btn-faculty-primary,
+.btn-evaluation-primary {
+  border-color: var(--mcu-heritage-purple) !important;
+  background: linear-gradient(135deg, var(--mcu-heritage-purple), var(--mcu-purple-panther)) !important;
+  color: #ffffff !important;
+  box-shadow: 0 0.45rem 1rem rgba(92, 41, 124, 0.2);
+}
+
+.btn-primary:hover,
+.btn-primary:focus,
+.btn-faculty-primary:hover,
+.btn-faculty-primary:focus,
+.btn-evaluation-primary:hover,
+.btn-evaluation-primary:focus {
+  border-color: var(--mcu-purple-panther) !important;
+  background: linear-gradient(135deg, var(--mcu-purple-panther), var(--mcu-purple-midnight)) !important;
+  color: #ffffff !important;
+}
+
+.btn-outline-primary {
+  border-color: var(--mcu-heritage-purple);
+  color: var(--mcu-heritage-purple);
+}
+
+.btn-outline-primary:hover,
+.btn-outline-primary:focus {
+  border-color: var(--mcu-heritage-purple);
+  background: var(--mcu-heritage-purple);
+  color: #ffffff;
+}
+
+.badge.bg-primary,
+.bg-label-primary {
+  background-color: rgba(92, 41, 124, 0.12) !important;
+  color: var(--mcu-heritage-purple) !important;
+}
+
+.text-primary {
+  color: var(--mcu-heritage-purple) !important;
+}
+
+.form-control:focus,
+.form-select:focus {
+  border-color: rgba(92, 41, 124, 0.52);
+  box-shadow: 0 0 0 0.2rem rgba(92, 41, 124, 0.12);
+}
+
+.input-group:focus-within {
+  box-shadow: 0 0 0 0.2rem rgba(92, 41, 124, 0.1);
+}
+
+.table,
+.evaluation-table {
+  color: var(--mcu-ink);
+}
+
+.table thead th,
+.evaluation-table thead th {
+  color: #8b98ad;
+  background: #fbfcff;
+  border-bottom-color: var(--mcu-line);
+}
+
+.table tbody tr:hover,
+.evaluation-table tbody tr:hover {
+  background: rgba(92, 41, 124, 0.035);
+}
+
+.evaluation-pill,
+.badge,
+.department-chip {
+  border-radius: 999px;
+}
+
+.pagination .page-item.active .page-link {
+  border-color: var(--mcu-heritage-purple);
+  background: var(--mcu-heritage-purple);
+  color: #ffffff;
+}
+
+.pagination .page-link {
+  color: var(--mcu-heritage-purple);
+}
+
+.dropdown-menu {
+  border: 1px solid var(--mcu-line);
+  border-radius: 0.75rem;
+  box-shadow: 0 1rem 2rem rgba(44, 0, 63, 0.12);
+}
+
+.dropdown-item:active,
+.dropdown-item.active {
+  background: var(--mcu-heritage-purple);
+}
+
+.progress-bar {
+  background: linear-gradient(90deg, var(--mcu-heritage-purple), var(--mcu-gold-ignite));
+}
+
+.alert-primary {
+  border-color: rgba(92, 41, 124, 0.16);
+  background: rgba(92, 41, 124, 0.08);
+  color: var(--mcu-purple-panther);
+}
+
+.alert-warning {
+  border-color: rgba(246, 182, 45, 0.32);
+  background: rgba(255, 194, 14, 0.12);
+  color: #775000;
+}
+
+.apexcharts-tooltip,
+.apexcharts-menu {
+  border-color: var(--mcu-line) !important;
+  box-shadow: 0 0.8rem 1.8rem rgba(44, 0, 63, 0.12) !important;
+}
+
+.faculty-action-card {
+  background:
+    linear-gradient(135deg, var(--mcu-purple-midnight), var(--mcu-heritage-purple) 62%, var(--mcu-purple-haze));
+}
+
+.faculty-action-card .btn-faculty-action {
+  background: var(--mcu-gold-ignite);
+  color: var(--mcu-purple-midnight);
+}
+
+.evaluation-search-input,
+.evaluation-page-size,
+.filter-toggle {
+  border-color: #dce4ef;
+  border-radius: 0.55rem;
+}
+
+.filter-toggle.is-active,
+.filter-toggle:hover {
+  border-color: rgba(92, 41, 124, 0.3);
+  color: var(--mcu-heritage-purple);
+  background: rgba(92, 41, 124, 0.06);
+}
+
+::selection {
+  background: rgba(255, 194, 14, 0.38);
+  color: var(--mcu-purple-midnight);
+}

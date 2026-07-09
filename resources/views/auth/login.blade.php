@@ -10,13 +10,20 @@
     <link rel="icon" type="image/x-icon" href="{{ asset('storage/images/favicon.png') }}" />
     <style>
         :root {
-            --mcu-purple: #643189;
-            --mcu-purple-dark: #4f246f;
-            --mcu-gold: #ffd121;
-            --page-bg: #f8f7fc;
-            --text-main: #273040;
-            --text-muted: #71798a;
-            --line-soft: #e8e5ef;
+            --mcu-gold-burst: #ffd400;
+            --mcu-gold-ignite: #ffc20e;
+            --mcu-heritage-gold: #f6b62d;
+            --mcu-purple-haze: #74318a;
+            --mcu-heritage-purple: #5c297c;
+            --mcu-purple-panther: #4a1766;
+            --mcu-purple-midnight: #2c003f;
+            --mcu-oat: #e8dbb3;
+            --mcu-mist: #b6cfca;
+            --mcu-calm-blue: #10a8b4;
+            --mcu-ink: #243044;
+            --mcu-muted: #718096;
+            --mcu-line: #e8edf5;
+            --page-bg: #f7f4fb;
         }
 
         * {
@@ -26,12 +33,15 @@
         body {
             min-height: 100vh;
             margin: 0;
-            background: var(--page-bg);
+            background:
+                radial-gradient(circle at 12% 10%, rgba(255, 194, 14, 0.18), transparent 24rem),
+                radial-gradient(circle at 86% 18%, rgba(92, 41, 124, 0.16), transparent 28rem),
+                linear-gradient(135deg, #fbf9ff 0%, var(--page-bg) 48%, #f3eef8 100%);
             display: flex;
             justify-content: center;
             align-items: center;
-            padding: 32px 18px;
-            color: var(--text-main);
+            padding: 32px 20px;
+            color: var(--mcu-ink);
             font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
         }
 
@@ -46,27 +56,36 @@
         .login-backdrop::after {
             content: "";
             position: absolute;
-            inset: auto -12vw 7vh;
-            height: 230px;
+            width: 34rem;
+            height: 34rem;
+            border-radius: 999px;
+            filter: blur(1px);
+            opacity: 0.85;
+        }
+
+        .login-backdrop::before {
+            left: -14rem;
+            bottom: -16rem;
             background:
-                linear-gradient(100deg, transparent 9%, rgba(100, 49, 137, 0.1) 10%, rgba(100, 49, 137, 0.06) 32%, transparent 62%),
-                linear-gradient(100deg, transparent 14%, rgba(255, 209, 33, 0.38) 15%, transparent 16%);
-            transform: skewY(9deg);
+                radial-gradient(circle, rgba(255, 194, 14, 0.34), transparent 62%),
+                radial-gradient(circle at 70% 30%, rgba(92, 41, 124, 0.16), transparent 58%);
         }
 
         .login-backdrop::after {
-            inset: auto -10vw 8vh;
-            background: linear-gradient(145deg, transparent 48%, rgba(100, 49, 137, 0.06) 49%, transparent 74%);
-            transform: skewY(-14deg);
+            right: -15rem;
+            top: -17rem;
+            background:
+                radial-gradient(circle, rgba(92, 41, 124, 0.26), transparent 62%),
+                radial-gradient(circle at 20% 80%, rgba(16, 168, 180, 0.14), transparent 54%);
         }
 
         .dot-field {
             position: fixed;
             width: 170px;
             height: 130px;
-            background-image: radial-gradient(rgba(100, 49, 137, 0.13) 1px, transparent 1px);
+            background-image: radial-gradient(rgba(92, 41, 124, 0.16) 1px, transparent 1px);
             background-size: 10px 10px;
-            opacity: 0.5;
+            opacity: 0.42;
             pointer-events: none;
         }
 
@@ -83,58 +102,183 @@
         .login-shell {
             position: relative;
             z-index: 1;
-            width: min(100%, 448px);
+            width: min(100%, 1040px);
+            display: grid;
+            grid-template-columns: minmax(0, 1.1fr) minmax(360px, 0.78fr);
+            overflow: hidden;
+            border: 1px solid rgba(232, 237, 245, 0.95);
+            border-radius: 24px;
+            background: rgba(255, 255, 255, 0.74);
+            box-shadow: 0 28px 70px rgba(44, 0, 63, 0.18);
+            backdrop-filter: blur(18px);
+        }
+
+        .brand-panel {
+            position: relative;
+            overflow: hidden;
+            min-height: 610px;
+            padding: 48px;
+            color: #fff;
+            background:
+                linear-gradient(135deg, rgba(44, 0, 63, 0.96), rgba(74, 23, 102, 0.94) 52%, rgba(92, 41, 124, 0.92)),
+                radial-gradient(circle at top right, rgba(255, 194, 14, 0.42), transparent 20rem);
+        }
+
+        .brand-panel::before,
+        .brand-panel::after {
+            content: "";
+            position: absolute;
+            border-radius: 999px;
+            pointer-events: none;
+        }
+
+        .brand-panel::before {
+            width: 24rem;
+            height: 24rem;
+            right: -9rem;
+            top: -8rem;
+            background: radial-gradient(circle, rgba(255, 194, 14, 0.34), transparent 68%);
+        }
+
+        .brand-panel::after {
+            width: 18rem;
+            height: 18rem;
+            left: -7rem;
+            bottom: -7rem;
+            background: radial-gradient(circle, rgba(16, 168, 180, 0.2), transparent 66%);
+        }
+
+        .brand-content {
+            position: relative;
+            z-index: 1;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .brand-kicker {
+            display: inline-flex;
+            align-items: center;
+            width: fit-content;
+            gap: 0.5rem;
+            padding: 0.48rem 0.75rem;
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.1);
+            color: rgba(255, 255, 255, 0.86);
+            font-size: 0.78rem;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .brand-kicker::before {
+            content: "";
+            width: 0.5rem;
+            height: 0.5rem;
+            border-radius: 999px;
+            background: var(--mcu-gold-ignite);
+            box-shadow: 0 0 0 0.25rem rgba(255, 194, 14, 0.18);
+        }
+
+        .brand-title {
+            max-width: 560px;
+            margin: 4.3rem 0 1rem;
+            color: #ffffff;
+            font-size: clamp(2.2rem, 4vw, 4.1rem);
+            font-weight: 900;
+            letter-spacing: -0.05em;
+            line-height: 0.98;
+        }
+
+        .brand-title span {
+            color: var(--mcu-gold-burst);
+        }
+
+        .brand-copy {
+            max-width: 480px;
+            margin: 0;
+            color: rgba(255, 255, 255, 0.76);
+            font-size: 1rem;
+            line-height: 1.75;
+        }
+
+        .brand-stats {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 0.75rem;
+            margin-top: auto;
+            padding-top: 3rem;
+        }
+
+        .brand-stat {
+            padding: 1rem;
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            border-radius: 16px;
+            background: rgba(255, 255, 255, 0.09);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+        }
+
+        .brand-stat strong {
+            display: block;
+            color: var(--mcu-gold-burst);
+            font-size: 1.15rem;
+            line-height: 1;
+        }
+
+        .brand-stat span {
+            display: block;
+            margin-top: 0.45rem;
+            color: rgba(255, 255, 255, 0.74);
+            font-size: 0.72rem;
+            line-height: 1.3;
+        }
+
+        .login-panel {
+            display: flex;
+            align-items: center;
+            padding: 44px;
+            background:
+                linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(252, 250, 255, 0.98)),
+                radial-gradient(circle at top, rgba(255, 194, 14, 0.12), transparent 18rem);
         }
 
         .login-card {
-            position: relative;
-            overflow: hidden;
-            background: rgba(255, 255, 255, 0.96);
-            min-height: 402px;
-            padding: 32px 32px 25px;
-            border-radius: 10px;
-            border: 1px solid rgba(100, 49, 137, 0.09);
-            box-shadow: 0 18px 45px rgba(24, 18, 36, 0.18);
-            text-align: center;
-        }
-
-        .login-card::before {
-            content: "";
-            position: absolute;
-            inset: 0 0 auto;
-            height: 5px;
-            background: linear-gradient(90deg, var(--mcu-gold), #f7ba20, var(--mcu-purple));
+            width: 100%;
+            text-align: left;
         }
 
         .login-card img {
-            width: min(232px, 78%);
+            width: min(220px, 78%);
             height: auto;
-            margin-bottom: 27px;
+            margin-bottom: 34px;
         }
 
         .login-title {
-            max-width: 340px;
-            margin: 0 auto 9px;
-            font-size: 1.25rem;
-            line-height: 1.16;
-            font-weight: 800;
+            max-width: 380px;
+            margin: 0 0 10px;
+            color: var(--mcu-ink);
+            font-size: 1.55rem;
+            line-height: 1.1;
+            font-weight: 900;
             letter-spacing: 0;
         }
 
         .login-title::after {
             content: "";
             display: block;
-            width: 32px;
-            height: 2px;
-            margin: 13px auto 0;
-            background: var(--mcu-gold);
+            width: 46px;
+            height: 3px;
+            margin: 16px 0 0;
+            background: linear-gradient(90deg, var(--mcu-gold-ignite), var(--mcu-heritage-purple));
             border-radius: 999px;
         }
 
         .login-subtitle {
-            margin-bottom: 21px;
-            color: var(--text-muted);
-            font-size: 0.84rem;
+            margin: 0 0 26px;
+            color: var(--mcu-muted);
+            font-size: 0.94rem;
+            line-height: 1.55;
         }
 
         .btn-office365 {
@@ -142,24 +286,24 @@
             align-items: center;
             justify-content: center;
             gap: 11px;
-            min-height: 46px;
+            min-height: 52px;
             border: 0;
-            border-radius: 7px;
-            background: linear-gradient(135deg, #7137d8, var(--mcu-purple));
+            border-radius: 14px;
+            background: linear-gradient(135deg, var(--mcu-heritage-purple), var(--mcu-purple-panther));
             color: #fff;
-            font-weight: 700;
-            font-size: 0.93rem;
+            font-weight: 800;
+            font-size: 0.95rem;
             letter-spacing: 0;
-            box-shadow: 0 13px 24px rgba(100, 49, 137, 0.28);
+            box-shadow: 0 14px 28px rgba(92, 41, 124, 0.26);
             transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
         }
 
         .btn-office365:hover,
         .btn-office365:focus {
-            background: linear-gradient(135deg, #6c34cf, var(--mcu-purple-dark));
+            background: linear-gradient(135deg, var(--mcu-purple-panther), var(--mcu-purple-midnight));
             color: #fff;
-            box-shadow: 0 16px 28px rgba(100, 49, 137, 0.26);
-            transform: translateY(-1px);
+            box-shadow: 0 18px 34px rgba(92, 41, 124, 0.28);
+            transform: translateY(-2px);
         }
 
         .microsoft-mark {
@@ -192,10 +336,12 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 11px;
-            margin-top: 25px;
-            padding-top: 16px;
-            border-top: 1px solid var(--line-soft);
+            gap: 12px;
+            margin-top: 26px;
+            padding: 14px;
+            border: 1px solid var(--mcu-line);
+            border-radius: 16px;
+            background: #ffffff;
             text-align: left;
         }
 
@@ -203,35 +349,83 @@
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            width: 27px;
-            height: 27px;
+            width: 34px;
+            height: 34px;
             border-radius: 50%;
-            background: rgba(100, 49, 137, 0.08);
-            color: var(--mcu-purple);
+            background: rgba(92, 41, 124, 0.09);
+            color: var(--mcu-heritage-purple);
             flex: 0 0 auto;
         }
 
         .login-note {
             margin: 0;
-            color: var(--text-muted);
-            font-size: 0.72rem;
+            color: var(--mcu-muted);
+            font-size: 0.76rem;
             line-height: 1.35;
         }
 
         .login-note strong {
             display: block;
-            color: #4b5361;
-            font-size: 0.76rem;
-            font-weight: 700;
+            color: var(--mcu-ink);
+            font-size: 0.8rem;
+            font-weight: 800;
         }
 
         .alert {
-            border-radius: 10px;
+            border-radius: 14px;
             text-align: left;
             font-size: 0.92rem;
         }
 
-        @media (max-width: 480px) {
+        .login-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-bottom: 1.15rem;
+        }
+
+        .login-meta span {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.38rem 0.58rem;
+            border-radius: 999px;
+            background: rgba(92, 41, 124, 0.08);
+            color: var(--mcu-heritage-purple);
+            font-size: 0.73rem;
+            font-weight: 800;
+        }
+
+        .login-meta i {
+            color: var(--mcu-heritage-gold);
+        }
+
+        @media (max-width: 900px) {
+            .login-shell {
+                grid-template-columns: 1fr;
+                max-width: 460px;
+            }
+
+            .brand-panel {
+                min-height: auto;
+                padding: 30px;
+            }
+
+            .brand-title {
+                margin-top: 2.6rem;
+                font-size: 2.3rem;
+            }
+
+            .brand-stats {
+                padding-top: 2rem;
+            }
+
+            .login-panel {
+                padding: 32px 26px;
+            }
+        }
+
+        @media (max-width: 520px) {
             body {
                 padding: 20px 14px;
             }
@@ -240,9 +434,20 @@
                 display: none;
             }
 
-            .login-card {
-                min-height: auto;
-                padding: 32px 22px 24px;
+            .brand-panel {
+                padding: 24px;
+            }
+
+            .brand-title {
+                font-size: 2rem;
+            }
+
+            .brand-stats {
+                grid-template-columns: 1fr;
+            }
+
+            .login-panel {
+                padding: 28px 20px;
             }
 
             .login-title {
@@ -257,44 +462,76 @@
     <div class="dot-field dot-field-left" aria-hidden="true"></div>
     <div class="dot-field dot-field-right" aria-hidden="true"></div>
 
-    <main class="login-shell">
-        <section class="login-card" aria-label="Login">
-            <img src="{{ asset('storage/images/logo light.png') }}" alt="Manila Central University logo" class="logo" />
-            <h1 class="login-title">Welcome to MCU Post-Class Survey</h1>
-            <p class="login-subtitle">Please sign-in to your account</p>
-
-            @if (session('session_expired'))
-                <div class="alert alert-warning alert-dismissible fade show" role="alert">
-                    <i class="fas fa-clock me-2"></i>
-                    <strong>Session Expired!</strong> {{ session('session_expired') }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                </div>
-            @endif
-
-            @if ($errors->any())
-                <div class="alert alert-danger" role="alert">
-                    {{ $errors->first('msg') ?? $errors->first() }}
-                </div>
-            @endif
-
-            <a href="{{ url('/auth/microsoft/redirect') }}" class="btn btn-office365 w-100">
-                <span class="microsoft-mark" aria-hidden="true">
-                    <span></span>
-                    <span></span>
-                    <span></span>
-                    <span></span>
-                </span>
-                <span>Login with Office365</span>
-            </a>
-
-            <div class="login-footer">
-                <span class="footer-icon" aria-hidden="true">
-                    <i class="fa-solid fa-shield-halved"></i>
-                </span>
-                <p class="login-note">
-                    <strong>Secure login powered by Microsoft</strong>
-                    Your data is protected and secure
+    <main class="login-shell" aria-label="Post-Class Survey login">
+        <section class="brand-panel" aria-label="System overview">
+            <div class="brand-content">
+                <span class="brand-kicker">Manila Central University</span>
+                <h1 class="brand-title">Post-Class <span>Survey</span> System</h1>
+                <p class="brand-copy">
+                    A centralized space for faculty evaluation, QR access, department insights, and academic feedback
+                    monitoring.
                 </p>
+
+                <div class="brand-stats" aria-label="System highlights">
+                    <div class="brand-stat">
+                        <strong>QR</strong>
+                        <span>Fast student access after class</span>
+                    </div>
+                    <div class="brand-stat">
+                        <strong>DTR</strong>
+                        <span>Faculty load and schedule visibility</span>
+                    </div>
+                    <div class="brand-stat">
+                        <strong>Reports</strong>
+                        <span>Dean and department analytics</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="login-panel" aria-label="Login">
+            <div class="login-card">
+                <img src="{{ asset('storage/images/logo_color.png') }}" alt="Manila Central University logo" class="logo" />
+                <div class="login-meta" aria-label="Login features">
+                    <span><i class="fa-solid fa-shield-halved"></i> Secure SSO</span>
+                    <span><i class="fa-solid fa-chart-line"></i> Evaluation Portal</span>
+                </div>
+                <h2 class="login-title">Welcome back</h2>
+                <p class="login-subtitle">Sign in with your MCU Microsoft account to continue to the Post-Class Survey dashboard.</p>
+
+                @if (session('session_expired'))
+                    <div class="alert alert-warning alert-dismissible fade show" role="alert">
+                        <i class="fas fa-clock me-2"></i>
+                        <strong>Session Expired!</strong> {{ session('session_expired') }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                @endif
+
+                @if ($errors->any())
+                    <div class="alert alert-danger" role="alert">
+                        {{ $errors->first('msg') ?? $errors->first() }}
+                    </div>
+                @endif
+
+                <a href="{{ url('/auth/microsoft/redirect') }}" class="btn btn-office365 w-100">
+                    <span class="microsoft-mark" aria-hidden="true">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                    </span>
+                    <span>Continue with Microsoft 365</span>
+                </a>
+
+                <div class="login-footer">
+                    <span class="footer-icon" aria-hidden="true">
+                        <i class="fa-solid fa-lock"></i>
+                    </span>
+                    <p class="login-note">
+                        <strong>Protected institutional access</strong>
+                        Your login is verified through Microsoft single sign-on.
+                    </p>
+                </div>
             </div>
         </section>
     </main>

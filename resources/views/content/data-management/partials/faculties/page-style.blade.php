@@ -108,6 +108,16 @@
             padding: 0;
         }
 
+        .evaluation-card--table:not(.faculty-action-card) {
+            overflow: hidden;
+            border: 1px solid rgba(232, 222, 240, 0.9);
+            background:
+                linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(250, 247, 253, 0.96)),
+                radial-gradient(circle at top left, rgba(255, 194, 14, 0.12), transparent 18rem),
+                radial-gradient(circle at top right, rgba(92, 41, 124, 0.12), transparent 20rem);
+            box-shadow: 0 1.2rem 2.6rem rgba(44, 0, 63, 0.1);
+        }
+
         .modal-content.evaluation-card {
             background-color: #ffffff;
             border-radius: 0.75rem;
@@ -137,10 +147,55 @@
             color: #64748b;
         }
 
+        .evaluation-card--table:not(.faculty-action-card) .evaluation-controls {
+            margin: 1rem 1rem 0;
+            padding: 1rem 1.1rem !important;
+            border: 1px solid rgba(232, 222, 240, 0.85) !important;
+            border-radius: 0.85rem;
+            background: rgba(255, 255, 255, 0.72);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.88);
+            backdrop-filter: blur(10px);
+        }
+
+        .evaluation-card--table:not(.faculty-action-card) .evaluation-page-size,
+        .evaluation-card--table:not(.faculty-action-card) .evaluation-search-input,
+        .evaluation-card--table:not(.faculty-action-card) .filter-toggle {
+            border-color: rgba(92, 41, 124, 0.15);
+            background-color: rgba(255, 255, 255, 0.92);
+            box-shadow: 0 0.35rem 1rem rgba(44, 0, 63, 0.04);
+        }
+
+        .evaluation-card--table:not(.faculty-action-card) .evaluation-search-input:focus,
+        .evaluation-card--table:not(.faculty-action-card) .evaluation-page-size:focus,
+        .evaluation-card--table:not(.faculty-action-card) .filter-toggle:focus {
+            border-color: rgba(92, 41, 124, 0.4);
+            box-shadow: 0 0 0 0.18rem rgba(92, 41, 124, 0.1);
+        }
+
+        .evaluation-card--table:not(.faculty-action-card) [data-table-info] {
+            padding: 0.45rem 0.75rem;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.7);
+            color: #64748b;
+            font-size: 0.82rem;
+        }
+
+        .evaluation-card--table:not(.faculty-action-card) .card-body.pt-0 {
+            padding-top: 1rem !important;
+        }
+
+        .evaluation-card--table:not(.faculty-action-card) .table-responsive {
+            padding: 0.5rem;
+            border: 1px solid rgba(232, 222, 240, 0.86);
+            border-radius: 0.85rem;
+            background: rgba(255, 255, 255, 0.76);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+        }
+
         .evaluation-table {
             width: 100%;
             border-collapse: separate;
-            border-spacing: 0;
+            border-spacing: 0 0.25rem;
             table-layout: auto;
         }
 
@@ -149,9 +204,9 @@
             letter-spacing: 0.08em;
             font-weight: 600;
             color: #94a3b8;
-            border-bottom: 1px solid #eef2f6;
-            padding: 0.85rem 0.75rem 0.7rem;
-            background-color: #ffffff;
+            border-bottom: 0;
+            padding: 0.9rem 0.75rem 0.8rem;
+            background-color: transparent;
             vertical-align: middle;
             text-align: left;
             line-height: 1.2;
@@ -483,13 +538,44 @@
             transition: background-color 0.2s ease, box-shadow 0.2s ease;
         }
 
+        .evaluation-card--table:not(.faculty-action-card) .evaluation-table tbody tr {
+            border-bottom: 0;
+        }
+
+        .evaluation-card--table:not(.faculty-action-card) .evaluation-table tbody td {
+            border-top: 1px solid rgba(232, 237, 245, 0.88);
+            border-bottom: 1px solid rgba(232, 237, 245, 0.88);
+            background: rgba(255, 255, 255, 0.82);
+            transition: background-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+        }
+
+        .evaluation-card--table:not(.faculty-action-card) .evaluation-table tbody td:first-child {
+            border-left: 1px solid rgba(232, 237, 245, 0.88);
+            border-radius: 0.75rem 0 0 0.75rem;
+        }
+
+        .evaluation-card--table:not(.faculty-action-card) .evaluation-table tbody td:last-child {
+            border-right: 1px solid rgba(232, 237, 245, 0.88);
+            border-radius: 0 0.75rem 0.75rem 0;
+        }
+
         .evaluation-table tbody tr:hover {
             background-color: #f8fafc;
+        }
+
+        .evaluation-card--table:not(.faculty-action-card) .evaluation-table tbody tr:hover td {
+            background: rgba(255, 250, 235, 0.9);
+            box-shadow: 0 0.6rem 1.2rem rgba(44, 0, 63, 0.06);
         }
 
         .evaluation-table tbody tr.is-selected {
             background-color: #eef2ff;
             box-shadow: inset 0 0 0 1px #c7d2fe;
+        }
+
+        .evaluation-card--table:not(.faculty-action-card) .evaluation-table tbody tr.is-selected td {
+            background: rgba(92, 41, 124, 0.08);
+            border-color: rgba(92, 41, 124, 0.18);
         }
 
         .evaluation-table tbody td {
