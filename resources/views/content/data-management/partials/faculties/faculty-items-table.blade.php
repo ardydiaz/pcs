@@ -96,6 +96,9 @@
                                     </span>
                                 </th>
                                 <th>
+                                    <span class="evaluation-sort-label">Load</span>
+                                </th>
+                                <th>
                                     <span class="evaluation-sort-label">Actions</span>
                                 </th>
                         </tr>

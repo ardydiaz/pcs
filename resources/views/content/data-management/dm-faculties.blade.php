@@ -622,12 +622,18 @@
                 this.editModalEl = document.getElementById('facultyEditModal');
                 this.deleteModalEl = document.getElementById('facultyDeleteModal');
                 this.bulkDeleteModalEl = document.getElementById('facultyBulkDeleteModal');
+                this.loadModalEl = document.getElementById('facultyLoadModal');
+                this.loadModalTitleEl = document.getElementById('facultyLoadModalTitle');
+                this.loadModalEmployeeEl = document.getElementById('facultyLoadModalEmployee');
+                this.loadModalSubjectCountEl = document.getElementById('facultyLoadModalSubjectCount');
+                this.loadModalBodyEl = document.getElementById('facultyLoadModalBody');
 
                 const hasBootstrap = typeof bootstrap !== 'undefined' && bootstrap && bootstrap.Modal;
                 this.createModal = this.createModalEl && hasBootstrap ? new bootstrap.Modal(this.createModalEl) : null;
                 this.editModal = this.editModalEl && hasBootstrap ? new bootstrap.Modal(this.editModalEl) : null;
                 this.deleteModal = this.deleteModalEl && hasBootstrap ? new bootstrap.Modal(this.deleteModalEl) : null;
                 this.bulkDeleteModal = this.bulkDeleteModalEl && hasBootstrap ? new bootstrap.Modal(this.bulkDeleteModalEl) : null;
+                this.loadModal = this.loadModalEl && hasBootstrap ? new bootstrap.Modal(this.loadModalEl) : null;
 
                 this.currentEditId = null;
                 this.pendingDeleteId = null;
@@ -1193,7 +1199,7 @@
             buildEmptyStateRow() {
                 return `
                     <tr data-empty>
-                        <td colspan="{{ ($canDelete || $showDeleteDisabled) ? 6 : 5 }}" class="text-center py-5">
+                        <td colspan="{{ ($canDelete || $showDeleteDisabled) ? 7 : 6 }}" class="text-center py-5">
                             <div class="empty-state">
                                 <i class="fa-solid fa-user-group display-4 text-muted mb-3"></i>
                                 <h5 class="mb-2">No faculty members found</h5>
@@ -1207,7 +1213,7 @@
             buildLoadingRow() {
                 return `
                     <tr data-ignore>
-                        <td colspan="{{ ($canDelete || $showDeleteDisabled) ? 6 : 5 }}" class="text-center py-5">
+                        <td colspan="{{ ($canDelete || $showDeleteDisabled) ? 7 : 6 }}" class="text-center py-5">
                             <div class="spinner-border text-primary" role="status" aria-label="Loading"></div>
                             <p class="text-muted mt-3 mb-0">Loading faculty members...</p>
                         </td>
@@ -1218,7 +1224,7 @@
             buildErrorRow(message) {
                 return `
                     <tr data-ignore>
-                        <td colspan="{{ ($canDelete || $showDeleteDisabled) ? 6 : 5 }}" class="text-center py-5">
+                        <td colspan="{{ ($canDelete || $showDeleteDisabled) ? 7 : 6 }}" class="text-center py-5">
                             <div class="empty-state">
                                 <i class="fa-solid fa-triangle-exclamation display-4 text-danger mb-3"></i>
                                 <h5 class="mb-2">Unable to load faculty members</h5>
@@ -1232,7 +1238,7 @@
             buildSearchEmptyRow() {
                 return `
                     <tr data-empty-search style="display: none;">
-                        <td colspan="{{ ($canDelete || $showDeleteDisabled) ? 6 : 5 }}" class="text-center py-5">
+                        <td colspan="{{ ($canDelete || $showDeleteDisabled) ? 7 : 6 }}" class="text-center py-5">
                             <div class="empty-state">
                                 <i class="fa-solid fa-magnifying-glass display-4 text-muted mb-3"></i>
                                 <h5 class="mb-2">No results found</h5>
@@ -1241,6 +1247,135 @@
                         </td>
                     </tr>
                 `;
+            }
+
+            buildAssignmentsHTML(assignments, facultyId) {
+                if (!Array.isArray(assignments) || assignments.length === 0) {
+                    return `
+                        <button type="button" class="faculty-load-btn is-empty" disabled title="No subjects assigned">
+                            <i class="bx bx-book-open"></i>
+                            <span>0</span>
+                        </button>
+                    `;
+                }
+
+                return `
+                    <button type="button"
+                            class="faculty-load-btn"
+                            data-action="view-load"
+                            data-id="${this.escapeAttribute(facultyId)}"
+                            title="View subjects and schedules">
+                        <i class="bx bx-book-open"></i>
+                        <span>${assignments.length}</span>
+                    </button>
+                `;
+            }
+
+            getAssignmentsSearchText(assignments) {
+                if (!Array.isArray(assignments)) {
+                    return '';
+                }
+
+                return assignments.map((assignment) => [
+                    assignment.subject_code,
+                    assignment.class_code,
+                    assignment.section,
+                    assignment.academic_year,
+                    assignment.semester,
+                    assignment.schedule_label,
+                ].filter(Boolean).join(' ')).join(' ');
+            }
+
+            buildLoadModalHTML(assignments) {
+                if (!Array.isArray(assignments) || assignments.length === 0) {
+                    return `
+                        <div class="text-center py-5">
+                            <i class="bx bx-book-open display-4 text-muted mb-3"></i>
+                            <h5 class="mb-1">No subjects assigned</h5>
+                            <p class="text-muted mb-0">This faculty has no handled subjects yet.</p>
+                        </div>
+                    `;
+                }
+
+                const formatSemester = (semester) => {
+                    const value = String(semester || '').trim();
+                    if (!value) {
+                        return 'N/A';
+                    }
+
+                    const normalized = value.toLowerCase();
+                    if (normalized === '1st') return '1st Semester';
+                    if (normalized === '2nd') return '2nd Semester';
+                    if (normalized === 'summer') return 'Summer';
+
+                    return value;
+                };
+
+                return assignments.map((assignment) => {
+                    const subject = assignment.subject_code || assignment.class_code || 'Untitled subject';
+                    const section = assignment.section || 'No section';
+                    const academicYear = assignment.academic_year || 'N/A';
+                    const semester = formatSemester(assignment.semester);
+                    const schedule = assignment.schedule_label || 'No schedule';
+                    const subjectType = assignment.subject_type || '';
+
+                    return `
+                        <div class="faculty-load-modal-item">
+                            <div class="faculty-load-modal-main">
+                                <span class="faculty-load-modal-subject">${this.escapeHtml(subject)}</span>
+                                ${subjectType ? `<span class="faculty-load-modal-type">${this.escapeHtml(subjectType)}</span>` : ''}
+                            </div>
+                            <div class="faculty-load-modal-fields">
+                                <div class="faculty-load-modal-field">
+                                    <span class="faculty-load-modal-label">Section</span>
+                                    <span class="faculty-load-modal-value">${this.escapeHtml(section)}</span>
+                                </div>
+                                <div class="faculty-load-modal-field">
+                                    <span class="faculty-load-modal-label">School Year</span>
+                                    <span class="faculty-load-modal-value">${this.escapeHtml(academicYear)}</span>
+                                </div>
+                                <div class="faculty-load-modal-field">
+                                    <span class="faculty-load-modal-label">Semester</span>
+                                    <span class="faculty-load-modal-value">${this.escapeHtml(semester)}</span>
+                                </div>
+                                <div class="faculty-load-modal-field is-wide">
+                                    <span class="faculty-load-modal-label">Schedule</span>
+                                    <span class="faculty-load-modal-value">${this.escapeHtml(schedule)}</span>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            openLoadModal(facultyId) {
+                const faculty = this.faculties.find((item) => Number(item.id) === Number(facultyId));
+                if (!faculty || !this.loadModal) {
+                    return;
+                }
+
+                const facultyUser = faculty.user || {};
+                const name = facultyUser.name || 'Faculty Load';
+                const employeeNo = faculty.employee_no || 'N/A';
+                const assignments = Array.isArray(faculty.assignments) ? faculty.assignments : [];
+
+                if (this.loadModalTitleEl) {
+                    this.loadModalTitleEl.textContent = name;
+                }
+
+                if (this.loadModalEmployeeEl) {
+                    this.loadModalEmployeeEl.textContent = employeeNo;
+                }
+
+                if (this.loadModalSubjectCountEl) {
+                    this.loadModalSubjectCountEl.textContent = `${assignments.length} subject${assignments.length !== 1 ? 's' : ''} handled`;
+                }
+
+                if (this.loadModalBodyEl) {
+                    this.loadModalBodyEl.innerHTML = this.buildLoadModalHTML(assignments);
+                }
+
+                this.loadModal.show();
             }
 
             buildRowHTML(faculty) {
@@ -1269,6 +1404,9 @@
                 const nameCellTitle = [displayName, emailRaw].filter(Boolean).join(' • ');
                 const employeeAttr = 'employee';
                 const jobTitleAttr = this.escapeAttribute(jobTitle);
+                const assignments = Array.isArray(faculty.assignments) ? faculty.assignments : [];
+                const assignmentsHtml = this.buildAssignmentsHTML(assignments, rowId);
+                const assignmentsSearchText = this.getAssignmentsSearchText(assignments);
 
                 const searchTerms = [
                     rawName,
@@ -1277,6 +1415,7 @@
                     faculty && faculty.job_title ? faculty.job_title : '',
                     facultyUser && facultyUser.job_title ? facultyUser.job_title : '',
                     email,
+                    assignmentsSearchText,
                 ].join(' ').toLowerCase();
 
                 const selectionCell = (facultyPermissions.canDelete || facultyPermissions.showDeleteDisabled)
@@ -1350,6 +1489,9 @@
                         <td>
                             <span class="table-text-truncate is-wide" title="${jobTitleAttr}">${this.escapeHtml(jobTitle)}</span>
                         </td>
+                        <td class="faculty-load-cell">
+                            ${assignmentsHtml}
+                        </td>
                         ${actionsCell}
                     </tr>
                 `;
@@ -1374,6 +1516,15 @@
                         const id = Number(button.dataset.id);
                         if (!Number.isNaN(id)) {
                             this.openDeleteModal(id);
+                        }
+                    });
+                });
+
+                this.tableBody.querySelectorAll('[data-action="view-load"]').forEach((button) => {
+                    button.addEventListener('click', () => {
+                        const id = Number(button.dataset.id);
+                        if (!Number.isNaN(id)) {
+                            this.openLoadModal(id);
                         }
                     });
                 });
@@ -2057,6 +2208,34 @@
     @include('content.data-management.partials.faculties.edit-faculty-form-modal') <!-- Edit Faculty Form Modal -->
     @include('content.data-management.partials.faculties.delete-alert-modal') <!-- Delete Faculty Form Modal -->
     @include('content.data-management.partials.faculties.bulk-delete-modal') <!-- Bulk Delete Faculty Form Modal -->
+    <div class="modal fade" id="facultyLoadModal" tabindex="-1" aria-labelledby="facultyLoadModalLabel"
+        aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content evaluation-card">
+                <div class="modal-header evaluation-modal-header faculty-load-modal-header">
+                    <div class="faculty-load-modal-heading">
+                        <div class="faculty-load-modal-eyebrow">Subjects &amp; Schedule</div>
+                        <h5 class="modal-title faculty-load-modal-title" id="facultyLoadModalTitle">Faculty Load</h5>
+                        <div class="faculty-load-modal-summary">
+                            <span class="faculty-load-modal-summary-item">
+                                <span class="faculty-load-modal-summary-label">Employee No.</span>
+                                <strong id="facultyLoadModalEmployee">N/A</strong>
+                            </span>
+                            <span class="faculty-load-modal-summary-item">
+                                <span class="faculty-load-modal-summary-label">Load</span>
+                                <strong id="facultyLoadModalSubjectCount">0 subjects handled</strong>
+                            </span>
+                        </div>
+                    </div>
+                    <button type="button" class="evaluation-modal-close" data-bs-dismiss="modal"
+                        aria-label="Close">&times;</button>
+                </div>
+                <div class="modal-body evaluation-modal-body">
+                    <div id="facultyLoadModalBody" class="faculty-load-modal-list"></div>
+                </div>
+            </div>
+        </div>
+    </div>
     @if ($canImportAll)
         @include('content.data-management.partials.faculties.import-all-modal') <!-- Import All Modal -->
     @endif

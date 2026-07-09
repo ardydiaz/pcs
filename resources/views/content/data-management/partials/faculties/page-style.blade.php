@@ -197,6 +197,239 @@
             max-width: var(--dm-stack-max);
         }
 
+        .faculty-assignment-cell {
+            min-width: 18rem;
+            max-width: 26rem;
+            white-space: normal !important;
+        }
+
+        .faculty-assignment-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.45rem;
+        }
+
+        .faculty-assignment-item {
+            display: grid;
+            gap: 0.12rem;
+            padding: 0.5rem 0.65rem;
+            border: 1px solid #eef2f7;
+            border-radius: 0.5rem;
+            background: #fbfdff;
+        }
+
+        .faculty-assignment-subject {
+            color: #334155;
+            font-weight: 700;
+            line-height: 1.25;
+            white-space: normal;
+        }
+
+        .faculty-assignment-meta,
+        .faculty-assignment-schedule {
+            color: #64748b;
+            line-height: 1.25;
+        }
+
+        .faculty-assignment-schedule {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        .faculty-assignment-more {
+            color: #5c297c;
+            font-size: 0.75rem;
+            font-weight: 700;
+        }
+
+        .faculty-load-cell {
+            width: 96px;
+            text-align: center;
+        }
+
+        .faculty-load-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.4rem;
+            min-width: 4rem;
+            height: 2.25rem;
+            padding: 0 0.75rem;
+            border: 1px solid #e5def0;
+            border-radius: 999px;
+            background: #f7f2fb;
+            color: #5c297c;
+            font-weight: 800;
+            line-height: 1;
+            transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+        }
+
+        .faculty-load-btn:hover,
+        .faculty-load-btn:focus {
+            background: #efe3f7;
+            border-color: #d9c3e8;
+            color: #4b2266;
+            transform: translateY(-1px);
+        }
+
+        .faculty-load-btn.is-empty,
+        .faculty-load-btn:disabled {
+            cursor: not-allowed;
+            background: #f8fafc;
+            border-color: #e2e8f0;
+            color: #94a3b8;
+            transform: none;
+        }
+
+        .faculty-load-btn i {
+            font-size: 1.1rem;
+        }
+
+        .faculty-load-modal-header {
+            align-items: flex-start;
+            gap: 1rem;
+            padding: 1.1rem 1.5rem;
+        }
+
+        .faculty-load-modal-heading {
+            display: grid;
+            gap: 0.35rem;
+            min-width: 0;
+        }
+
+        .faculty-load-modal-eyebrow {
+            color: #64748b;
+            font-size: 0.72rem;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            line-height: 1;
+            text-transform: uppercase;
+        }
+
+        .faculty-load-modal-title {
+            color: #1f2937;
+            font-size: 1.08rem;
+            font-weight: 800;
+            line-height: 1.25;
+            margin: 0;
+            overflow-wrap: anywhere;
+        }
+
+        .faculty-load-modal-summary {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.45rem;
+            margin-top: 0.15rem;
+        }
+
+        .faculty-load-modal-summary-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.32rem 0.55rem;
+            border: 1px solid #e8edf5;
+            border-radius: 999px;
+            background: #f8fafc;
+            color: #334155;
+            font-size: 0.78rem;
+            line-height: 1.15;
+        }
+
+        .faculty-load-modal-summary-label {
+            color: #94a3b8;
+            font-size: 0.64rem;
+            font-weight: 800;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+        }
+
+        .faculty-load-modal-summary-item strong {
+            font-weight: 800;
+        }
+
+        .faculty-load-modal-list {
+            display: grid;
+            gap: 0.55rem;
+            max-height: min(65vh, 34rem);
+            overflow-y: auto;
+            padding-right: 0.25rem;
+        }
+
+        .faculty-load-modal-item {
+            padding: 0.85rem;
+            border: 1px solid #eef2f7;
+            border-radius: 0.5rem;
+            background: #fbfdff;
+        }
+
+        .faculty-load-modal-main {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 0.75rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .faculty-load-modal-subject {
+            color: #334155;
+            font-weight: 800;
+            line-height: 1.3;
+        }
+
+        .faculty-load-modal-type {
+            flex: 0 0 auto;
+            padding: 0.2rem 0.55rem;
+            border-radius: 999px;
+            background: #eaf3ff;
+            color: #1d4ed8;
+            font-size: 0.7rem;
+            font-weight: 800;
+            text-transform: uppercase;
+        }
+
+        .faculty-load-modal-fields {
+            display: grid;
+            grid-template-columns: 1.15fr 0.9fr 0.9fr 1.35fr;
+            gap: 0.45rem;
+        }
+
+        .faculty-load-modal-field {
+            display: grid;
+            gap: 0.1rem;
+            min-width: 0;
+            padding: 0.5rem 0.6rem;
+            border-radius: 0.45rem;
+            background: #ffffff;
+            border: 1px solid #eef2f7;
+        }
+
+        .faculty-load-modal-label {
+            color: #94a3b8;
+            font-size: 0.64rem;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .faculty-load-modal-value {
+            color: #334155;
+            font-size: 0.8rem;
+            font-weight: 700;
+            line-height: 1.25;
+            overflow-wrap: anywhere;
+        }
+
+        @media (max-width: 767.98px) {
+            .faculty-load-modal-fields {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .faculty-load-modal-field.is-wide {
+                grid-column: 1 / -1;
+            }
+        }
+
         .evaluation-table thead th:first-child,
         .evaluation-table tbody td:first-child {
             width: 48px;

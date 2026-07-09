@@ -84,7 +84,17 @@ class FacultyController extends Controller // Controller class for managing facu
 
         $query = Faculty::query()
             ->select('faculties.*')
-            ->with('user:id,name,email,department,job_title')
+            ->with([
+                'user:id,name,email,department,job_title',
+                'facultyCourses' => function ($query) {
+                    $query->with([
+                        'course:id,class_code,subject_code,subject_type',
+                        'schedules:id,faculty_course_id,time,day,status',
+                    ])
+                        ->orderByDesc('academic_year')
+                        ->orderByDesc('id');
+                },
+            ])
             ->leftJoin('users as faculty_users', 'faculty_users.id', '=', 'faculties.user_id');
 
         if ($shouldFilter) {
@@ -100,7 +110,25 @@ class FacultyController extends Controller // Controller class for managing facu
                     ->orWhere('faculties.employee_no', 'like', $like)
                     ->orWhere('faculties.department', 'like', $like)
                     ->orWhere('faculties.job_title', 'like', $like)
-                    ->orWhere('faculty_users.job_title', 'like', $like);
+                    ->orWhere('faculty_users.job_title', 'like', $like)
+                    ->orWhereHas('facultyCourses', function ($assignmentQuery) use ($like) {
+                        $assignmentQuery
+                            ->where('section', 'like', $like)
+                            ->orWhere('academic_year', 'like', $like)
+                            ->orWhere('semester', 'like', $like)
+                            ->orWhereHas('course', function ($courseQuery) use ($like) {
+                                $courseQuery
+                                    ->where('class_code', 'like', $like)
+                                    ->orWhere('subject_code', 'like', $like)
+                                    ->orWhere('subject_type', 'like', $like);
+                            })
+                            ->orWhereHas('schedules', function ($scheduleQuery) use ($like) {
+                                $scheduleQuery
+                                    ->where('day', 'like', $like)
+                                    ->orWhere('time', 'like', $like)
+                                    ->orWhere('status', 'like', $like);
+                            });
+                    });
             });
         }
 
@@ -578,6 +606,39 @@ class FacultyController extends Controller // Controller class for managing facu
             'employee_no' => $faculty->employee_no,
             'department' => $faculty->department,
             'job_title' => $faculty->job_title ?? $facultyUser->job_title,
+            'assignments' => $faculty->facultyCourses
+                ->map(function (FacultyCourse $assignment) {
+                    $course = $assignment->course;
+                    $schedules = $assignment->schedules
+                        ->map(function (Schedule $schedule) {
+                            $day = trim((string) ($schedule->day ?? ''));
+                            $time = trim((string) ($schedule->time ?? ''));
+                            $displayDay = in_array(strtoupper($day), ['N/A', 'NA', 'NONE', '-'], true) ? '' : $day;
+                            $label = trim(($displayDay !== '' ? $displayDay . ' ' : '') . $time);
+
+                            return [
+                                'id' => $schedule->id,
+                                'day' => $schedule->day,
+                                'time' => $schedule->time,
+                                'status' => $schedule->status,
+                                'label' => $label,
+                            ];
+                        })
+                        ->values();
+
+                    return [
+                        'id' => $assignment->id,
+                        'class_code' => $course?->class_code,
+                        'subject_code' => $course?->subject_code,
+                        'subject_type' => $course?->subject_type,
+                        'section' => $assignment->section,
+                        'academic_year' => $assignment->academic_year,
+                        'semester' => $assignment->semester,
+                        'schedules' => $schedules,
+                        'schedule_label' => $schedules->pluck('label')->filter()->implode(' | '),
+                    ];
+                })
+                ->values(),
             'user' => [
                 'id' => $facultyUser->id,
                 'name' => $facultyUser->name ?? $faculty->name ?? 'Unknown',
