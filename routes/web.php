@@ -115,6 +115,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/user-management/users', [UserManagementController::class, 'index'])->name('um.users')->middleware('admin');
     Route::get('/user-management/users/list', [UserManagementController::class, 'list'])->name('um.users.list')->middleware('admin');
     Route::post('/user-management/users', [UserManagementController::class, 'store'])->name('um.users.store')->middleware('admin');
+    Route::post('/user-management/users/bulk-access', [UserManagementController::class, 'bulkAccess'])->name('um.users.bulk-access')->middleware('admin');
     Route::put('/user-management/users/{user}', [UserManagementController::class, 'update'])->name('um.users.update')->middleware('admin');
     Route::delete('/user-management/users/{user}', [UserManagementController::class, 'destroy'])->name('um.users.destroy')->middleware('admin');
     Route::post('/user-management/users/bulk-delete', [UserManagementController::class, 'bulkDestroy'])->name('um.users.bulk-destroy')->middleware('admin');

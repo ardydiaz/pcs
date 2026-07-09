@@ -714,6 +714,49 @@
             color: #dc2626 !important;
         }
 
+        .evaluation-bulk-btn--access {
+            background: rgba(92, 41, 124, 0.1);
+            color: #5c297c !important;
+            border: 1px solid rgba(92, 41, 124, 0.18);
+        }
+
+        .access-preset-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+            gap: .75rem;
+        }
+
+        .access-preset-btn {
+            border: 1px solid #e6d9ee;
+            border-radius: 12px;
+            background: #ffffff;
+            color: #3a0050;
+            padding: .85rem;
+            text-align: left;
+            transition: all .18s ease;
+        }
+
+        .access-preset-btn:hover,
+        .access-preset-btn.is-active {
+            border-color: #ffb736;
+            background: linear-gradient(135deg, rgba(255, 183, 54, .18), rgba(92, 41, 124, .08));
+            box-shadow: 0 10px 24px rgba(92, 41, 124, .12);
+        }
+
+        .access-preset-title {
+            display: block;
+            font-weight: 700;
+            font-size: .82rem;
+        }
+
+        .access-preset-caption {
+            display: block;
+            margin-top: .2rem;
+            color: #6b7280;
+            font-size: .72rem;
+            line-height: 1.35;
+        }
+
         .evaluation-bulk-close {
             border: none;
             background: transparent;
@@ -1575,6 +1618,9 @@
 
                 <div class="evaluation-bulk-bar d-none" id="userBulkBar">
                     <span class="fw-semibold" id="userSelectedCount">0 Selected</span>
+                    <button type="button" class="evaluation-bulk-btn evaluation-bulk-btn--access" data-user-bulk-action="access">
+                        <i class="bx bx-key"></i> Set Access
+                    </button>
                     <button type="button" class="evaluation-bulk-btn evaluation-bulk-btn--danger" data-user-bulk-action="delete">
                         <i class="bx bx-trash"></i> Delete
                     </button>
@@ -1868,6 +1914,91 @@
     </div>
 </div>
 
+    {{-- Bulk Access Level Modal --}}
+    <div class="modal fade" id="userBulkAccessModal" tabindex="-1" aria-labelledby="userBulkAccessModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered evaluation-modal-dialog">
+            <div class="modal-content evaluation-card">
+                <div class="modal-header evaluation-modal-header">
+                    <div>
+                        <h5 class="modal-title mb-1" id="userBulkAccessModalLabel">Set Access Level</h5>
+                        <small class="text-white-50">Update <span id="userBulkAccessCount">0</span> selected user(s)</small>
+                    </div>
+                    <button type="button" class="evaluation-modal-close" data-bs-dismiss="modal" aria-label="Close">Ã—</button>
+                </div>
+                <div class="modal-body evaluation-modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Preset</label>
+                        <div class="access-preset-grid">
+                            <button type="button" class="access-preset-btn" data-access-preset="faculty">
+                                <span class="access-preset-title">Faculty Basic</span>
+                                <span class="access-preset-caption">Allow faculty to view or answer forms.</span>
+                            </button>
+                            <button type="button" class="access-preset-btn" data-access-preset="head">
+                                <span class="access-preset-title">Dean / Head</span>
+                                <span class="access-preset-caption">Department reports, evaluations, QR links.</span>
+                            </button>
+                            <button type="button" class="access-preset-btn" data-access-preset="admin">
+                                <span class="access-preset-title">Admin Full</span>
+                                <span class="access-preset-caption">Every available access level.</span>
+                            </button>
+                            <button type="button" class="access-preset-btn" data-access-preset="forms">
+                                <span class="access-preset-title">Forms Only</span>
+                                <span class="access-preset-caption">Only View/Answer Forms.</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label" for="bulkAccessMode">Update Mode</label>
+                        <select class="form-select" id="bulkAccessMode">
+                            <option value="replace">Replace existing access</option>
+                            <option value="add">Add to existing access</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-0">
+                        <label class="form-label">Access Level</label>
+                        <div class="dropdown w-100 access-multiselect" data-access-multiselect id="bulkAccessMultiselect">
+                            <button class="access-multiselect-toggle w-100 d-flex align-items-center text-start"
+                                    type="button"
+                                    data-bs-toggle="dropdown"
+                                    data-bs-display="static"
+                                    data-bs-auto-close="outside">
+                                <div class="access-multiselect-content flex-grow-1">
+                                    <div class="access-multiselect-chips" data-access-selected></div>
+                                    <span class="access-multiselect-placeholder" data-access-placeholder>-- Select Access Level --</span>
+                                </div>
+                                <i class="bx bx-chevron-down fs-5 ms-2 text-muted"></i>
+                            </button>
+                            <div class="dropdown-menu p-3">
+                                <div class="access-multiselect-search">
+                                    <input type="text" class="form-control" placeholder="Search access levels..." data-access-search>
+                                </div>
+                                <div class="access-multiselect-list" data-access-list>
+                                    @foreach ($accessLevelOptions as $option)
+                                        <label class="access-multiselect-option"
+                                               data-access-option
+                                               data-value="{{ $option['value'] }}"
+                                               data-label="{{ $option['label'] }}"
+                                               data-search="{{ strtolower($option['label']) }}">
+                                            <input type="checkbox" class="form-check-input" data-access-checkbox value="{{ $option['value'] }}">
+                                            <span>{{ $option['label'] }}</span>
+                                        </label>
+                                    @endforeach
+                                </div>
+                            </div>
+                            <div data-access-inputs class="d-none"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer evaluation-modal-footer">
+                    <button type="button" class="btn btn-tertiary evaluation-modal-btn" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-user-primary evaluation-modal-btn" id="confirmUserBulkAccessBtn" data-default-text="Apply Access" data-loading-text="Applying...">Apply Access</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     {{-- Bulk Delete Confirmation Modal --}}
     <div class="modal fade" id="userBulkDeleteModal" tabindex="-1" aria-labelledby="userBulkDeleteModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered evaluation-modal-dialog evaluation-modal-dialog--narrow">
@@ -1932,7 +2063,14 @@
         const ACCESS_LEVEL_EVAL_QR = 'Manage Evaluation QR/Link';
         const ACCESS_LEVEL_FORMS = 'View/Answer Forms';
         const ROLE_ADMIN = 'Admin';
+        const ROLE_FACULTY = 'Faculty';
         const ROLE_STUDENT = 'Student';
+        const ACCESS_PRESETS = {
+            faculty: [ACCESS_LEVEL_FORMS],
+            head: [ACCESS_LEVEL_VIEW_DEPT, ACCESS_LEVEL_EVALUATIONS, ACCESS_LEVEL_EVAL_QR],
+            admin: ACCESS_LEVEL_VALUES,
+            forms: [ACCESS_LEVEL_FORMS],
+        };
 
         const userFilters = {
             department: 'all',
@@ -1943,12 +2081,14 @@
         let userFilterToggleEl = null;
         const userSelection = new Set();
         let userBulkDeleteModalInstance = null;
+        let userBulkAccessModalInstance = null;
         let userEditModalInstance = null;
         let userDeleteModalInstance = null;
         let pendingUserBulk = null;
         let pendingUserDeleteId = null;
         const userDeleteUrlTemplate = "{{ route('um.users.destroy', ':id') }}";
         const userBulkDeleteUrl = "{{ route('um.users.bulk-destroy') }}";
+        const userBulkAccessUrl = "{{ route('um.users.bulk-access') }}";
         const userUpdateUrlTemplate = "{{ route('um.users.update', ':id') }}";
         const userListUrl = "{{ route('um.users.list') }}";
         const usersPayload = @json($userPayload);
@@ -2858,6 +2998,9 @@
                     }
                     userBulkDeleteModalInstance?.show();
                 }
+                if (action === 'access') {
+                    openUserBulkAccessModal();
+                }
             }
 
             clearSelection() {
@@ -3006,6 +3149,14 @@
                 });
             }
 
+            const bulkAccessModalEl = document.getElementById('userBulkAccessModal');
+            if (bulkAccessModalEl && typeof bootstrap !== 'undefined') {
+                userBulkAccessModalInstance = new bootstrap.Modal(bulkAccessModalEl);
+                bulkAccessModalEl.addEventListener('hidden.bs.modal', () => {
+                    clearAccessPresetState();
+                });
+            }
+
             const deleteModalEl = document.getElementById('userDeleteModal');
             if (deleteModalEl && typeof bootstrap !== 'undefined') {
                 userDeleteModalInstance = new bootstrap.Modal(deleteModalEl);
@@ -3023,6 +3174,8 @@
             if (confirmBulkDeleteBtn) {
                 confirmBulkDeleteBtn.addEventListener('click', () => handleUserBulkDeleteConfirm(confirmBulkDeleteBtn));
             }
+
+            initBulkAccessControls();
 
             const confirmDeleteBtn = document.getElementById('confirmUserDeleteBtn');
             if (confirmDeleteBtn) {
@@ -3662,22 +3815,8 @@
             const state = { disabled: false };
 
             const updateOptionDisabledStates = () => {
-                const hasViewAllReports = selected.has(ACCESS_LEVEL_VIEW_ALL);
-                const hasManageEvaluations = selected.has(ACCESS_LEVEL_EVALUATIONS);
-                const hasEvaluationQr = selected.has(ACCESS_LEVEL_EVAL_QR);
-
                 options.forEach(({ value, checkbox, element }) => {
-                    let isConflict = false;
-                    if (value === ACCESS_LEVEL_VIEW_DEPT && hasViewAllReports) {
-                        isConflict = true;
-                    }
-                    if (value === ACCESS_LEVEL_EVAL_QR && hasManageEvaluations) {
-                        isConflict = true;
-                    }
-                    if (value === ACCESS_LEVEL_EVALUATIONS && hasEvaluationQr) {
-                        isConflict = true;
-                    }
-                    const isDisabled = state.disabled || isConflict;
+                    const isDisabled = state.disabled;
                     if (checkbox) {
                         checkbox.disabled = isDisabled;
                     }
@@ -3999,14 +4138,7 @@
                 valid.push(trimmed);
             });
 
-            let normalized = valid;
-            if (seen.has(ACCESS_LEVEL_VIEW_ALL) && seen.has(ACCESS_LEVEL_VIEW_DEPT)) {
-                normalized = normalized.filter((value) => value !== ACCESS_LEVEL_VIEW_DEPT);
-            }
-            if (seen.has(ACCESS_LEVEL_EVALUATIONS) && seen.has(ACCESS_LEVEL_EVAL_QR)) {
-                normalized = normalized.filter((value) => value !== ACCESS_LEVEL_EVAL_QR);
-            }
-            return normalized;
+            return valid;
         }
 
         function applyRoleAccessRules(roleValue, multiselect, force = false) {
@@ -4026,6 +4158,12 @@
             }
 
             multiselect.accessMultiselectApi.setDisabled(false);
+            if (role === ROLE_FACULTY) {
+                const current = multiselect.accessMultiselectApi.getSelected();
+                multiselect.accessMultiselectApi.setSelected([...current, ACCESS_LEVEL_FORMS]);
+                return;
+            }
+
             if (force) {
                 multiselect.accessMultiselectApi.setSelected(
                     normaliseAccessLevels(multiselect.accessMultiselectApi.getSelected())
@@ -4104,6 +4242,116 @@
                 }
                 userBulkDeleteModalInstance?.show();
             }
+
+            if (action === 'access') {
+                openUserBulkAccessModal();
+            }
+        }
+
+        function initBulkAccessControls() {
+            const multiselect = document.getElementById('bulkAccessMultiselect');
+            if (multiselect && !multiselect.accessMultiselectApi) {
+                setupAccessLevelMultiselect(multiselect);
+            }
+
+            document.querySelectorAll('[data-access-preset]').forEach((button) => {
+                button.addEventListener('click', () => {
+                    const preset = button.dataset.accessPreset;
+                    const levels = ACCESS_PRESETS[preset] || [];
+                    multiselect?.accessMultiselectApi?.setSelected(levels);
+                    clearAccessPresetState();
+                    button.classList.add('is-active');
+                });
+            });
+
+            const confirmBtn = document.getElementById('confirmUserBulkAccessBtn');
+            if (confirmBtn) {
+                confirmBtn.addEventListener('click', () => handleUserBulkAccessConfirm(confirmBtn));
+            }
+        }
+
+        function clearAccessPresetState() {
+            document.querySelectorAll('[data-access-preset]').forEach((button) => {
+                button.classList.remove('is-active');
+            });
+        }
+
+        function openUserBulkAccessModal() {
+            if (userSelection.size === 0) return;
+
+            pendingUserBulk = { ids: Array.from(userSelection) };
+            const countEl = document.getElementById('userBulkAccessCount');
+            if (countEl) {
+                countEl.textContent = pendingUserBulk.ids.length;
+            }
+
+            const modeEl = document.getElementById('bulkAccessMode');
+            if (modeEl) {
+                modeEl.value = 'replace';
+            }
+
+            const multiselect = document.getElementById('bulkAccessMultiselect');
+            if (multiselect && !multiselect.accessMultiselectApi) {
+                setupAccessLevelMultiselect(multiselect);
+            }
+            multiselect?.accessMultiselectApi?.setSelected([ACCESS_LEVEL_FORMS]);
+            clearAccessPresetState();
+            document.querySelector('[data-access-preset="faculty"]')?.classList.add('is-active');
+
+            userBulkAccessModalInstance?.show();
+        }
+
+        function handleUserBulkAccessConfirm(button) {
+            if (!button) return;
+            if (!pendingUserBulk || !Array.isArray(pendingUserBulk.ids) || pendingUserBulk.ids.length === 0) {
+                return;
+            }
+
+            const multiselect = document.getElementById('bulkAccessMultiselect');
+            const modeEl = document.getElementById('bulkAccessMode');
+            const accessLevels = multiselect?.accessMultiselectApi?.getSelected() || [];
+
+            if (accessLevels.length === 0) {
+                showTemporaryToast('Please select at least one access level.', 'warning');
+                return;
+            }
+
+            const loadingText = button.dataset.loadingText || 'Applying...';
+            setButtonLoading(button, true, button.dataset.defaultText || button.textContent.trim(), loadingText);
+
+            fetch(userBulkAccessUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+                },
+                body: JSON.stringify({
+                    ids: pendingUserBulk.ids,
+                    mode: modeEl?.value || 'replace',
+                    access_level: accessLevels,
+                })
+            })
+                .then(async (response) => {
+                    const payload = await response.json();
+                    if (!response.ok || !payload.success) {
+                        throw new Error(payload.message || 'Failed to update access levels.');
+                    }
+                    return payload;
+                })
+                .then((payload) => {
+                    userBulkAccessModalInstance?.hide();
+                    showTemporaryToast(payload.message || 'Access levels updated.', 'success');
+                    clearUserSelection(window.usersPage);
+                    window.usersPage?.renderTable();
+                    pendingUserBulk = null;
+                })
+                .catch((error) => {
+                    showTemporaryToast(error.message || 'Failed to update access levels.', 'danger');
+                })
+                .finally(() => {
+                    setButtonLoading(button, false, button.dataset.defaultText || 'Apply Access');
+                });
         }
 
         function openUserDeleteModal(userId, row) {

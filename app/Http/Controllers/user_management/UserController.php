@@ -15,6 +15,17 @@ use Illuminate\Http\JsonResponse;
 
 class UserController extends Controller
 {
+    private const ACCESS_LEVELS = [
+        'View All Reports',
+        'View Department Reports',
+        'Manage Faculties',
+        'Manage Courses',
+        'Manage Schedules',
+        'Manage Evaluations',
+        'Manage Evaluation QR/Link',
+        'View/Answer Forms',
+    ];
+
     /**
      * Display the list of users in the management console.
      */
@@ -114,7 +125,7 @@ class UserController extends Controller
             'job_title' => ['required', 'string', 'max:255'],
             'role' => ['required', 'in:Admin,NTP,Faculty,Student'],
             'access_level' => ['nullable', 'array'],
-            'access_level.*' => ['in:View All Reports,View Department Reports,Manage Faculties,Manage Courses,Manage Schedules,Manage Evaluations,Manage Evaluation QR/Link,View/Answer Forms'],
+            'access_level.*' => ['in:' . implode(',', self::ACCESS_LEVELS)],
         ]);
 
         $accessLevels = $this->normaliseAccessLevels($validated['role'], $request->input('access_level', []));
@@ -156,7 +167,7 @@ class UserController extends Controller
             'job_title' => ['nullable', 'string', 'max:255'],
             'role' => ['nullable', 'in:Admin,NTP,Faculty,Student'],
             'access_level' => ['nullable', 'array'],
-            'access_level.*' => ['in:View All Reports,View Department Reports,Manage Faculties,Manage Courses,Manage Schedules,Manage Evaluations,Manage Evaluation QR/Link,View/Answer Forms'],
+            'access_level.*' => ['in:' . implode(',', self::ACCESS_LEVELS)],
             'status' => ['nullable', 'in:Active,Inactive'],
         ]);
 
@@ -261,6 +272,45 @@ class UserController extends Controller
         ]);
     }
 
+    /**
+     * Bulk update user access levels.
+     */
+    public function bulkAccess(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'ids' => ['required', 'array', 'min:1'],
+            'ids.*' => ['integer', 'exists:users,id'],
+            'mode' => ['required', 'in:replace,add'],
+            'access_level' => ['nullable', 'array'],
+            'access_level.*' => ['in:' . implode(',', self::ACCESS_LEVELS)],
+        ]);
+
+        $ids = collect($validated['ids'])->unique()->values();
+        $selectedLevels = $request->input('access_level', []);
+        $mode = $validated['mode'];
+        $updated = 0;
+
+        User::whereIn('id', $ids)
+            ->get()
+            ->each(function (User $user) use ($selectedLevels, $mode, &$updated) {
+                $levels = $mode === 'add'
+                    ? array_merge($user->access_level ?? [], $selectedLevels)
+                    : $selectedLevels;
+
+                $user->access_level = $this->normaliseAccessLevels($user->role ?? 'NTP', $levels);
+                $user->save();
+                $updated++;
+            });
+
+        return response()->json([
+            'success' => true,
+            'message' => $updated > 1
+                ? "{$updated} users updated successfully."
+                : 'User access level updated successfully.',
+            'updated' => $ids,
+        ]);
+    }
+
     private function applyListFilter($query, Request $request, string $key, array $columns): void
     {
         $value = strtolower(trim((string) $request->input($key, 'all')));
@@ -360,41 +410,20 @@ class UserController extends Controller
 
     private function normaliseAccessLevels(string $role, array $accessLevels): array
     {
-        $allLevels = [
-            'View All Reports',
-            'View Department Reports',
-            'Manage Faculties',
-            'Manage Courses',
-            'Manage Schedules',
-            'Manage Evaluations',
-            'Manage Evaluation QR/Link',
-            'View/Answer Forms',
-        ];
-
         if ($role === 'Admin') {
-            $accessLevels = $allLevels;
+            $accessLevels = self::ACCESS_LEVELS;
         } elseif ($role === 'Student') {
             $accessLevels = ['View/Answer Forms'];
+        } elseif ($role === 'Faculty') {
+            $accessLevels[] = 'View/Answer Forms';
         }
 
         $levels = collect($accessLevels)
             ->filter(function ($level) {
-                return trim($level ?? '') !== '';
+                return trim($level ?? '') !== '' && in_array($level, self::ACCESS_LEVELS, true);
             })
             ->unique()
             ->values();
-
-        if ($levels->contains('View All Reports')) {
-            $levels = $levels->reject(function ($level) {
-                return $level === 'View Department Reports';
-            });
-        }
-
-        if ($levels->contains('Manage Evaluations')) {
-            $levels = $levels->reject(function ($level) {
-                return $level === 'Manage Evaluation QR/Link';
-            });
-        }
 
         return $levels->values()->all();
     }
