@@ -85,7 +85,7 @@
         ->sortByDesc(function ($assignment) {
             return $assignment->created_at ?? ($assignment->id ?? 0);
         })
-        ->map(function ($assignment) {
+        ->map(function ($assignment) use ($formatScheduleLabel) {
             $faculty = optional($assignment->faculty);
             $facultyUser = optional($faculty->user);
             $course = optional($assignment->course);
@@ -103,6 +103,11 @@
                 'section' => $assignment->section ?? '',
                 'academic_year' => $assignment->academic_year,
                 'semester' => $assignment->semester,
+                'schedule_label' => $assignment->schedules
+                    ? $assignment->schedules->map(function ($schedule) use ($formatScheduleLabel) {
+                        return $formatScheduleLabel($schedule);
+                    })->filter()->unique()->implode(' | ')
+                    : 'N/A',
             ];
         })
         ->values();
@@ -675,6 +680,7 @@
                 };
                 this.assignmentFilterReset = document.getElementById('assignmentFilterReset');
                 this.assignmentFilterToggle = document.getElementById('assignmentFilterToggle');
+                this.professionalFacultyLoadPreview = document.getElementById('professionalFacultyLoadPreview');
 
                 this.courseCreateModalEl = document.getElementById('courseCreateModal');
                 this.courseEditModalEl = document.getElementById('courseEditModal');
@@ -756,6 +762,7 @@
                 this.bindForms();
                 this.bindSearchInputs();
                 this.bindBulkBars();
+                this.bindFacultyLoadPreview();
                 this.initCourseSorting();
                 this.initAssignmentSorting();
                 this.initAssignmentFilters();
@@ -876,6 +883,117 @@
                         }
                     });
                 }
+            }
+
+            bindFacultyLoadPreview() {
+                const fields = [
+                    document.getElementById('createAssignmentFaculty'),
+                    document.getElementById('createAssignmentYear'),
+                    document.getElementById('createAssignmentSemester'),
+                ].filter(Boolean);
+
+                fields.forEach((field) => {
+                    field.addEventListener('change', () => this.updateProfessionalFacultyLoadPreview());
+                    field.addEventListener('input', () => this.updateProfessionalFacultyLoadPreview());
+                });
+
+                this.assignmentCreateModalEl?.addEventListener('shown.bs.modal', () => {
+                    this.updateProfessionalFacultyLoadPreview();
+                });
+                this.assignmentCreateModalEl?.addEventListener('hidden.bs.modal', () => {
+                    this.renderFacultyLoadPreviewEmpty(
+                        this.professionalFacultyLoadPreview,
+                        'Select a faculty member to preview the current teaching load.'
+                    );
+                });
+            }
+
+            updateProfessionalFacultyLoadPreview() {
+                const facultyId = document.getElementById('createAssignmentFaculty')?.value ?? '';
+                const academicYear = document.getElementById('createAssignmentYear')?.value ?? '';
+                const semester = document.getElementById('createAssignmentSemester')?.value ?? '';
+                this.renderFacultyLoadPreview(this.professionalFacultyLoadPreview, this.assignments, facultyId,
+                    academicYear, semester);
+            }
+
+            renderFacultyLoadPreview(container, assignments, facultyId, academicYear = '', semester = '') {
+                if (!container) {
+                    return;
+                }
+
+                if (!facultyId) {
+                    this.renderFacultyLoadPreviewEmpty(container,
+                        'Select a faculty member to preview the current teaching load.');
+                    return;
+                }
+
+                const selectedFaculty = (this.faculties || []).find((faculty) => Number(faculty.id) === Number(
+                    facultyId));
+                const allFacultyLoads = (Array.isArray(assignments) ? assignments : [])
+                    .filter((assignment) => Number(assignment.faculty_id) === Number(facultyId));
+                const termLoads = allFacultyLoads.filter((assignment) => {
+                    const yearMatches = !academicYear || String(assignment.academic_year ?? '') === String(
+                        academicYear);
+                    const semesterMatches = !semester || this.normaliseSemesterKey(assignment.semester) === this
+                        .normaliseSemesterKey(semester);
+                    return yearMatches && semesterMatches;
+                });
+                const visibleLoads = (academicYear || semester) ? termLoads : allFacultyLoads;
+                const facultyName = selectedFaculty?.name || allFacultyLoads[0]?.faculty_name || 'Selected faculty';
+                const subtitle = academicYear || semester ?
+                    [academicYear || 'Any year', semester ? this.formatSemester(semester) : 'Any semester'].filter(Boolean).join(
+                        ' | ') :
+                    'All assigned courses';
+
+                const listHtml = visibleLoads.length ?
+                    visibleLoads.slice(0, 6).map((assignment) => this.buildFacultyLoadPreviewItem(assignment)).join(
+                        '') :
+                    `<div class="faculty-load-preview-empty">No assigned course found for this selection.</div>`;
+                const hiddenCount = Math.max(visibleLoads.length - 6, 0);
+                const note = allFacultyLoads.length >= 8 ?
+                    `<div class="faculty-load-preview-note">High load: this faculty has ${allFacultyLoads.length} total assigned courses.</div>` :
+                    '';
+
+                container.innerHTML = `
+                    <div class="faculty-load-preview-header">
+                        <div>
+                            <h6 class="faculty-load-preview-title">${this.escapeHtml(facultyName)}</h6>
+                            <div class="faculty-load-preview-subtitle">${this.escapeHtml(subtitle)}</div>
+                        </div>
+                        <span class="faculty-load-preview-count">${visibleLoads.length} load${visibleLoads.length === 1 ? '' : 's'}</span>
+                    </div>
+                    <div class="faculty-load-preview-list">
+                        ${listHtml}
+                    </div>
+                    ${hiddenCount ? `<div class="faculty-load-preview-note">+${hiddenCount} more assigned course${hiddenCount === 1 ? '' : 's'} not shown.</div>` : ''}
+                    ${note}
+                `;
+            }
+
+            buildFacultyLoadPreviewItem(assignment) {
+                const course = [assignment.course_class_code ?? '', assignment.course_subject_code ?? '']
+                    .filter(Boolean)
+                    .join(' - ') || 'N/A';
+                const details = [
+                    assignment.section ? `Section: ${assignment.section}` : '',
+                    assignment.academic_year ?? '',
+                    this.formatSemester(assignment.semester),
+                    assignment.schedule_label && assignment.schedule_label !== 'N/A' ? assignment.schedule_label : '',
+                ].filter(Boolean).join(' | ');
+
+                return `
+                    <div class="faculty-load-preview-item">
+                        <strong>${this.escapeHtml(course)}</strong>
+                        <span>${this.escapeHtml(details || 'No schedule yet')}</span>
+                    </div>
+                `;
+            }
+
+            renderFacultyLoadPreviewEmpty(container, message) {
+                if (!container) {
+                    return;
+                }
+                container.innerHTML = `<div class="faculty-load-preview-empty">${this.escapeHtml(message)}</div>`;
             }
 
             initSelectStyling() {
@@ -2473,6 +2591,8 @@
                     this.refreshSectionDropdownOptions();
                     this.assignmentCreateModal?.hide();
                     form.reset();
+                    this.renderFacultyLoadPreviewEmpty(this.professionalFacultyLoadPreview,
+                        'Select a faculty member to preview the current teaching load.');
                     this.renderAssignmentTable();
                     this.showAlert('success', payload.message || 'Course assigned successfully.');
                     setTimeout(() => {
@@ -2681,9 +2801,11 @@
                     course_id: payload.course_id,
                     course_class_code: course.class_code ?? 'N/A',
                     course_subject_code: course.subject_code ?? '',
+                    course_subject_type: course.subject_type ?? '',
                     section: payload.section ?? '',
                     academic_year: payload.academic_year,
                     semester: payload.semester,
+                    schedule_label: payload.schedule_label ?? 'N/A',
                 };
             }
 
@@ -2750,6 +2872,23 @@
                     return 'Summer';
                 }
                 return value;
+            }
+
+            normaliseSemesterKey(value) {
+                if (!value) {
+                    return '';
+                }
+                const normalised = String(value).toLowerCase().replace(/[^a-z0-9]/g, '');
+                if (['1', '1st', 'first', 'firstsem', 'firstsemester', 'semester1'].includes(normalised)) {
+                    return '1st';
+                }
+                if (['2', '2nd', 'second', 'secondsem', 'secondsemester', 'semester2'].includes(normalised)) {
+                    return '2nd';
+                }
+                if (['3', '3rd', 'summer', 'summersem', 'summersemester', 'midyear'].includes(normalised)) {
+                    return 'summer';
+                }
+                return normalised;
             }
 
             formatCourseText(value, fallback = '') {

@@ -177,6 +177,11 @@
                                 <input type="hidden" name="semester" id="createAssignmentSemester" required>
                             </div>
                         </div>
+                        <div class="faculty-load-preview mt-3" id="professionalFacultyLoadPreview">
+                            <div class="faculty-load-preview-empty">
+                                Select a faculty member to preview the current teaching load.
+                            </div>
+                        </div>
                     </div>
                     <div class="modal-footer evaluation-modal-footer">
                         <button type="button" class="btn btn-tertiary evaluation-modal-btn"

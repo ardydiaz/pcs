@@ -5,6 +5,8 @@ namespace App\Http\Controllers\dashboard;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\{Evaluation, EvaluationResponse, Schedule, User, Faculty, Course, FacultyCourse};
+use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
@@ -199,6 +201,99 @@ class ReportsController extends Controller
             'isDepartmentScoped',
             'lockedDepartment'
         ));
+    }
+
+    public function getMetricDetails(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $accessLevels = collect($user?->access_level ?? []);
+        $isAdmin = $user && $user->role === 'Admin';
+        $hasReportAccess = $isAdmin
+            || $accessLevels->contains('View All Reports')
+            || $accessLevels->contains('View Department Reports');
+
+        if (!$hasReportAccess) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized.'], 404);
+        }
+
+        $metric = $request->get('metric', 'total_faculties');
+        if (!in_array($metric, ['total_faculties', 'total_responses', 'average_rating', 'courses_evaluated'], true)) {
+            return response()->json(['success' => false, 'message' => 'Invalid metric.'], 422);
+        }
+
+        $excludedDepartments = self::EXCLUDED_DEPARTMENTS;
+        $allowedDepartments = [];
+        if (!$isAdmin) {
+            $allowedDepartments = collect($this->resolveDepartmentScope($user))
+                ->filter(fn($value) => $value !== '')
+                ->values()
+                ->all();
+            if (empty($allowedDepartments)) {
+                return response()->json([
+                    'success' => true,
+                    'title' => $this->metricTitle($metric),
+                    'columns' => $this->metricColumns($metric),
+                    'items' => [],
+                    'meta' => ['total' => 0, 'page' => 1, 'per_page' => 10, 'last_page' => 1],
+                ]);
+            }
+        }
+
+        $department = $request->get('department', 'all');
+        if (in_array($department, $excludedDepartments, true)) {
+            $department = 'all';
+        }
+        if (!$isAdmin && $department !== 'all' && !in_array($department, $allowedDepartments, true)) {
+            $department = 'all';
+        }
+
+        $academicYear = $request->get('academic_year', 'all');
+        $semester = $request->get('semester', 'all');
+        $subjectType = $request->get('subject_type', 'all');
+        if (!in_array($subjectType, ['all', 'major', 'minor'], true)) {
+            $subjectType = 'all';
+        }
+
+        $page = max(1, (int) $request->get('page', 1));
+        $perPage = min(25, max(5, (int) $request->get('per_page', 10)));
+
+        $cacheKey = 'reports.metric.details.' . md5(json_encode([
+            'metric' => $metric,
+            'department' => $department,
+            'academic_year' => $academicYear,
+            'semester' => $semester,
+            'subject_type' => $subjectType,
+            'allowed_departments' => $allowedDepartments,
+            'page' => $page,
+            'per_page' => $perPage,
+        ]));
+
+        $result = Cache::remember($cacheKey, now()->addMinutes(3), function () use (
+            $metric,
+            $department,
+            $academicYear,
+            $semester,
+            $subjectType,
+            $allowedDepartments,
+            $excludedDepartments,
+            $page,
+            $perPage
+        ) {
+            return match ($metric) {
+                'total_faculties' => $this->buildMetricFacultyRows($department, $academicYear, $semester, $subjectType, $allowedDepartments, $excludedDepartments, $page, $perPage),
+                'total_responses' => $this->buildMetricResponseRows($department, $academicYear, $semester, $subjectType, $allowedDepartments, $excludedDepartments, $page, $perPage),
+                'average_rating' => $this->buildMetricRatingRows($department, $academicYear, $semester, $subjectType, $allowedDepartments, $excludedDepartments, $page, $perPage),
+                'courses_evaluated' => $this->buildMetricCourseRows($department, $academicYear, $semester, $subjectType, $allowedDepartments, $excludedDepartments, $page, $perPage),
+            };
+        });
+
+        return response()->json([
+            'success' => true,
+            'title' => $this->metricTitle($metric),
+            'columns' => $this->metricColumns($metric),
+            'items' => $result['items'],
+            'meta' => $result['meta'],
+        ]);
     }
 
     //filter and paginate faculties for the department-faculties modal
@@ -1119,6 +1214,360 @@ class ReportsController extends Controller
         }
         $name = strtolower(trim((string) data_get($evaluation, 'resolved_faculty_name', '')));
         return $name === '' ? 'unknown' : 'name:' . $name;
+    }
+
+    private function metricTitle(string $metric): string
+    {
+        return match ($metric) {
+            'total_faculties' => 'Total Faculties',
+            'total_responses' => 'Total Responses',
+            'average_rating' => 'Average Rating Details',
+            'courses_evaluated' => 'Courses Evaluated',
+            default => 'Metric Details',
+        };
+    }
+
+    private function metricColumns(string $metric): array
+    {
+        return match ($metric) {
+            'total_faculties' => ['Faculty', 'Department', 'Evaluations', 'Responses', 'Average Rating'],
+            'total_responses' => ['Faculty', 'Course', 'Rating', 'Feedback', 'Submitted'],
+            'average_rating' => ['Faculty', 'Department', 'Average Rating', 'Responses', 'Courses'],
+            'courses_evaluated' => ['Course', 'Subject Type', 'Responses', 'Average Rating', 'Faculty Handlers'],
+            default => [],
+        };
+    }
+
+    private function metricEvaluationQuery(string $department, string $academicYear, string $semester, array $allowedDepartments, array $excludedDepartments)
+    {
+        $query = Evaluation::where('is_active', true);
+
+        if ($academicYear !== 'all') {
+            $query->where('academic_year', $academicYear);
+        }
+        if ($semester !== 'all') {
+            $query->where('semester', $semester);
+        }
+
+        foreach ($excludedDepartments as $excludedDepartment) {
+            $query->whereRaw(
+                "NOT FIND_IN_SET(?, REPLACE(faculty_department_snapshot, ', ', ','))",
+                [$excludedDepartment]
+            );
+        }
+
+        if (!empty($allowedDepartments)) {
+            $query->where(function ($inner) use ($allowedDepartments) {
+                foreach ($allowedDepartments as $allowedDepartment) {
+                    $inner->orWhereRaw(
+                        "FIND_IN_SET(?, REPLACE(faculty_department_snapshot, ', ', ','))",
+                        [$allowedDepartment]
+                    );
+                }
+            });
+        }
+
+        if ($department !== 'all') {
+            $query->whereRaw(
+                "FIND_IN_SET(?, REPLACE(faculty_department_snapshot, ', ', ','))",
+                [$department]
+            );
+        }
+
+        return $query;
+    }
+
+    private function metricResponseQuery(string $department, string $academicYear, string $semester, string $subjectType, array $allowedDepartments, array $excludedDepartments)
+    {
+        $query = EvaluationResponse::with(['evaluation', 'schedule.facultyCourse.course'])
+            ->whereHas('evaluation', function ($evaluationQuery) use ($department, $academicYear, $semester, $allowedDepartments, $excludedDepartments) {
+                $this->applyMetricEvaluationFilters($evaluationQuery, $department, $academicYear, $semester, $allowedDepartments, $excludedDepartments);
+            });
+
+        if ($subjectType !== 'all') {
+            $query->whereHas('schedule.facultyCourse.course', function ($courseQuery) use ($subjectType) {
+                $courseQuery->where('subject_type', $subjectType);
+            });
+        }
+
+        return $query;
+    }
+
+    private function applyMetricEvaluationFilters($query, string $department, string $academicYear, string $semester, array $allowedDepartments, array $excludedDepartments): void
+    {
+        $query->where('is_active', true);
+
+        if ($academicYear !== 'all') {
+            $query->where('academic_year', $academicYear);
+        }
+        if ($semester !== 'all') {
+            $query->where('semester', $semester);
+        }
+        foreach ($excludedDepartments as $excludedDepartment) {
+            $query->whereRaw(
+                "NOT FIND_IN_SET(?, REPLACE(faculty_department_snapshot, ', ', ','))",
+                [$excludedDepartment]
+            );
+        }
+        if (!empty($allowedDepartments)) {
+            $query->where(function ($inner) use ($allowedDepartments) {
+                foreach ($allowedDepartments as $allowedDepartment) {
+                    $inner->orWhereRaw(
+                        "FIND_IN_SET(?, REPLACE(faculty_department_snapshot, ', ', ','))",
+                        [$allowedDepartment]
+                    );
+                }
+            });
+        }
+        if ($department !== 'all') {
+            $query->whereRaw(
+                "FIND_IN_SET(?, REPLACE(faculty_department_snapshot, ', ', ','))",
+                [$department]
+            );
+        }
+    }
+
+    private function buildMetricFacultyRows(string $department, string $academicYear, string $semester, string $subjectType, array $allowedDepartments, array $excludedDepartments, int $page, int $perPage): array
+    {
+        $responseCountSql = $subjectType === 'all'
+            ? 'COUNT(evaluation_responses.id)'
+            : "SUM(CASE WHEN courses.subject_type = ? THEN 1 ELSE 0 END)";
+        $averageSql = $subjectType === 'all'
+            ? 'AVG(evaluation_responses.effectiveness_rating)'
+            : "AVG(CASE WHEN courses.subject_type = ? THEN evaluation_responses.effectiveness_rating ELSE NULL END)";
+
+        $bindings = $subjectType === 'all' ? [] : [$subjectType, $subjectType];
+
+        $query = DB::table('evaluations')
+            ->leftJoin('users', 'users.id', '=', 'evaluations.faculty_id')
+            ->leftJoin('evaluation_responses', 'evaluation_responses.evaluation_id', '=', 'evaluations.id')
+            ->leftJoin('schedules', 'schedules.id', '=', 'evaluation_responses.schedule_id')
+            ->leftJoin('faculty_courses', 'faculty_courses.id', '=', 'schedules.faculty_course_id')
+            ->leftJoin('courses', 'courses.id', '=', 'faculty_courses.course_id')
+            ->selectRaw("
+                evaluations.faculty_id,
+                COALESCE(NULLIF(users.name, ''), NULLIF(evaluations.faculty_name_snapshot, ''), 'Unknown') as faculty_name,
+                COALESCE(NULLIF(users.department, ''), NULLIF(evaluations.faculty_department_snapshot, ''), 'No department') as department,
+                COUNT(DISTINCT evaluations.id) as evaluation_count,
+                {$responseCountSql} as response_count,
+                {$averageSql} as average_rating
+            ", $bindings);
+
+        $this->applyMetricEvaluationFiltersToQuery($query, $department, $academicYear, $semester, $allowedDepartments, $excludedDepartments);
+
+        $paginator = $query
+            ->groupBy(
+                'evaluations.faculty_id',
+                'users.name',
+                'evaluations.faculty_name_snapshot',
+                'users.department',
+                'evaluations.faculty_department_snapshot'
+            )
+            ->orderBy('faculty_name')
+            ->simplePaginate($perPage, ['*'], 'page', $page);
+
+        return $this->formatMetricPaginator($paginator, function ($row) {
+            $responseCount = (int) ($row->response_count ?? 0);
+            return [
+                'cells' => [
+                    $row->faculty_name ?: 'Unknown',
+                    $row->department ?: 'No department',
+                    (string) $row->evaluation_count,
+                    (string) $responseCount,
+                    $responseCount > 0 ? round((float) $row->average_rating, 2) . '/4.0' : 'N/A',
+                ],
+            ];
+        });
+    }
+
+    private function buildMetricResponseRows(string $department, string $academicYear, string $semester, string $subjectType, array $allowedDepartments, array $excludedDepartments, int $page, int $perPage): array
+    {
+        $query = $this->metricResponseBaseQuery($department, $academicYear, $semester, $subjectType, $allowedDepartments, $excludedDepartments)
+            ->selectRaw("
+                evaluation_responses.id,
+                COALESCE(NULLIF(users.name, ''), NULLIF(evaluations.faculty_name_snapshot, ''), 'Unknown') as faculty_name,
+                COALESCE(NULLIF(courses.class_code, ''), NULLIF(evaluation_responses.course_code_snapshot, ''), 'N/A') as course_code,
+                evaluation_responses.effectiveness_rating,
+                evaluation_responses.feedback_comments,
+                evaluation_responses.created_at
+            ")
+            ->orderByDesc('evaluation_responses.created_at');
+
+        $paginator = $query->simplePaginate($perPage, ['*'], 'page', $page);
+
+        return $this->formatMetricPaginator($paginator, function ($row) {
+            return [
+                'cells' => [
+                    $row->faculty_name ?: 'Unknown',
+                    $row->course_code ?: 'N/A',
+                    (string) $row->effectiveness_rating . '/4',
+                    Str::limit((string) ($row->feedback_comments ?: 'No feedback'), 90),
+                    $row->created_at ? Carbon::parse($row->created_at)->format('M d, Y h:i A') : 'N/A',
+                ],
+            ];
+        });
+    }
+
+    private function buildMetricRatingRows(string $department, string $academicYear, string $semester, string $subjectType, array $allowedDepartments, array $excludedDepartments, int $page, int $perPage): array
+    {
+        $query = $this->metricResponseBaseQuery($department, $academicYear, $semester, $subjectType, $allowedDepartments, $excludedDepartments)
+            ->selectRaw("
+                evaluations.faculty_id,
+                COALESCE(NULLIF(users.name, ''), NULLIF(evaluations.faculty_name_snapshot, ''), 'Unknown') as faculty_name,
+                COALESCE(NULLIF(users.department, ''), NULLIF(evaluations.faculty_department_snapshot, ''), 'No department') as department,
+                AVG(evaluation_responses.effectiveness_rating) as average_rating,
+                COUNT(evaluation_responses.id) as response_count,
+                COUNT(DISTINCT evaluation_responses.schedule_id) as course_count
+            ")
+            ->groupBy(
+                'evaluations.faculty_id',
+                'users.name',
+                'evaluations.faculty_name_snapshot',
+                'users.department',
+                'evaluations.faculty_department_snapshot'
+            )
+            ->having('response_count', '>', 0)
+            ->orderByDesc('average_rating');
+
+        $paginator = $query->simplePaginate($perPage, ['*'], 'page', $page);
+
+        return $this->formatMetricPaginator($paginator, function ($row) {
+            return [
+                'cells' => [
+                    $row->faculty_name ?: 'Unknown',
+                    $row->department ?: 'No department',
+                    round((float) $row->average_rating, 2) . '/4.0',
+                    (string) $row->response_count,
+                    (string) $row->course_count,
+                ],
+            ];
+        });
+    }
+
+    private function buildMetricCourseRows(string $department, string $academicYear, string $semester, string $subjectType, array $allowedDepartments, array $excludedDepartments, int $page, int $perPage): array
+    {
+        $query = $this->metricResponseBaseQuery($department, $academicYear, $semester, $subjectType, $allowedDepartments, $excludedDepartments)
+            ->selectRaw("
+                COALESCE(courses.id, CONCAT('snapshot:', COALESCE(evaluation_responses.course_code_snapshot, 'N/A'))) as course_key,
+                TRIM(CONCAT(
+                    COALESCE(NULLIF(courses.class_code, ''), NULLIF(evaluation_responses.course_code_snapshot, ''), 'N/A'),
+                    CASE WHEN COALESCE(courses.subject_code, evaluation_responses.course_name_snapshot, '') <> ''
+                        THEN CONCAT(' - ', COALESCE(courses.subject_code, evaluation_responses.course_name_snapshot))
+                        ELSE ''
+                    END
+                )) as course_label,
+                COALESCE(courses.subject_type, 'N/A') as subject_type,
+                COUNT(evaluation_responses.id) as response_count,
+                AVG(evaluation_responses.effectiveness_rating) as average_rating,
+                GROUP_CONCAT(DISTINCT COALESCE(NULLIF(users.name, ''), NULLIF(evaluations.faculty_name_snapshot, '')) ORDER BY users.name SEPARATOR ', ') as handlers
+            ")
+            ->groupBy(
+                'courses.id',
+                'courses.class_code',
+                'courses.subject_code',
+                'courses.subject_type',
+                'evaluation_responses.course_code_snapshot',
+                'evaluation_responses.course_name_snapshot'
+            )
+            ->orderByDesc('response_count');
+
+        $paginator = $query->simplePaginate($perPage, ['*'], 'page', $page);
+
+        return $this->formatMetricPaginator($paginator, function ($row) {
+            $subjectType = match ($row->subject_type) {
+                'major' => 'Professional',
+                'minor' => 'GenEd',
+                default => 'N/A',
+            };
+
+            return [
+                'cells' => [
+                    $row->course_label ?: 'N/A',
+                    $subjectType,
+                    (string) $row->response_count,
+                    $row->response_count > 0 ? round((float) $row->average_rating, 2) . '/4.0' : 'N/A',
+                    $row->handlers ?: 'N/A',
+                ],
+            ];
+        });
+    }
+
+    private function metricResponseBaseQuery(string $department, string $academicYear, string $semester, string $subjectType, array $allowedDepartments, array $excludedDepartments)
+    {
+        $query = DB::table('evaluation_responses')
+            ->join('evaluations', 'evaluations.id', '=', 'evaluation_responses.evaluation_id')
+            ->leftJoin('users', 'users.id', '=', 'evaluations.faculty_id')
+            ->leftJoin('schedules', 'schedules.id', '=', 'evaluation_responses.schedule_id')
+            ->leftJoin('faculty_courses', 'faculty_courses.id', '=', 'schedules.faculty_course_id')
+            ->leftJoin('courses', 'courses.id', '=', 'faculty_courses.course_id');
+
+        $this->applyMetricEvaluationFiltersToQuery($query, $department, $academicYear, $semester, $allowedDepartments, $excludedDepartments);
+
+        if ($subjectType !== 'all') {
+            $query->where('courses.subject_type', $subjectType);
+        }
+
+        return $query;
+    }
+
+    private function applyMetricEvaluationFiltersToQuery($query, string $department, string $academicYear, string $semester, array $allowedDepartments, array $excludedDepartments): void
+    {
+        $query->where('evaluations.is_active', true);
+
+        if ($academicYear !== 'all') {
+            $query->where('evaluations.academic_year', $academicYear);
+        }
+        if ($semester !== 'all') {
+            $query->where('evaluations.semester', $semester);
+        }
+
+        foreach ($excludedDepartments as $excludedDepartment) {
+            $query->whereRaw(
+                "NOT FIND_IN_SET(?, REPLACE(evaluations.faculty_department_snapshot, ', ', ','))",
+                [$excludedDepartment]
+            );
+        }
+
+        if (!empty($allowedDepartments)) {
+            $query->where(function ($inner) use ($allowedDepartments) {
+                foreach ($allowedDepartments as $allowedDepartment) {
+                    $inner->orWhereRaw(
+                        "FIND_IN_SET(?, REPLACE(evaluations.faculty_department_snapshot, ', ', ','))",
+                        [$allowedDepartment]
+                    );
+                }
+            });
+        }
+
+        if ($department !== 'all') {
+            $query->whereRaw(
+                "FIND_IN_SET(?, REPLACE(evaluations.faculty_department_snapshot, ', ', ','))",
+                [$department]
+            );
+        }
+    }
+
+    private function formatMetricPaginator($paginator, callable $mapper): array
+    {
+        $items = collect($paginator->items())->map($mapper)->values();
+        $page = $paginator->currentPage();
+        $perPage = $paginator->perPage();
+        $from = $items->isEmpty() ? 0 : (($page - 1) * $perPage) + 1;
+        $to = $items->isEmpty() ? 0 : $from + $items->count() - 1;
+        $hasMore = method_exists($paginator, 'hasMorePages') ? $paginator->hasMorePages() : false;
+
+        return [
+            'items' => $items,
+            'meta' => [
+                'total' => null,
+                'page' => $page,
+                'per_page' => $perPage,
+                'last_page' => $hasMore ? $page + 1 : $page,
+                'has_more' => $hasMore,
+                'from' => $from,
+                'to' => $to,
+            ],
+        ];
     }
 
     private function buildFacultyDepartmentCounts(array $allowedDepartments = [], array $excludedDepartments = []): array

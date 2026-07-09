@@ -631,6 +631,89 @@
             margin: 0;
         }
 
+        .faculty-load-preview {
+            border: 1px solid #e8edf5;
+            border-radius: 0.85rem;
+            background: linear-gradient(180deg, #ffffff, #fbfcff);
+            padding: 1rem;
+        }
+
+        .faculty-load-preview-empty {
+            color: #8a9bb3;
+            font-size: 0.88rem;
+            text-align: center;
+            padding: 0.35rem 0;
+        }
+
+        .faculty-load-preview-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .faculty-load-preview-title {
+            margin: 0;
+            color: #2f3b52;
+            font-size: 0.95rem;
+            font-weight: 800;
+        }
+
+        .faculty-load-preview-subtitle {
+            color: #64748b;
+            font-size: 0.78rem;
+        }
+
+        .faculty-load-preview-count {
+            border-radius: 999px;
+            background: #f4e8ff;
+            color: #5c297c;
+            padding: 0.25rem 0.75rem;
+            font-size: 0.78rem;
+            font-weight: 800;
+            white-space: nowrap;
+        }
+
+        .faculty-load-preview-list {
+            display: grid;
+            gap: 0.55rem;
+            max-height: 12rem;
+            overflow-y: auto;
+            padding-right: 0.15rem;
+        }
+
+        .faculty-load-preview-item {
+            border: 1px solid #eef2f6;
+            border-radius: 0.65rem;
+            padding: 0.65rem 0.75rem;
+            background: #ffffff;
+        }
+
+        .faculty-load-preview-item strong {
+            display: block;
+            color: #2f3b52;
+            font-size: 0.84rem;
+            line-height: 1.25;
+        }
+
+        .faculty-load-preview-item span {
+            display: block;
+            color: #64748b;
+            font-size: 0.75rem;
+            margin-top: 0.2rem;
+        }
+
+        .faculty-load-preview-note {
+            margin-top: 0.75rem;
+            border-radius: 0.65rem;
+            background: #fff8e8;
+            color: #7a4b00;
+            padding: 0.55rem 0.7rem;
+            font-size: 0.78rem;
+            font-weight: 700;
+        }
+
         .evaluation-modal-body .form-select {
             border: 1px solid #d9dee3;
             background-color: #ffffff;

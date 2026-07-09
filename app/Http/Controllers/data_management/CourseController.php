@@ -996,9 +996,10 @@ class CourseController extends Controller
                 'semester',
             ])
             ->with([
-                'faculty:id,user_id,department,job_title',
+                'faculty:id,user_id,employee_no,department,job_title',
                 'faculty.user:id,name,email',
                 'course:id,class_code,subject_code,subject_type',
+                'schedules:id,faculty_course_id,time,day,status',
             ])
             ->whereHas('course', function ($query) {
                 $query->where('subject_type', 'minor');

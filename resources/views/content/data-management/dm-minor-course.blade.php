@@ -189,6 +189,88 @@
             background: #fbfcff;
         }
 
+        .faculty-load-preview {
+            border: 1px solid #e8edf5;
+            border-radius: 0.85rem;
+            background: linear-gradient(180deg, #ffffff, #fbfcff);
+            padding: 1rem;
+        }
+
+        .faculty-load-preview-empty {
+            color: #8a9bb3;
+            font-size: 0.88rem;
+            text-align: center;
+            padding: 0.35rem 0;
+        }
+
+        .faculty-load-preview-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .faculty-load-preview-title {
+            margin: 0;
+            color: #2f3b52;
+            font-size: 0.95rem;
+            font-weight: 800;
+        }
+
+        .faculty-load-preview-subtitle {
+            color: #64748b;
+            font-size: 0.78rem;
+        }
+
+        .faculty-load-preview-count {
+            border-radius: 999px;
+            background: #f4e8ff;
+            color: #5c297c;
+            padding: 0.25rem 0.75rem;
+            font-size: 0.78rem;
+            font-weight: 800;
+            white-space: nowrap;
+        }
+
+        .faculty-load-preview-list {
+            display: grid;
+            gap: 0.55rem;
+            max-height: 12rem;
+            overflow-y: auto;
+        }
+
+        .faculty-load-preview-item {
+            border: 1px solid #eef2f6;
+            border-radius: 0.65rem;
+            padding: 0.65rem 0.75rem;
+            background: #ffffff;
+        }
+
+        .faculty-load-preview-item strong {
+            display: block;
+            color: #2f3b52;
+            font-size: 0.84rem;
+            line-height: 1.25;
+        }
+
+        .faculty-load-preview-item span {
+            display: block;
+            color: #64748b;
+            font-size: 0.75rem;
+            margin-top: 0.2rem;
+        }
+
+        .faculty-load-preview-note {
+            margin-top: 0.75rem;
+            border-radius: 0.65rem;
+            background: #fff8e8;
+            color: #7a4b00;
+            padding: 0.55rem 0.7rem;
+            font-size: 0.78rem;
+            font-weight: 700;
+        }
+
         @media (max-width: 768px) {
             .course-handlers-summary,
             .course-handler-fields {
@@ -225,6 +307,44 @@
             })
             ->unique()
             ->sort()
+            ->values();
+        $minorAssignmentItems = $facultyCourses
+            ->sortByDesc(fn($assignment) => $assignment->id ?? 0)
+            ->map(function ($assignment) {
+                $faculty = optional($assignment->faculty);
+                $facultyUser = optional($faculty->user);
+                $course = optional($assignment->course);
+                $schedules = $assignment->schedules
+                    ? $assignment->schedules->map(function ($schedule) {
+                        $day = trim((string) ($schedule->day ?? ''));
+                        $time = trim((string) ($schedule->time ?? ''));
+                        $dayUpper = strtoupper($day);
+                        $displayDay = in_array($dayUpper, ['N/A', 'NA', 'NONE', '-'], true) ? '' : $day;
+                        $label = trim(($displayDay !== '' ? $displayDay . ' ' : '') . $time);
+
+                        return [
+                            'day' => $schedule->day ?? '',
+                            'time' => $schedule->time ?? '',
+                            'label' => $label !== '' ? $label : 'N/A',
+                        ];
+                    })->values()
+                    : collect();
+
+                return [
+                    'id' => $assignment->id,
+                    'faculty_id' => $assignment->faculty_id,
+                    'faculty_name' => $facultyUser->name ?? ($faculty->name ?? 'N/A'),
+                    'employee_no' => $faculty->employee_no ?? '',
+                    'course_id' => $assignment->course_id,
+                    'course_class_code' => $course->class_code ?? 'N/A',
+                    'course_subject_code' => $course->subject_code ?? '',
+                    'course_subject_type' => $course->subject_type ?? 'minor',
+                    'section' => $assignment->section ?? '',
+                    'academic_year' => $assignment->academic_year ?? '',
+                    'semester' => $assignment->semester ?? '',
+                    'schedule_label' => $schedules->pluck('label')->filter()->unique()->implode(' | ') ?: 'N/A',
+                ];
+            })
             ->values();
         // access role
         $container = 'container-xxl';
@@ -663,6 +783,11 @@
                             </div>
                         </div>
                     </div>
+                    <div class="faculty-load-preview mt-3" id="minorFacultyLoadPreview">
+                        <div class="faculty-load-preview-empty">
+                            Select a faculty member to preview the current teaching load.
+                        </div>
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-label-secondary" data-bs-dismiss="modal">Close</button>
@@ -898,6 +1023,7 @@
     <script>
         var minorTable = null;
         var minorTableAssign = null;
+        const minorAssignmentItems = @json($minorAssignmentItems);
         var list_methods = {
             addMinorCourse: function(e) {
                 $('#add-modal-minor-course').modal('show');
@@ -1114,6 +1240,8 @@
                             $('#createAssignmentSection').val('');
                             $('#createAssignmentYear').val('');
                             $('#createAssignmentSemester').val('');
+                            renderMinorFacultyLoadPreviewEmpty(
+                                'Select a faculty member to preview the current teaching load.');
 
                             // reset UI labels (important for your custom dropdown)
                             $('#add-modal-assign [data-dropdown-label]').each(function() {
@@ -1608,11 +1736,19 @@
                     });
                     $('#add-modal-assign').on('shown.bs.modal', function() {
                         initSearchableDropdowns(this);
+                        updateMinorFacultyLoadPreview();
+                    });
+
+                    $('#add-modal-assign').on('hidden.bs.modal', function() {
+                        renderMinorFacultyLoadPreviewEmpty(
+                            'Select a faculty member to preview the current teaching load.');
                     });
 
                     $('#update-modal-assign').on('shown.bs.modal', function() {
                         initSearchableDropdowns(this);
                     });
+
+                    bindMinorFacultyLoadPreview();
                 };
                 document.body.appendChild(script2);
             };
@@ -1745,6 +1881,8 @@
                         if (type === 'semester') {
                             $('#createAssignmentSemester').val(value);
                         }
+
+                        setTimeout(updateMinorFacultyLoadPreview, 0);
                     }
 
                     // =========================
@@ -1853,6 +1991,150 @@
                     setLabel,
                     placeholder: placeholderText,
                 };
+            });
+        }
+
+        function bindMinorFacultyLoadPreview() {
+            const fields = [
+                document.getElementById('createAssignmentFaculty'),
+                document.getElementById('createAssignmentYear'),
+                document.getElementById('createAssignmentSemester'),
+            ].filter(Boolean);
+
+            fields.forEach((field) => {
+                if (field.dataset.loadPreviewBound === 'true') {
+                    return;
+                }
+                field.dataset.loadPreviewBound = 'true';
+                field.addEventListener('change', updateMinorFacultyLoadPreview);
+                field.addEventListener('input', updateMinorFacultyLoadPreview);
+            });
+        }
+
+        function updateMinorFacultyLoadPreview() {
+            const facultyId = $('#createAssignmentFaculty').val();
+            const academicYear = $('#createAssignmentYear').val();
+            const semester = $('#createAssignmentSemester').val();
+            renderMinorFacultyLoadPreview(facultyId, academicYear, semester);
+        }
+
+        function renderMinorFacultyLoadPreview(facultyId, academicYear = '', semester = '') {
+            const container = document.getElementById('minorFacultyLoadPreview');
+            if (!container) {
+                return;
+            }
+
+            if (!facultyId) {
+                renderMinorFacultyLoadPreviewEmpty('Select a faculty member to preview the current teaching load.');
+                return;
+            }
+
+            const allFacultyLoads = (Array.isArray(minorAssignmentItems) ? minorAssignmentItems : [])
+                .filter((assignment) => Number(assignment.faculty_id) === Number(facultyId));
+            const termLoads = allFacultyLoads.filter((assignment) => {
+                const yearMatches = !academicYear || String(assignment.academic_year ?? '') === String(academicYear);
+                const semesterMatches = !semester || normaliseMinorSemesterKey(assignment.semester) ===
+                    normaliseMinorSemesterKey(semester);
+                return yearMatches && semesterMatches;
+            });
+            const visibleLoads = (academicYear || semester) ? termLoads : allFacultyLoads;
+            const selectedOption = document.querySelector(
+                `#add-modal-assign [data-searchable-dropdown][data-type="faculty"] [data-dropdown-option][data-option-value="${facultyId}"]`
+            );
+            const facultyName = selectedOption?.dataset.optionLabel || allFacultyLoads[0]?.faculty_name ||
+                'Selected faculty';
+            const subtitle = academicYear || semester ?
+                [academicYear || 'Any year', semester ? formatMinorSemester(semester) : 'Any semester'].filter(Boolean).join(
+                    ' | ') :
+                'All assigned GenEd courses';
+            const listHtml = visibleLoads.length ?
+                visibleLoads.slice(0, 6).map(buildMinorFacultyLoadPreviewItem).join('') :
+                `<div class="faculty-load-preview-empty">No assigned course found for this selection.</div>`;
+            const hiddenCount = Math.max(visibleLoads.length - 6, 0);
+            const highLoadNote = allFacultyLoads.length >= 8 ?
+                `<div class="faculty-load-preview-note">High load: this faculty has ${allFacultyLoads.length} total assigned courses.</div>` :
+                '';
+
+            container.innerHTML = `
+                <div class="faculty-load-preview-header">
+                    <div>
+                        <h6 class="faculty-load-preview-title">${escapeMinorHtml(facultyName)}</h6>
+                        <div class="faculty-load-preview-subtitle">${escapeMinorHtml(subtitle)}</div>
+                    </div>
+                    <span class="faculty-load-preview-count">${visibleLoads.length} load${visibleLoads.length === 1 ? '' : 's'}</span>
+                </div>
+                <div class="faculty-load-preview-list">
+                    ${listHtml}
+                </div>
+                ${hiddenCount ? `<div class="faculty-load-preview-note">+${hiddenCount} more assigned course${hiddenCount === 1 ? '' : 's'} not shown.</div>` : ''}
+                ${highLoadNote}
+            `;
+        }
+
+        function buildMinorFacultyLoadPreviewItem(assignment) {
+            const course = [assignment.course_class_code ?? '', assignment.course_subject_code ?? '']
+                .filter(Boolean)
+                .join(' - ') || 'N/A';
+            const details = [
+                assignment.section ? `Section: ${assignment.section}` : '',
+                assignment.academic_year ?? '',
+                formatMinorSemester(assignment.semester),
+                assignment.schedule_label && assignment.schedule_label !== 'N/A' ? assignment.schedule_label : '',
+            ].filter(Boolean).join(' | ');
+
+            return `
+                <div class="faculty-load-preview-item">
+                    <strong>${escapeMinorHtml(course)}</strong>
+                    <span>${escapeMinorHtml(details || 'No schedule yet')}</span>
+                </div>
+            `;
+        }
+
+        function renderMinorFacultyLoadPreviewEmpty(message) {
+            const container = document.getElementById('minorFacultyLoadPreview');
+            if (!container) {
+                return;
+            }
+            container.innerHTML = `<div class="faculty-load-preview-empty">${escapeMinorHtml(message)}</div>`;
+        }
+
+        function formatMinorSemester(value) {
+            const normalised = String(value || '').toLowerCase();
+            if (normalised === '1st' || normalised === 'first') {
+                return '1st Semester';
+            }
+            if (normalised === '2nd' || normalised === 'second') {
+                return '2nd Semester';
+            }
+            if (normalised === 'summer') {
+                return 'Summer';
+            }
+            return value || 'N/A';
+        }
+
+        function normaliseMinorSemesterKey(value) {
+            const normalised = String(value || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+            if (['1', '1st', 'first', 'firstsem', 'firstsemester', 'semester1'].includes(normalised)) {
+                return '1st';
+            }
+            if (['2', '2nd', 'second', 'secondsem', 'secondsemester', 'semester2'].includes(normalised)) {
+                return '2nd';
+            }
+            if (['3', '3rd', 'summer', 'summersem', 'summersemester', 'midyear'].includes(normalised)) {
+                return 'summer';
+            }
+            return normalised;
+        }
+
+        function escapeMinorHtml(value) {
+            return String(value ?? '').replace(/[&<>"']/g, function(char) {
+                return ({
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    '"': '&quot;',
+                    "'": '&#39;'
+                })[char] || char;
             });
         }
 

@@ -12,6 +12,57 @@
             transform: translateY(-2px);
         }
 
+        .metric-card-clickable {
+            cursor: pointer;
+        }
+
+        .metric-card-clickable:focus {
+            outline: 3px solid rgba(105, 108, 255, 0.22);
+            outline-offset: 3px;
+        }
+
+        .metric-card .card-body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            min-height: 158px;
+        }
+
+        .metric-card-footer {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.4rem;
+            min-height: 1.35rem;
+            margin-top: auto;
+            white-space: nowrap;
+        }
+
+        .metric-view-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            color: #5c297c;
+            font-size: 0.78rem;
+            font-weight: 700;
+        }
+
+        .metric-card-clickable:hover .metric-view-indicator {
+            text-decoration: underline;
+        }
+
+        .metric-details-table th {
+            color: #8a9bb3;
+            font-size: 0.72rem;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .metric-details-table td {
+            vertical-align: middle;
+        }
+
         .rating-progress {
             height: 6px;
         }
@@ -289,7 +340,8 @@
         {{-- Key Metrics Cards --}}
         <div class="row mb-4">
             <div class="col-xl-3 col-md-6 mb-3">
-                <div class="card metric-card h-100">
+                <div class="card metric-card h-100 metric-card-clickable" role="button" tabindex="0"
+                    data-metric-card data-metric="total_faculties">
                     <div class="card-body text-center">
                         <div class="d-flex align-items-center justify-content-center mb-3">
                             <div class="avatar flex-shrink-0 me-3">
@@ -302,15 +354,21 @@
                                 <p class="text-muted mb-0">Total Faculties</p>
                             </div>
                         </div>
-                        <small class="text-success">
-                            {{ $metrics['active_evaluations'] }} active evaluations
-                        </small>
+                        <div class="metric-card-footer">
+                            <small class="text-success">
+                                {{ $metrics['active_evaluations'] }} active evaluations
+                            </small>
+                            <span class="metric-view-indicator">
+                                <i class="bx bx-show"></i> View details
+                            </span>
+                        </div>
                     </div>
                 </div>
             </div>
 
             <div class="col-xl-3 col-md-6 mb-3">
-                <div class="card metric-card h-100">
+                <div class="card metric-card h-100 metric-card-clickable" role="button" tabindex="0"
+                    data-metric-card data-metric="total_responses">
                     <div class="card-body text-center">
                         <div class="d-flex align-items-center justify-content-center mb-3">
                             <div class="avatar flex-shrink-0 me-3">
@@ -323,15 +381,21 @@
                                 <p class="text-muted mb-0">Total Responses</p>
                             </div>
                         </div>
-                        <small class="text-info">
-                            {{ $metrics['responses_with_feedback'] }} with feedback
-                        </small>
+                        <div class="metric-card-footer">
+                            <small class="text-info">
+                                {{ $metrics['responses_with_feedback'] }} with feedback
+                            </small>
+                            <span class="metric-view-indicator">
+                                <i class="bx bx-show"></i> View details
+                            </span>
+                        </div>
                     </div>
                 </div>
             </div>
 
             <div class="col-xl-3 col-md-6 mb-3">
-                <div class="card metric-card h-100">
+                <div class="card metric-card h-100 metric-card-clickable" role="button" tabindex="0"
+                    data-metric-card data-metric="average_rating">
                     <div class="card-body text-center">
                         <div class="d-flex align-items-center justify-content-center mb-3">
                             <div class="avatar flex-shrink-0 me-3">
@@ -344,15 +408,21 @@
                                 <p class="text-muted mb-0">Average Rating</p>
                             </div>
                         </div>
-                        <small class="text-muted">
-                            Out of 4.0 scale
-                        </small>
+                        <div class="metric-card-footer">
+                            <small class="text-muted">
+                                Out of 4.0 scale
+                            </small>
+                            <span class="metric-view-indicator">
+                                <i class="bx bx-show"></i> View details
+                            </span>
+                        </div>
                     </div>
                 </div>
             </div>
 
             <div class="col-xl-3 col-md-6 mb-3">
-                <div class="card metric-card h-100">
+                <div class="card metric-card h-100 metric-card-clickable" role="button" tabindex="0"
+                    data-metric-card data-metric="courses_evaluated">
                     <div class="card-body text-center">
                         <div class="d-flex align-items-center justify-content-center mb-3">
                             <div class="avatar flex-shrink-0 me-3">
@@ -364,6 +434,14 @@
                                 <h3 class="mb-0">{{ $metrics['courses_evaluated'] }}</h3>
                                 <p class="text-muted mb-0">Courses Evaluated</p>
                             </div>
+                        </div>
+                        <div class="metric-card-footer">
+                            <small class="text-muted invisible">
+                                View
+                            </small>
+                            <span class="metric-view-indicator">
+                                <i class="bx bx-show"></i> View details
+                            </span>
                         </div>
                     </div>
                 </div>
@@ -736,6 +814,42 @@
             </div>
         </div>
 
+    {{-- Metric Details Modal --}}
+    <div class="modal fade" id="metricDetailsModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div>
+                        <h5 class="modal-title mb-1" id="metricDetailsTitle">Metric Details</h5>
+                        <small class="text-muted" id="metricDetailsSubtitle">Filtered report result</small>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="metricDetailsBody">
+                        <div class="text-center py-5">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <p class="text-muted mt-2 mb-0">Loading details...</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer d-flex justify-content-between">
+                    <small class="text-muted" id="metricDetailsInfo"></small>
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-outline-secondary btn-sm" id="metricDetailsPrev">
+                            Previous
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" id="metricDetailsNext">
+                            Next
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     {{-- Faculty Modal --}}
     <div class="modal fade" id="facultyModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-xl">
@@ -903,6 +1017,7 @@
         let currentDepartment = '';
         const facultySortState = { key: 'name', direction: 'asc' };
         const facultyFilters = { rating: 'all', status: 'all' };
+        const metricDetailsState = { metric: null, page: 1, perPage: 10 };
 
         // Export functionality
         function exportData() {
@@ -954,6 +1069,183 @@
             });
 
             document.getElementById('departmentShowing').textContent = visibleCount;
+        }
+
+        function bindMetricCards() {
+            document.querySelectorAll('[data-metric-card]').forEach((card) => {
+                const open = () => showMetricDetails(card.dataset.metric);
+                card.addEventListener('click', open);
+                card.addEventListener('keydown', (event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        open();
+                    }
+                });
+            });
+
+            document.getElementById('metricDetailsPrev')?.addEventListener('click', () => {
+                if (metricDetailsState.page > 1) {
+                    showMetricDetails(metricDetailsState.metric, metricDetailsState.page - 1);
+                }
+            });
+            document.getElementById('metricDetailsNext')?.addEventListener('click', () => {
+                showMetricDetails(metricDetailsState.metric, metricDetailsState.page + 1);
+            });
+        }
+
+        function showMetricDetails(metric, page = 1) {
+            if (!metric) {
+                return;
+            }
+
+            metricDetailsState.metric = metric;
+            metricDetailsState.page = page;
+
+            const modalEl = document.getElementById('metricDetailsModal');
+            const titleEl = document.getElementById('metricDetailsTitle');
+            const subtitleEl = document.getElementById('metricDetailsSubtitle');
+            const bodyEl = document.getElementById('metricDetailsBody');
+            const infoEl = document.getElementById('metricDetailsInfo');
+
+            if (titleEl) {
+                titleEl.textContent = 'Loading details...';
+            }
+            if (subtitleEl) {
+                subtitleEl.textContent = 'Using the current report filters';
+            }
+            if (infoEl) {
+                infoEl.textContent = '';
+            }
+            if (bodyEl) {
+                bodyEl.innerHTML = `
+                    <div class="text-center py-5">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="text-muted mt-2 mb-0">Loading details...</p>
+                    </div>
+                `;
+            }
+
+            bootstrap.Modal.getOrCreateInstance(modalEl).show();
+
+            const url = new URL('{{ route('reports.metric.details') }}');
+            url.searchParams.set('metric', metric);
+            url.searchParams.set('page', page);
+            url.searchParams.set('per_page', metricDetailsState.perPage);
+            url.searchParams.set('department', '{{ $selectedDepartment }}');
+            url.searchParams.set('academic_year', '{{ $selectedAcademicYear }}');
+            url.searchParams.set('semester', '{{ $selectedSemester }}');
+            url.searchParams.set('subject_type', '{{ $selectedSubjectType }}');
+
+            fetch(url, {
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                }
+            })
+                .then((response) => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then((data) => renderMetricDetails(data))
+                .catch((error) => {
+                    if (titleEl) {
+                        titleEl.textContent = 'Metric Details';
+                    }
+                    if (bodyEl) {
+                        bodyEl.innerHTML = `
+                            <div class="text-center py-5">
+                                <i class="bx bx-error text-danger mb-2" style="font-size: 2rem;"></i>
+                                <h6 class="text-danger mb-2">Unable to load details</h6>
+                                <p class="text-muted mb-0">${escapeMetricHtml(error.message || 'Please try again.')}</p>
+                            </div>
+                        `;
+                    }
+                });
+        }
+
+        function renderMetricDetails(data) {
+            const titleEl = document.getElementById('metricDetailsTitle');
+            const bodyEl = document.getElementById('metricDetailsBody');
+            const infoEl = document.getElementById('metricDetailsInfo');
+            const prevBtn = document.getElementById('metricDetailsPrev');
+            const nextBtn = document.getElementById('metricDetailsNext');
+
+            if (titleEl) {
+                titleEl.textContent = data.title || 'Metric Details';
+            }
+
+            const columns = Array.isArray(data.columns) ? data.columns : [];
+            const items = Array.isArray(data.items) ? data.items : [];
+            const meta = data.meta || {};
+            metricDetailsState.page = Number(meta.page || 1);
+
+            if (!bodyEl) {
+                return;
+            }
+
+            if (!items.length) {
+                bodyEl.innerHTML = `
+                    <div class="text-center py-5">
+                        <i class="bx bx-info-circle text-muted mb-2" style="font-size: 2rem;"></i>
+                        <h6 class="mb-2">No result found</h6>
+                        <p class="text-muted mb-0">No data matched the current filters.</p>
+                    </div>
+                `;
+            } else {
+                bodyEl.innerHTML = `
+                    <div class="table-responsive">
+                        <table class="table table-hover metric-details-table mb-0">
+                            <thead>
+                                <tr>
+                                    ${columns.map((column) => `<th>${escapeMetricHtml(column)}</th>`).join('')}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${items.map((item) => `
+                                    <tr>
+                                        ${(item.cells || []).map((cell) => `<td>${escapeMetricHtml(cell)}</td>`).join('')}
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            }
+
+            if (infoEl) {
+                const total = Number(meta.total);
+                if (Number.isFinite(total) && total > 0) {
+                    infoEl.textContent = `Showing ${meta.from}-${meta.to} of ${total} results`;
+                } else if (items.length) {
+                    infoEl.textContent = `Showing ${meta.from}-${meta.to} results`;
+                } else {
+                    infoEl.textContent = 'No results';
+                }
+            }
+            if (prevBtn) {
+                prevBtn.disabled = Number(meta.page || 1) <= 1;
+            }
+            if (nextBtn) {
+                nextBtn.disabled = Object.prototype.hasOwnProperty.call(meta, 'has_more')
+                    ? !meta.has_more
+                    : Number(meta.page || 1) >= Number(meta.last_page || 1);
+            }
+        }
+
+        function escapeMetricHtml(value) {
+            return String(value ?? '').replace(/[&<>"']/g, function(char) {
+                return ({
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    '"': '&quot;',
+                    "'": '&#39;'
+                })[char] || char;
+            });
         }
 
         // Faculty modal functionality
@@ -1263,6 +1555,7 @@
                 }, 500);
             });
             bindDepartmentExportButton();
+            bindMetricCards();
         });
 
         // Form auto-submit on filter change
@@ -1298,8 +1591,9 @@
 
         // Auto-refresh every 5 minutes (only if modal is not open)
         setInterval(function () {
-            const modal = document.getElementById('facultyModal');
-            if (!modal.classList.contains('show')) {
+            const facultyModal = document.getElementById('facultyModal');
+            const metricModal = document.getElementById('metricDetailsModal');
+            if (!facultyModal.classList.contains('show') && !metricModal.classList.contains('show')) {
                 location.reload();
             }
         }, 300000);

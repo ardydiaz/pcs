@@ -44,6 +44,7 @@ Route::middleware(['auth'])->group(function () {
     
     // Reports Module Routes
     Route::get('/reports', [ReportsController::class, 'index'])->name('reports')->middleware('access.level:reports');
+    Route::get('/reports/metric-details', [ReportsController::class, 'getMetricDetails'])->name('reports.metric.details')->middleware('access.level:reports');
     Route::get('/reports/department-faculties', [ReportsController::class, 'getDepartmentFaculties'])->name('reports.department.faculties')->middleware('access.level:reports');
     Route::get('/reports/department-faculties/export', [ReportsController::class, 'exportDepartmentFaculties'])->name('reports.department.export')->middleware('access.level:reports');
     
