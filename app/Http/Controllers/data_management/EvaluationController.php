@@ -298,18 +298,18 @@ class EvaluationController extends Controller
         $normalized = strtolower(preg_replace('/[^a-z0-9]+/', '', $value));
 
         $mapping = [
-            '1' => '1st Semester',
-            '1st' => '1st Semester',
-            'first' => '1st Semester',
-            'firstsem' => '1st Semester',
-            'firstsemester' => '1st Semester',
-            'semester1' => '1st Semester',
-            '2' => '2nd Semester',
-            '2nd' => '2nd Semester',
-            'second' => '2nd Semester',
-            'secondsem' => '2nd Semester',
-            'secondsemester' => '2nd Semester',
-            'semester2' => '2nd Semester',
+            '1' => 'First Semester',
+            '1st' => 'First Semester',
+            'first' => 'First Semester',
+            'firstsem' => 'First Semester',
+            'firstsemester' => 'First Semester',
+            'semester1' => 'First Semester',
+            '2' => 'Second Semester',
+            '2nd' => 'Second Semester',
+            'second' => 'Second Semester',
+            'secondsem' => 'Second Semester',
+            'secondsemester' => 'Second Semester',
+            'semester2' => 'Second Semester',
             'summer' => 'Summer',
             'summersem' => 'Summer',
             'summersemester' => 'Summer',
@@ -512,8 +512,13 @@ class EvaluationController extends Controller
         $faculty = $evaluation->faculty;
         $fileName = "evaluation_qr_{$faculty->name}_{$evaluation->academic_year}_{$evaluation->semester}.png";
         $fileName = preg_replace('/[^A-Za-z0-9_\-\.]/', '_', $fileName);
+        $qrLabelLines = [
+            $evaluation->resolved_faculty_name ?: optional($faculty)->name,
+            'Academic Year: ' . ($evaluation->academic_year ?: 'N/A'),
+            'Semester: ' . $this->formatSemesterLabel($evaluation->semester),
+        ];
 
-        $qrCodeImage = BrandedQrCode::png($evaluation->form_link, 8);
+        $qrCodeImage = BrandedQrCode::pngWithLabel($evaluation->form_link, $qrLabelLines, 8);
 
         AuditLogger::log('evaluation_qr_downloaded', [
             'module' => 'Evaluation',
