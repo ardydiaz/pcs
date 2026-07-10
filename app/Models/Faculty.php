@@ -84,9 +84,11 @@ class Faculty extends Model
             return $query;
         }
 
-        return $query->where(function (Builder $builder) use ($departments) {
+        $departmentColumn = $query->getModel()->getTable() . '.department';
+
+        return $query->where(function (Builder $builder) use ($departments, $departmentColumn) {
             foreach ($departments as $department) {
-                $normalizedColumn = "REPLACE(REPLACE(REPLACE(COALESCE(department, ''), '  ', ' '), ', ', ','), ', ', ',')";
+                $normalizedColumn = "REPLACE(REPLACE(REPLACE(COALESCE($departmentColumn, ''), '  ', ' '), ', ', ','), ', ', ',')";
                 $builder->orWhereRaw("FIND_IN_SET(?, $normalizedColumn)", [$department]);
             }
         });
