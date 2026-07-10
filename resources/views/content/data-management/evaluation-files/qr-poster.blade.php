@@ -78,14 +78,32 @@
             font-weight: 400;
         }
 
-        .print-btn {
+        .toolbar-actions {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+
+        .poster-action-btn {
             border: 0;
             border-radius: 0.55rem;
             padding: 0.7rem 1rem;
-            background: var(--brand);
-            color: #fff;
             font-weight: 700;
             cursor: pointer;
+            line-height: 1;
+        }
+
+        .poster-action-btn--primary {
+            background: var(--brand);
+            color: #fff;
+        }
+
+        .poster-action-btn--secondary {
+            background: #fff;
+            color: var(--brand);
+            border: 1px solid var(--line);
         }
 
         .poster-stack {
@@ -372,7 +390,14 @@
             <h1 class="toolbar-title">QR Poster Generator</h1>
             <span class="toolbar-subtitle">{{ $facultyName }} | {{ $evaluation->academic_year }} - {{ $semesterLabel }}</span>
         </div>
-        <button type="button" class="print-btn" onclick="window.print()">Print / Save as PDF</button>
+        <div class="toolbar-actions">
+            <button type="button" class="poster-action-btn poster-action-btn--primary" onclick="downloadPosterPdf()">
+                Download PDF
+            </button>
+            <button type="button" class="poster-action-btn poster-action-btn--secondary" onclick="printPoster()">
+                Print
+            </button>
+        </div>
     </div>
 
     @if ($schedules->isEmpty())
@@ -453,6 +478,16 @@
             @endforeach
         </main>
     @endif
+    <script>
+        function downloadPosterPdf() {
+            document.title = @json('QR Poster - ' . $facultyName . ' - ' . $evaluation->academic_year . ' - ' . $semesterLabel);
+            window.print();
+        }
+
+        function printPoster() {
+            window.print();
+        }
+    </script>
 </body>
 
 </html>

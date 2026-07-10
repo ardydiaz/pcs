@@ -582,8 +582,8 @@ class EvaluationController extends Controller
             ->orderBy('time')
             ->get();
 
-        $qrCodeDataUri = $this->makeQrCodeSvgDataUri($evaluation->form_link);
-        $qrLogoDataUri = BrandedQrCode::logoDataUri();
+        $qrCodeDataUri = BrandedQrCode::pngDataUri($evaluation->form_link, 8);
+        $qrLogoDataUri = null;
 
         AuditLogger::log('evaluation_qr_poster_viewed', [
             'module' => 'Evaluation',

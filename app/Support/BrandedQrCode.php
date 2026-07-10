@@ -150,6 +150,11 @@ class BrandedQrCode
         return 'data:image/svg+xml;base64,' . base64_encode($qrCodeSvg);
     }
 
+    public static function pngDataUri(string $url, int $scale = 8): string
+    {
+        return 'data:image/png;base64,' . base64_encode(self::png($url, $scale));
+    }
+
     public static function logoDataUri(): ?string
     {
         $path = self::logoPath();
