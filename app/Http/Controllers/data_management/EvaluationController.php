@@ -13,6 +13,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Response;
 use Maatwebsite\Excel\Facades\Excel;
 use Carbon\Carbon;
+use ZipArchive;
 
 class EvaluationController extends Controller
 {
@@ -788,6 +789,121 @@ class EvaluationController extends Controller
         $filename = 'evaluation-qr-links-' . $departmentTag . '-' . $academicYear . '-' . $semester . '-' . now()->format('Ymd-His') . '.xlsx';
 
         return Excel::download(new EvaluationQrLinksExport($rows), $filename);
+    }
+
+    public function exportQrCodesZip(Request $request)
+    {
+        if (!class_exists(ZipArchive::class)) {
+            return response()->json([
+                'message' => 'ZIP extension is not enabled on this server.',
+            ], 500);
+        }
+
+        $validated = $request->validate([
+            'academic_year' => 'required|string',
+            'semester' => 'required|in:1st,2nd,Summer',
+        ]);
+
+        $academicYear = $this->normalizeAcademicYear($validated['academic_year']);
+        $semester = $this->normalizeSemesterValue($validated['semester']) ?? $validated['semester'];
+        $user = auth()->user();
+        $isAdmin = $user && $user->role === 'Admin';
+        $departmentFilters = $this->resolveDepartmentScope($user);
+
+        $evaluationsQuery = Evaluation::with('faculty')
+            ->where('academic_year', $academicYear)
+            ->where('semester', $semester)
+            ->orderBy('faculty_name_snapshot')
+            ->orderBy('id');
+
+        if (!$isAdmin) {
+            if (empty($departmentFilters)) {
+                return response()->json([
+                    'message' => 'No department assigned. Please contact the administrator.',
+                ], 403);
+            }
+
+            $departmentFacultyIds = Faculty::forDepartments($departmentFilters)->pluck('user_id');
+            $evaluationsQuery->where(function ($query) use ($departmentFacultyIds, $departmentFilters) {
+                if ($departmentFacultyIds->isNotEmpty()) {
+                    $query->whereIn('faculty_id', $departmentFacultyIds);
+                }
+
+                $query->orWhere(function ($snapshotQuery) use ($departmentFilters) {
+                    $this->applyDepartmentFilter($snapshotQuery, $departmentFilters, 'faculty_department_snapshot');
+                });
+            });
+        }
+
+        $evaluations = $evaluationsQuery->get();
+        if ($evaluations->isEmpty()) {
+            return response()->json([
+                'message' => 'No QR codes found for the selected academic year and semester.',
+            ], 404);
+        }
+
+        $departmentTag = $isAdmin
+            ? 'all-departments'
+            : Str::slug(implode('-', $departmentFilters));
+        $filename = 'evaluation-qr-codes-' . $departmentTag . '-' . $academicYear . '-' . $semester . '-' . now()->format('Ymd-His') . '.zip';
+        $zipPath = storage_path('app/temp/' . $filename);
+
+        if (!is_dir(dirname($zipPath))) {
+            mkdir(dirname($zipPath), 0775, true);
+        }
+
+        $zip = new ZipArchive();
+        if ($zip->open($zipPath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
+            return response()->json([
+                'message' => 'Unable to prepare QR code ZIP file.',
+            ], 500);
+        }
+
+        $usedNames = [];
+        foreach ($evaluations as $evaluation) {
+            $facultyName = $evaluation->resolved_faculty_name ?: 'Unknown Faculty';
+            $baseName = Str::slug($facultyName, '_');
+            if ($baseName === '') {
+                $baseName = 'faculty_' . $evaluation->id;
+            }
+
+            $entryName = $baseName . '_' . $academicYear . '_' . $semester . '.png';
+            if (isset($usedNames[$entryName])) {
+                $usedNames[$entryName]++;
+                $entryName = $baseName . '_' . $academicYear . '_' . $semester . '_' . $usedNames[$entryName] . '.png';
+            } else {
+                $usedNames[$entryName] = 1;
+            }
+
+            $qrCodeImage = BrandedQrCode::pngWithLabel($evaluation->form_link, [
+                $facultyName,
+                'Academic Year: ' . ($evaluation->academic_year ?: 'N/A'),
+                'Semester: ' . $this->formatSemesterLabel($evaluation->semester),
+            ], 8);
+
+            $zip->addFromString($entryName, $qrCodeImage);
+        }
+
+        $zip->close();
+
+        AuditLogger::log('evaluation_qr_codes_zip_exported', [
+            'module' => 'Evaluation',
+            'description' => $isAdmin
+                ? 'Exported all evaluation QR codes as ZIP.'
+                : 'Exported department evaluation QR codes as ZIP.',
+            'after_values' => [
+                'department_scope' => $isAdmin ? ['All Departments'] : $departmentFilters,
+                'academic_year' => $academicYear,
+                'semester' => $semester,
+                'exported_count' => $evaluations->count(),
+                'file_name' => $filename,
+            ],
+            'severity' => 'info',
+        ]);
+
+        return response()->download($zipPath, $filename, [
+            'Content-Type' => 'application/zip',
+        ])->deleteFileAfterSend(true);
     }
 
     public function showForm($token)

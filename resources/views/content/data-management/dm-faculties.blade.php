@@ -65,7 +65,11 @@
         'Student Affairs Services',
     ];
 
-    $departmentSelectOptions = collect($predefinedDepartments)
+    $container = 'container-xxl';
+    $accessLevels = collect(auth()->user()?->access_level ?? []);
+    $isAdmin = auth()->user()?->role === 'Admin';
+
+    $departmentSelectOptions = collect($isAdmin ? $predefinedDepartments : [])
         ->merge($departmentFilterOptions ?? [])
         ->merge($users->flatMap(function ($user) {
             return collect(explode(',', $user->department ?? ''))
@@ -80,9 +84,6 @@
         ->sort()
         ->values();
 
-    $container = 'container-xxl';
-    $accessLevels = collect(auth()->user()?->access_level ?? []);
-    $isAdmin = auth()->user()?->role === 'Admin';
     $canManageFaculties = $isAdmin || $accessLevels->contains('Manage Faculties');
     $canAdd = $isAdmin;
     $canEdit = $canManageFaculties;
@@ -1199,7 +1200,7 @@
             buildEmptyStateRow() {
                 return `
                     <tr data-empty>
-                        <td colspan="{{ ($canDelete || $showDeleteDisabled) ? 7 : 6 }}" class="text-center py-5">
+                        <td colspan="{{ $canDelete ? 7 : 6 }}" class="text-center py-5">
                             <div class="empty-state">
                                 <i class="fa-solid fa-user-group display-4 text-muted mb-3"></i>
                                 <h5 class="mb-2">No faculty members found</h5>
@@ -1213,7 +1214,7 @@
             buildLoadingRow() {
                 return `
                     <tr data-ignore>
-                        <td colspan="{{ ($canDelete || $showDeleteDisabled) ? 7 : 6 }}" class="text-center py-5">
+                        <td colspan="{{ $canDelete ? 7 : 6 }}" class="text-center py-5">
                             <div class="spinner-border text-primary" role="status" aria-label="Loading"></div>
                             <p class="text-muted mt-3 mb-0">Loading faculty members...</p>
                         </td>
@@ -1224,7 +1225,7 @@
             buildErrorRow(message) {
                 return `
                     <tr data-ignore>
-                        <td colspan="{{ ($canDelete || $showDeleteDisabled) ? 7 : 6 }}" class="text-center py-5">
+                        <td colspan="{{ $canDelete ? 7 : 6 }}" class="text-center py-5">
                             <div class="empty-state">
                                 <i class="fa-solid fa-triangle-exclamation display-4 text-danger mb-3"></i>
                                 <h5 class="mb-2">Unable to load faculty members</h5>
@@ -1238,7 +1239,7 @@
             buildSearchEmptyRow() {
                 return `
                     <tr data-empty-search style="display: none;">
-                        <td colspan="{{ ($canDelete || $showDeleteDisabled) ? 7 : 6 }}" class="text-center py-5">
+                        <td colspan="{{ $canDelete ? 7 : 6 }}" class="text-center py-5">
                             <div class="empty-state">
                                 <i class="fa-solid fa-magnifying-glass display-4 text-muted mb-3"></i>
                                 <h5 class="mb-2">No results found</h5>
@@ -1418,7 +1419,7 @@
                     assignmentsSearchText,
                 ].join(' ').toLowerCase();
 
-                const selectionCell = (facultyPermissions.canDelete || facultyPermissions.showDeleteDisabled)
+                const selectionCell = facultyPermissions.canDelete
                     ? `
                         <td class="text-center">
                             <input type="checkbox" class="form-check-input evaluation-checkbox" data-row-select value="${rowId}" ${isSelected ? 'checked' : ''}>

@@ -106,6 +106,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/data-management/evaluation/{evaluation}/responses', [EvaluationController::class, 'viewResponses'])->name('dm.evaluation.responses')->middleware('access.level:responses');
     Route::get('/data-management/evaluation/{evaluation}/responses/export', [EvaluationController::class, 'exportResponses'])->name('dm.evaluation.responses.export')->middleware('access.level:responses');
     Route::get('/data-management/evaluation/qr-links/export', [EvaluationController::class, 'exportQrLinks'])->name('dm.evaluation.qr-links.export')->middleware('access.level:evaluations.qr');
+    Route::get('/data-management/evaluation/qr-codes/export-zip', [EvaluationController::class, 'exportQrCodesZip'])->name('dm.evaluation.qr-codes.export-zip')->middleware('access.level:evaluations.qr');
     Route::get('/data-management/evaluation/{evaluation}/qr', [EvaluationController::class, 'showQrCode'])->name('dm.evaluation.qr')->middleware('access.level:evaluations.qr');
     Route::get('/data-management/evaluation/{evaluation}/qr/download', [EvaluationController::class, 'downloadQrCode'])->name('dm.evaluation.qr.download')->middleware('access.level:evaluations.qr');
     Route::get('/data-management/evaluation/{evaluation}/qr-poster', [EvaluationController::class, 'qrPoster'])->name('dm.evaluation.qr.poster')->middleware('access.level:evaluations.qr');

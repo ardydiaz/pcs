@@ -83,7 +83,7 @@
             <table class="table align-middle mb-0 schedule-table" id="schedulesTable">
                 <thead>
                     <tr>
-                        @if ($canDelete || $showDeleteDisabled)
+                        @if ($canDelete)
                             <th class="text-center">
                                 <input type="checkbox" class="form-check-input schedule-checkbox"
                                     id="scheduleSelectAll">
@@ -108,20 +108,13 @@
             </table>
         </div>
 
-        @if ($canDelete || $showDeleteDisabled)
+        @if ($canDelete)
             <div class="schedule-bulk-bar d-none" id="scheduleBulkBar">
                 <span class="fw-semibold" id="scheduleSelectedCount">0 Selected</span>
-                @if ($canDelete)
-                    <button type="button" class="schedule-bulk-btn schedule-bulk-btn--danger"
-                        data-bulk-action="delete">
-                        <i class="bx bx-trash"></i> Delete
-                    </button>
-                @else
-                    <button type="button" class="schedule-bulk-btn schedule-bulk-btn--danger disabled" disabled
-                        aria-disabled="true">
-                        <i class="bx bx-trash"></i> Delete
-                    </button>
-                @endif
+                <button type="button" class="schedule-bulk-btn schedule-bulk-btn--danger"
+                    data-bulk-action="delete">
+                    <i class="bx bx-trash"></i> Delete
+                </button>
                 <button type="button" class="schedule-bulk-close" data-bulk-action="clear" title="Clear selection">
                     <i class="bx bx-x"></i>
                 </button>

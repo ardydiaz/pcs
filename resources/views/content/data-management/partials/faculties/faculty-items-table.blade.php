@@ -54,7 +54,7 @@
                     <table class="table align-middle mb-0 evaluation-table" id="facultyTable">
                         <thead>
                             <tr>
-                                @if ($canDelete || $showDeleteDisabled)
+                                @if ($canDelete)
                                     <th class="evaluation-col-selection text-center">
                                         <input type="checkbox" class="form-check-input evaluation-checkbox" id="facultySelectAll">
                                     </th>
@@ -107,18 +107,12 @@
                 </table>
             </div>
 
-            @if ($canDelete || $showDeleteDisabled)
+            @if ($canDelete)
                 <div class="evaluation-bulk-bar d-none" id="facultyBulkBar">
                     <span class="fw-semibold" id="facultySelectedCount">0 Selected</span>
-                    @if ($canDelete)
-                        <button type="button" class="evaluation-bulk-btn evaluation-bulk-btn--danger" data-bulk-action="delete">
-                            <i class="bx bx-trash"></i> Delete
-                        </button>
-                    @else
-                        <button type="button" class="evaluation-bulk-btn evaluation-bulk-btn--danger disabled" disabled aria-disabled="true">
-                            <i class="bx bx-trash"></i> Delete
-                        </button>
-                    @endif
+                    <button type="button" class="evaluation-bulk-btn evaluation-bulk-btn--danger" data-bulk-action="delete">
+                        <i class="bx bx-trash"></i> Delete
+                    </button>
                     <button type="button" class="evaluation-bulk-close" data-bulk-action="clear" title="Clear selection">
                         <i class="bx bx-x"></i>
                     </button>

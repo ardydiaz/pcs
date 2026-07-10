@@ -1203,7 +1203,7 @@
                         <button type="button" class="btn btn-evaluation-action" data-bs-toggle="modal"
                             data-bs-target="#downloadQrLinksModal" data-mdb-ripple-init>
                             <i class="fa-solid fa-file-excel me-2"></i>
-                            Download All QR Links
+                            Download QR Files
                         </button>
                     @endif
                 </div>
@@ -1290,7 +1290,7 @@
                     <table class="table align-middle mb-0 evaluation-table" id="evaluationTable">
                         <thead>
                             <tr>
-                                @if ($canDelete || $showDeleteDisabled)
+                                @if ($canDelete)
                                     <th class="evaluation-col-selection text-center">
                                         <input type="checkbox" class="form-check-input evaluation-checkbox"
                                             id="evaluationSelectAll" data-select-all
@@ -1418,7 +1418,7 @@
                                     data-label-semester="{{ $semesterLabel }}"
                                     data-label-status="{{ $evaluation->is_active ? 'Active' : 'Inactive' }}"
                                     data-search="{{ $searchTerms }}">
-                                    @if ($canDelete || $showDeleteDisabled)
+                                    @if ($canDelete)
                                         <td class="text-center">
                                             <input type="checkbox" class="form-check-input evaluation-checkbox"
                                                 data-row-select value="{{ $evaluation->id }}"
@@ -1543,7 +1543,7 @@
                                 </tr>
                             @endforeach
                             <tr data-empty style="{{ $sortedEvaluations->isEmpty() ? '' : 'display: none;' }}">
-                                <td colspan="{{ $canDelete || $showDeleteDisabled ? 9 : 8 }}" class="text-center py-5">
+                                <td colspan="{{ $canDelete ? 9 : 8 }}" class="text-center py-5">
                                     <div class="empty-state">
                                         <i class="fa-solid fa-file-invoice display-4 text-muted mb-3"></i>
                                         <h5 class="mb-2">No evaluation forms found</h5>
@@ -1553,7 +1553,7 @@
                                 </td>
                             </tr>
                             <tr data-empty-search style="display: none;">
-                                <td colspan="{{ $canDelete || $showDeleteDisabled ? 9 : 8 }}" class="text-center py-5">
+                                <td colspan="{{ $canDelete ? 9 : 8 }}" class="text-center py-5">
                                     <div class="empty-state">
                                         <i class="fa-solid fa-magnifying-glass display-4 text-muted mb-3"></i>
                                         <h5 class="mb-2">No results found</h5>
@@ -1565,20 +1565,13 @@
                     </table>
                 </div>
 
-                @if ($canDelete || $showDeleteDisabled)
+                @if ($canDelete)
                     <div class="evaluation-bulk-bar d-none" id="evaluationBulkBar">
                         <span class="fw-semibold" id="evaluationSelectedCount">0 Selected</span>
-                        @if ($canDelete)
-                            <button type="button" class="evaluation-bulk-btn evaluation-bulk-btn--danger"
-                                data-bulk-action="delete">
-                                <i class="bx bx-trash"></i> Delete
-                            </button>
-                        @else
-                            <button type="button" class="evaluation-bulk-btn evaluation-bulk-btn--danger disabled"
-                                disabled aria-disabled="true">
-                                <i class="bx bx-trash"></i> Delete
-                            </button>
-                        @endif
+                        <button type="button" class="evaluation-bulk-btn evaluation-bulk-btn--danger"
+                            data-bulk-action="delete">
+                            <i class="bx bx-trash"></i> Delete
+                        </button>
                         <button type="button" class="evaluation-bulk-close" data-bulk-action="clear"
                             title="Clear selection">
                             <i class="bx bx-x"></i>
@@ -1607,7 +1600,7 @@
             <div class="modal-content evaluation-card">
                 <form method="GET" action="{{ route('dm.evaluation.qr-links.export') }}" id="downloadQrLinksForm">
                     <div class="modal-header evaluation-modal-header">
-                        <h5 class="modal-title mb-0" id="downloadQrLinksModalLabel">Download All QR Links</h5>
+                        <h5 class="modal-title mb-0" id="downloadQrLinksModalLabel">Download QR Files</h5>
                         <button type="button" class="evaluation-modal-close" data-bs-dismiss="modal"
                             aria-label="Close">Ã—</button>
                     </div>
@@ -1649,7 +1642,19 @@
                         <button type="button" class="btn btn-tertiary evaluation-modal-btn"
                             data-bs-dismiss="modal">Cancel</button>
                         <button type="submit" id="downloadQrLinksSubmitBtn"
-                            class="btn btn-faculty-primary evaluation-modal-btn">Download Excel</button>
+                            class="btn btn-faculty-primary evaluation-modal-btn"
+                            data-export-url="{{ route('dm.evaluation.qr-links.export') }}"
+                            data-fallback-filename="evaluation-qr-links.xlsx"
+                            data-progress-label="Generating Excel..."
+                            data-success-message="QR links Excel downloaded successfully."
+                            data-default-text="Download Excel">Download Excel</button>
+                        <button type="submit" id="downloadQrCodesZipSubmitBtn"
+                            class="btn btn-faculty-primary evaluation-modal-btn"
+                            data-export-url="{{ route('dm.evaluation.qr-codes.export-zip') }}"
+                            data-fallback-filename="evaluation-qr-codes.zip"
+                            data-progress-label="Generating ZIP..."
+                            data-success-message="QR code ZIP downloaded successfully."
+                            data-default-text="Download QR ZIP">Download QR ZIP</button>
                     </div>
                 </form>
             </div>
@@ -2996,7 +3001,7 @@
             const progressSection = document.getElementById('downloadQrLinksProgressSection');
             const progressBar = document.getElementById('downloadQrLinksProgressBar');
             const progressText = document.getElementById('downloadQrLinksProgressText');
-            const submitBtn = document.getElementById('downloadQrLinksSubmitBtn');
+            const submitButtons = Array.from(downloadQrLinksForm.querySelectorAll('button[type="submit"]'));
 
             const setQrLinksProgress = (percent, text) => {
                 if (progressBar) {
@@ -3011,14 +3016,19 @@
             const resetQrLinksDownload = () => {
                 progressSection?.classList.add('d-none');
                 setQrLinksProgress(0, 'Preparing...');
-                if (submitBtn) {
-                    submitBtn.disabled = false;
-                    submitBtn.textContent = 'Download Excel';
-                }
+                submitButtons.forEach((button) => {
+                    button.disabled = false;
+                    button.textContent = button.dataset.defaultText || button.textContent;
+                });
             };
 
             downloadQrLinksForm.addEventListener('submit', async (event) => {
                 event.preventDefault();
+                const submitBtn = event.submitter || document.getElementById('downloadQrLinksSubmitBtn');
+                const exportUrl = submitBtn?.dataset.exportUrl || downloadQrLinksForm.action;
+                const fallbackFilename = submitBtn?.dataset.fallbackFilename || 'evaluation-qr-links.xlsx';
+                const progressLabel = submitBtn?.dataset.progressLabel || 'Generating file...';
+                const successMessage = submitBtn?.dataset.successMessage || 'Download completed successfully.';
 
                 if (!downloadQrLinksForm.checkValidity()) {
                     downloadQrLinksForm.reportValidity();
@@ -3026,35 +3036,36 @@
                 }
 
                 progressSection?.classList.remove('d-none');
-                if (submitBtn) {
-                    submitBtn.disabled = true;
-                    submitBtn.textContent = 'Downloading...';
-                }
+                submitButtons.forEach((button) => {
+                    button.disabled = true;
+                    button.textContent = button === submitBtn ? 'Downloading...' : (button.dataset.defaultText || button.textContent);
+                });
                 setQrLinksProgress(15, 'Preparing file...');
 
                 let simulatedProgress = 15;
                 const progressTimer = setInterval(() => {
                     simulatedProgress = Math.min(simulatedProgress + 10, 85);
-                    setQrLinksProgress(simulatedProgress, 'Generating Excel...');
+                    setQrLinksProgress(simulatedProgress, progressLabel);
                 }, 350);
 
                 try {
                     const params = new URLSearchParams(new FormData(downloadQrLinksForm));
-                    const response = await fetch(`${downloadQrLinksForm.action}?${params.toString()}`, {
+                    const response = await fetch(`${exportUrl}?${params.toString()}`, {
                         headers: {
                             'X-Requested-With': 'XMLHttpRequest'
                         }
                     });
 
                     if (!response.ok) {
-                        throw new Error('Unable to download QR links.');
+                        const payload = await response.json().catch(() => ({}));
+                        throw new Error(payload.message || 'Unable to download file.');
                     }
 
                     setQrLinksProgress(92, 'Starting download...');
                     const blob = await response.blob();
                     const disposition = response.headers.get('content-disposition') || '';
                     const filenameMatch = disposition.match(/filename="?([^"]+)"?/i);
-                    const filename = filenameMatch ? filenameMatch[1] : 'evaluation-qr-links.xlsx';
+                    const filename = filenameMatch ? filenameMatch[1] : fallbackFilename;
                     const downloadUrl = URL.createObjectURL(blob);
                     const link = document.createElement('a');
 
@@ -3067,7 +3078,7 @@
 
                     clearInterval(progressTimer);
                     setQrLinksProgress(100, 'Downloaded');
-                    showTemporaryToast('QR links Excel downloaded successfully.');
+                    showTemporaryToast(successMessage);
 
                     setTimeout(() => {
                         bootstrap.Modal.getInstance(document.getElementById('downloadQrLinksModal'))?.hide();

@@ -43,8 +43,8 @@ class FacultyController extends Controller // Controller class for managing facu
             $users = $usersQuery->get();
         }
 
-        $departmentFilterOptions = $this->getFacultyListOptions('department', $departmentFilters, $shouldFilter);
-        $jobTitleFilterOptions = $this->getFacultyListOptions('job_title', $departmentFilters, $shouldFilter);
+        $departmentFilterOptions = $this->getFacultyListOptions('department', $departmentFilters, $shouldFilter, $user);
+        $jobTitleFilterOptions = $this->getFacultyListOptions('job_title', $departmentFilters, $shouldFilter, $user);
 
         return view('content.data-management.dm-faculties', compact(
             'faculties',
@@ -558,8 +558,31 @@ class FacultyController extends Controller // Controller class for managing facu
         });
     }
 
-    private function getFacultyListOptions(string $field, array $departmentFilters = [], bool $shouldFilter = false)
+    private function getFacultyListOptions(string $field, array $departmentFilters = [], bool $shouldFilter = false, ?User $user = null)
     {
+        if ($shouldFilter) {
+            if ($field === 'department') {
+                return collect($departmentFilters)
+                    ->map(fn ($item) => trim((string) $item))
+                    ->filter(fn ($item) => $item !== '')
+                    ->unique()
+                    ->sort()
+                    ->values();
+            }
+
+            if ($field === 'job_title') {
+                return collect([
+                    $user?->job_title,
+                    optional($user?->faculty)->job_title,
+                ])
+                    ->map(fn ($item) => trim((string) $item))
+                    ->filter(fn ($item) => $item !== '')
+                    ->unique()
+                    ->sort()
+                    ->values();
+            }
+        }
+
         $facultyValues = Faculty::query();
         if ($shouldFilter) {
             $facultyValues->forDepartments($departmentFilters);

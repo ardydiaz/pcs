@@ -1292,7 +1292,7 @@
                             data-pill-value="schedule-section">${this.escapeHtml(sectionSource)}</span>` :
                         '<span class="text-muted">—</span>';
 
-                    const selectionCell = (schedulePermissions.canDelete || schedulePermissions.showDeleteDisabled) ?
+                    const selectionCell = schedulePermissions.canDelete ?
                         `
                         <td class="text-center">
                             <input type="checkbox" class="form-check-input schedule-checkbox" data-row-select value="${id}" ${isSelected ? 'checked' : ''}>
@@ -1359,7 +1359,7 @@
                 buildEmptyStateRow() {
                     return `
                     <tr data-empty>
-                        <td colspan="{{ $canDelete || $showDeleteDisabled ? 6 : 5 }}" class="text-center py-5">
+                        <td colspan="{{ $canDelete ? 6 : 5 }}" class="text-center py-5">
                             <div class="empty-state">
                                 <i class="fa-solid fa-calendar-days display-4 text-muted mb-3"></i>
                                 <h5 class="mb-2">No schedules found</h5>
@@ -1373,7 +1373,7 @@
                 buildSearchEmptyRow() {
                     return `
                     <tr data-empty-search style="display: none;">
-                        <td colspan="{{ $canDelete || $showDeleteDisabled ? 6 : 5 }}" class="text-center py-5">
+                        <td colspan="{{ $canDelete ? 6 : 5 }}" class="text-center py-5">
                             <div class="empty-state">
                                 <i class="fa-solid fa-magnifying-glass display-4 text-muted mb-3"></i>
                                 <h5 class="mb-2">No results found</h5>
