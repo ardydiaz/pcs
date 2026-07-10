@@ -117,7 +117,10 @@
         .poster {
             min-height: 10.5in;
             padding: 0.5in;
-            background: var(--surface);
+            background:
+                radial-gradient(circle at 94% 7%, rgba(255, 183, 54, 0.28), transparent 12%),
+                radial-gradient(circle at 82% 20%, rgba(16, 170, 184, 0.24), transparent 18%),
+                linear-gradient(145deg, #ffffff 0%, #ffffff 58%, #f7efff 100%);
             border-radius: 0.9rem;
             border: 1px solid var(--line);
             box-shadow: 0 18px 45px rgba(32, 33, 36, 0.12);
@@ -126,6 +129,32 @@
             justify-content: space-between;
             overflow: hidden;
             page-break-after: always;
+            position: relative;
+            isolation: isolate;
+        }
+
+        .poster::before {
+            content: "";
+            position: absolute;
+            inset: 0 0 auto 0;
+            height: 1.72in;
+            background:
+                radial-gradient(circle at 86% 18%, rgba(255, 183, 54, 0.35), transparent 13%),
+                radial-gradient(circle at 72% 48%, rgba(239, 20, 95, 0.24), transparent 15%),
+                linear-gradient(135deg, #300047 0%, #5c297c 58%, #7b2e91 100%);
+            z-index: -1;
+        }
+
+        .poster::after {
+            content: "";
+            position: absolute;
+            top: 0.2in;
+            right: -0.5in;
+            width: 2.25in;
+            height: 2.25in;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.12);
+            z-index: -1;
         }
 
         .poster-header {
@@ -134,11 +163,12 @@
             gap: 1rem;
             border-bottom: 3px solid var(--gold);
             padding-bottom: 1rem;
+            color: #ffffff;
         }
 
         .eyebrow {
             margin: 0 0 0.35rem;
-            color: var(--brand);
+            color: var(--gold);
             font-size: 0.9rem;
             font-weight: 800;
             letter-spacing: 0.08em;
@@ -149,18 +179,19 @@
             margin: 0;
             font-size: 2rem;
             line-height: 1.08;
-            color: var(--brand);
+            color: #ffffff;
         }
 
         .term {
             align-self: flex-start;
             padding: 0.55rem 0.75rem;
             border-radius: 999px;
-            background: var(--soft);
-            color: var(--brand);
-            border: 1px solid var(--line);
+            background: rgba(255, 255, 255, 0.16);
+            color: #ffffff;
+            border: 1px solid rgba(255, 255, 255, 0.32);
             font-weight: 700;
             white-space: nowrap;
+            box-shadow: inset 0 0 0 1px rgba(255, 183, 54, 0.2);
         }
 
         .details {
@@ -171,10 +202,11 @@
         }
 
         .info-card {
-            border: 1px solid var(--line);
+            border: 1px solid rgba(92, 41, 124, 0.12);
             border-radius: 0.75rem;
             padding: 1rem;
-            background: #fff;
+            background: rgba(255, 255, 255, 0.94);
+            box-shadow: 0 10px 24px rgba(48, 0, 71, 0.06);
         }
 
         .label {
@@ -202,8 +234,11 @@
             text-align: center;
             padding: 1.25rem;
             border-radius: 1rem;
-            background: linear-gradient(180deg, #fff, #fbf8ff);
-            border: 1px solid var(--line);
+            background:
+                radial-gradient(circle at 12% 12%, rgba(255, 183, 54, 0.16), transparent 18%),
+                linear-gradient(180deg, rgba(255, 255, 255, 0.98), #fbf8ff);
+            border: 1px solid rgba(92, 41, 124, 0.16);
+            box-shadow: 0 18px 34px rgba(48, 0, 71, 0.08);
         }
 
         .qr-frame {
@@ -244,7 +279,7 @@
             margin-top: 1rem;
             padding: 0.8rem;
             border-radius: 0.6rem;
-            background: #f7f3fb;
+            background: #f4ecfa;
             color: var(--ink);
             font-size: 0.9rem;
             word-break: break-all;
@@ -308,6 +343,16 @@
                 break-inside: avoid;
                 page-break-after: always;
                 overflow: hidden;
+            }
+
+            .poster::before {
+                height: 1.25in;
+            }
+
+            .poster::after {
+                width: 1.55in;
+                height: 1.55in;
+                right: -0.35in;
             }
 
             .poster:last-child {
