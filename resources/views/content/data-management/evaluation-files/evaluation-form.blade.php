@@ -422,6 +422,33 @@
             box-shadow: 0 0 0 0.22rem rgba(92, 41, 124, 0.14);
         }
 
+        .course-preview {
+            display: none;
+            margin-top: 0.8rem;
+            padding: 0.85rem 1rem;
+            border-radius: 16px;
+            border: 1px solid var(--mcu-border);
+            background: #fbf8fd;
+            color: var(--mcu-text);
+            font-size: 0.92rem;
+            line-height: 1.45;
+            overflow-wrap: anywhere;
+        }
+
+        .course-preview.is-visible {
+            display: block;
+        }
+
+        .course-preview-label {
+            display: block;
+            color: var(--mcu-purple);
+            font-size: 0.72rem;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            margin-bottom: 0.25rem;
+        }
+
         .form-check-input:checked {
             background-color: var(--mcu-purple);
             border-color: var(--mcu-purple);
@@ -672,16 +699,22 @@
                         @foreach ($schedules as $schedule)
                             @php
                                 $scheduleLabel = \App\Models\Schedule::formatScheduleLabel($schedule->day, $schedule->time);
+                                $course = $schedule->facultyCourse->course;
+                                $fullCourseLabel = trim(($course->class_code ?? '') . ' - ' . ($course->subject_code ?? '') . ' - ' . ($schedule->facultyCourse->section ?? '') . ' - ' . $scheduleLabel);
+                                $shortCourseLabel = \Illuminate\Support\Str::limit($fullCourseLabel, 92);
                             @endphp
                             <option value="{{ $schedule->id }}"
-                                data-section="{{ optional($schedule->facultyCourse)->section }}">
-                                {{ $schedule->facultyCourse->course->class_code }} -
-                                {{ $schedule->facultyCourse->course->subject_code }} -
-                                {{ $schedule->facultyCourse->section }} -
-                                {{ $scheduleLabel }}
+                                data-section="{{ optional($schedule->facultyCourse)->section }}"
+                                data-course-label="{{ $fullCourseLabel }}"
+                                title="{{ $fullCourseLabel }}">
+                                {{ $shortCourseLabel }}
                             </option>
                         @endforeach
                     </select>
+                    <div class="course-preview" id="selectedCoursePreview" aria-live="polite">
+                        <span class="course-preview-label">Selected course</span>
+                        <span id="selectedCoursePreviewText"></span>
+                    </div>
                     <div class="form-text">Class Code - Subject Code - Section - Schedule</div>
                 </div>
 
@@ -806,6 +839,8 @@
         let cooldownTimer = null;
         const sectionSelect = document.getElementById('section');
         const scheduleSelect = document.getElementById('schedule_id');
+        const selectedCoursePreview = document.getElementById('selectedCoursePreview');
+        const selectedCoursePreviewText = document.getElementById('selectedCoursePreviewText');
 
         function updateProgressBar() {
             const progress = (currentSection / totalSections) * 100;
@@ -946,10 +981,23 @@
         }
 
         function checkCooldownForSchedule() {
+            updateSelectedCoursePreview();
             const scheduleId = scheduleSelect?.value;
             if (scheduleId && isInCooldown(scheduleId)) {
                 showCooldownThankYou(scheduleId);
             }
+        }
+
+        function updateSelectedCoursePreview() {
+            if (!scheduleSelect || !selectedCoursePreview || !selectedCoursePreviewText) {
+                return;
+            }
+
+            const selectedOption = scheduleSelect.selectedOptions?.[0];
+            const label = selectedOption?.dataset?.courseLabel || '';
+
+            selectedCoursePreviewText.textContent = label;
+            selectedCoursePreview.classList.toggle('is-visible', label !== '');
         }
 
         function startCooldownCountdown(scheduleId) {
@@ -1020,6 +1068,7 @@
                 sectionSelect.value = '';
             }
             filterSchedulesBySection();
+            updateSelectedCoursePreview();
         }
 
         function filterSchedulesBySection(resetSchedule = true) {
@@ -1037,6 +1086,7 @@
             if (resetSchedule) {
                 scheduleSelect.value = '';
             }
+            updateSelectedCoursePreview();
         }
 
         function applySectionFromSchedule(scheduleId) {
@@ -1050,6 +1100,7 @@
             const sectionValue = selectedOption.dataset.section || '';
             sectionSelect.value = sectionValue;
             filterSchedulesBySection(false);
+            updateSelectedCoursePreview();
         }
 
         // Check for successful submission and show thank you screen
@@ -1077,6 +1128,7 @@
                     scheduleSelect.value = scheduleId;
                 }
                 applySectionFromSchedule(scheduleId);
+                updateSelectedCoursePreview();
             });
         @endif
 
@@ -1085,6 +1137,11 @@
                 filterSchedulesBySection();
             });
             filterSchedulesBySection(false);
+        }
+
+        if (scheduleSelect) {
+            scheduleSelect.addEventListener('change', updateSelectedCoursePreview);
+            updateSelectedCoursePreview();
         }
 
         updateProgressBar();
