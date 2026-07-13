@@ -74,7 +74,13 @@
                             </div>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label" for="editTimeStart">Time</label>
+                            <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
+                                <label class="form-label mb-0" for="editTimeStart">Time</label>
+                                <button type="button" class="schedule-open-hour-btn" data-open-hour-clear>
+                                    <i class="bx bx-time-five"></i>
+                                    Clear Time
+                                </button>
+                            </div>
                             <div class="time-range-group">
                                 <div class="dropdown time-dropdown" data-time-dropdown>
                                     <button class="time-dropdown-toggle"
@@ -103,7 +109,7 @@
                                             @endforeach
                                         </div>
                                     </div>
-                                    <input type="hidden" name="time_start" id="editTimeStart" required>
+                                    <input type="hidden" name="time_start" id="editTimeStart">
                                 </div>
                                 <span class="time-range-separator">to</span>
                                 <div class="dropdown time-dropdown" data-time-dropdown>
@@ -133,7 +139,7 @@
                                             @endforeach
                                         </div>
                                     </div>
-                                    <input type="hidden" name="time_end" id="editTimeEnd" required>
+                                    <input type="hidden" name="time_end" id="editTimeEnd">
                                 </div>
                             </div>
                         </div>

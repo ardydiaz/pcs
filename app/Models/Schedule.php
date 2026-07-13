@@ -11,11 +11,30 @@ class Schedule extends Model
 {
     use HasFactory;
 
+    private const OPEN_HOUR_VALUES = [
+        '',
+        'N/A',
+        'NA',
+        'NONE',
+        '-',
+        '--',
+        'TBA',
+        'OPEN',
+        'OPEN HOUR',
+        'OPEN HOURS',
+        'NO TIME',
+        'NO SCHEDULE',
+    ];
+
     protected $fillable = [
         'faculty_course_id', // Foreign key to link the schedule to a specific faculty course assignment
         'time', // string: "07:00a - 08:30a"
         'day', // string: "M, T, W"
         'status', // string: "scheduled", "completed", "cancelled"
+    ];
+
+    protected $appends = [
+        'display_label',
     ];
 
     /**
@@ -72,5 +91,47 @@ class Schedule extends Model
     public function facultyCourseWithDetails(): BelongsTo
     {
         return $this->belongsTo(FacultyCourse::class, 'faculty_course_id');
+    }
+
+    public static function isOpenHourValue(?string $value): bool
+    {
+        $normalized = strtoupper(preg_replace('/\s+/', ' ', trim((string) $value)));
+
+        return in_array($normalized, self::OPEN_HOUR_VALUES, true);
+    }
+
+    public static function normalizeOpenHourValue(?string $value): ?string
+    {
+        $value = preg_replace('/\s+/', ' ', trim((string) $value));
+
+        return self::isOpenHourValue($value) ? null : $value;
+    }
+
+    public static function formatScheduleLabel(?string $day, ?string $time): string
+    {
+        $day = preg_replace('/\s+/', ' ', trim((string) $day));
+        $time = preg_replace('/\s+/', ' ', trim((string) $time));
+
+        $hasDay = !self::isOpenHourValue($day);
+        $hasTime = !self::isOpenHourValue($time);
+
+        if (!$hasDay && !$hasTime) {
+            return 'Open Hour';
+        }
+
+        if ($hasDay && !$hasTime) {
+            return trim($day . ' Open Hour');
+        }
+
+        if (!$hasDay) {
+            return $time;
+        }
+
+        return trim($day . ' ' . $time);
+    }
+
+    public function getDisplayLabelAttribute(): string
+    {
+        return self::formatScheduleLabel($this->day, $this->time);
     }
 }

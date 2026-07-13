@@ -88,6 +88,28 @@
             letter-spacing: 0.04em;
         }
 
+        .schedule-open-hour-btn {
+            border: 1px solid rgba(92, 41, 124, 0.18);
+            border-radius: 999px;
+            background: rgba(92, 41, 124, 0.08);
+            color: #5c297c;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            font-size: 0.78rem;
+            font-weight: 700;
+            padding: 0.4rem 0.75rem;
+            transition: background-color 0.2s ease, border-color 0.2s ease;
+        }
+
+        .schedule-open-hour-btn:hover,
+        .schedule-open-hour-btn:focus {
+            background: rgba(255, 183, 54, 0.22);
+            border-color: rgba(255, 183, 54, 0.55);
+            color: #3a0050;
+            outline: none;
+        }
+
         .time-dropdown {
             position: relative;
         }

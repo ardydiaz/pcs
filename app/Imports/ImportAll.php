@@ -82,11 +82,6 @@ class ImportAll implements ToModel, WithHeadingRow // Class to handle the import
         $day = $this->cell($row, 'day');
         $status = strtolower($this->cell($row, 'status', 'scheduled'));
 
-        if ($time === '' || $day === '') {
-            $this->skipRow($row, 'Missing schedule time or day');
-            return null;
-        }
-
         // Validate status matches enum values in database
         if (!$this->isValidStatus($status)) {
             $this->skipRow($row, 'Invalid status: ' . $status . '. Must be one of: scheduled, completed, cancelled');
@@ -94,11 +89,11 @@ class ImportAll implements ToModel, WithHeadingRow // Class to handle the import
         }
 
         // Validate and normalize day abbreviations
-        if (!$this->isValidDayFormat($day)) {
+        if ($day !== '' && !Schedule::isOpenHourValue($day) && !$this->isValidDayFormat($day)) {
             $this->skipRow($row, 'Invalid day format: ' . $day);
             return null;
         }
-        $day = $this->normalizeDayInput($day);
+        $day = $day === '' || Schedule::isOpenHourValue($day) ? null : $this->normalizeDayInput($day);
 
         // Normalize time input to standard format (convert "to" to "-")
         $time = $this->normalizeTimeInput($time);
@@ -199,11 +194,39 @@ class ImportAll implements ToModel, WithHeadingRow // Class to handle the import
                 return null;
             }
 
-            // 4. Find or create Schedule record
-            $schedule = Schedule::where('faculty_course_id', $facultyCourse->id)
-                ->where('time', $time)
-                ->where('day', $day)
-                ->first();
+            // 4. Find, update, or create Schedule record.
+            // When a re-upload leaves time blank, treat the Excel row as an update
+            // to the existing same-day schedule instead of creating a duplicate.
+            $schedule = null;
+
+            if ($time === null && $day !== null) {
+                $schedule = Schedule::where('faculty_course_id', $facultyCourse->id)
+                    ->where('day', $day)
+                    ->orderBy('id')
+                    ->first();
+
+                if ($schedule) {
+                    $schedule->update([
+                        'time' => null,
+                        'status' => $status,
+                    ]);
+                    $this->debugLog[] = [
+                        'action' => 'Schedule time cleared',
+                        'employee_no' => $employeeNo,
+                        'schedule_id' => $schedule->id,
+                        'faculty_course_id' => $facultyCourse->id,
+                        'day' => $day,
+                        'status' => $status,
+                    ];
+                }
+            }
+
+            if (!$schedule) {
+                $schedule = Schedule::where('faculty_course_id', $facultyCourse->id)
+                    ->where('time', $time)
+                    ->where('day', $day)
+                    ->first();
+            }
 
             if (!$schedule) {
                 try {
@@ -283,10 +306,10 @@ class ImportAll implements ToModel, WithHeadingRow // Class to handle the import
      * Normalize time input to standard format, ensuring consistent storage.
      * Converts various formats like "07:00a to 08:30a" to "07:00a - 08:30a"
      */
-    private function normalizeTimeInput(string $time): string
+    private function normalizeTimeInput(string $time): ?string
     {
         $normalized = preg_replace('/\s*to\s*/i', ' - ', $time);
-        return preg_replace('/\s+/', ' ', trim($normalized));
+        return Schedule::normalizeOpenHourValue($normalized);
     }
 
     /**

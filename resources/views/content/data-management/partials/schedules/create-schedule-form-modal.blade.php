@@ -102,7 +102,7 @@
                                             @endforeach
                                         </div>
                                     </div>
-                                    <input type="hidden" name="time_start" id="createTimeStart" required>
+                                    <input type="hidden" name="time_start" id="createTimeStart">
                                 </div>
                                 <span class="time-range-separator">to</span>
                                 <div class="dropdown time-dropdown" data-time-dropdown>
@@ -132,7 +132,7 @@
                                             @endforeach
                                         </div>
                                     </div>
-                                    <input type="hidden" name="time_end" id="createTimeEnd" required>
+                                    <input type="hidden" name="time_end" id="createTimeEnd">
                                 </div>
                             </div>
                         </div>

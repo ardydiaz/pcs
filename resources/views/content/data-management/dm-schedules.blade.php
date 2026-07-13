@@ -25,6 +25,7 @@
                 'semester' => optional($schedule->facultyCourse)->semester ?? '',
                 'time' => $schedule->time,
                 'day' => $schedule->day,
+                'schedule_label' => \App\Models\Schedule::formatScheduleLabel($schedule->day, $schedule->time),
                 'status' => $schedule->status ?? 'scheduled',
             ];
         })
@@ -926,6 +927,10 @@
                             this.resetDayMultiselects(editForm);
                             this.setTimeFields(editForm, '');
                         });
+                        editForm.querySelector('[data-open-hour-clear]')?.addEventListener('click', () => {
+                            this.setTimeFields(editForm, '');
+                            this.showAlert('success', 'Time cleared. Save changes to keep this schedule without a fixed time.');
+                        });
                     }
 
                     const importForm = document.getElementById('scheduleImportForm');
@@ -1240,6 +1245,8 @@
                     const courseSubtitle = this.escapeHtml(courseSubtitleRaw);
                     const timeParts = this.splitTimeRange(schedule.time);
                     const dayDisplay = this.formatDayDisplay(schedule.day);
+                    const isOpenHour = this.isOpenHourSchedule(schedule.day, schedule.time);
+                    const hasOpenHourTime = this.isOpenHourValue(schedule.time);
                     const daySearch = dayDisplay.join(' ');
                     const searchTerms = [
                         courseCodeSource,
@@ -1252,6 +1259,7 @@
                         schedule.department ?? '',
                         schedule.status ?? '',
                         schedule.time ?? '',
+                        hasOpenHourTime ? 'Open Hour' : '',
                         timeParts.join(' '),
                         daySearch,
                         schedule.day ?? '',
@@ -1269,7 +1277,11 @@
                       ` :
                         '<span class="text-muted">N/A</span>';
 
-                    const timeContent = timeParts.length ?
+                    const timeContent = hasOpenHourTime ?
+                        `<span class="schedule-pill"
+                              data-pill-palette="purple"
+                              data-pill-value="open-hour">Open Hour</span>` :
+                        timeParts.length ?
                         timeParts
                         .map((part) => `<span class="schedule-pill"
                                               data-pill-palette="blue"
@@ -1277,7 +1289,9 @@
                         .join('') :
                         '<span class="text-muted">N/A</span>';
 
-                    const dayContent = dayDisplay.length ?
+                    const dayContent = isOpenHour ?
+                        '<span class="text-muted">&mdash;</span>' :
+                        dayDisplay.length ?
                         dayDisplay
                         .map((label) => `<span class="schedule-pill"
                                               data-pill-palette="gray"
@@ -1615,7 +1629,10 @@
                         ].filter(Boolean).join(' - ') || 'N/A';
                         const subjectType = schedule.subject_type === 'minor' ? 'GenEd Course' :
                             (schedule.subject_type === 'major' ? 'Professional Course' : 'N/A');
-                        const dayLabel = this.formatDayDisplay(schedule.day).join(', ') || 'N/A';
+                        const isOpenHour = this.isOpenHourSchedule(schedule.day, schedule.time);
+                        const hasOpenHourTime = this.isOpenHourValue(schedule.time);
+                        const dayLabel = isOpenHour ? 'Open Hour' : (this.formatDayDisplay(schedule.day).join(', ') || 'N/A');
+                        const timeLabel = hasOpenHourTime ? 'Open Hour' : (schedule.time || 'N/A');
                         const statusLabel = this.formatDisplayText(schedule.status || 'scheduled');
 
                         body.innerHTML = `
@@ -1629,7 +1646,7 @@
                                 ${this.renderScheduleDetail('Academic Year', schedule.academic_year || 'N/A')}
                                 ${this.renderScheduleDetail('Semester', this.formatSemesterLabel(schedule.semester))}
                                 ${this.renderScheduleDetail('Day(s)', dayLabel)}
-                                ${this.renderScheduleDetail('Time', schedule.time || 'N/A')}
+                                ${this.renderScheduleDetail('Time', timeLabel)}
                                 ${this.renderScheduleDetail('Status', statusLabel)}
                             </div>
                         `;
@@ -1823,17 +1840,17 @@
                         data.day = dayValues;
                     }
 
-                    if (!Array.isArray(data.day) || !data.day.length) {
-                        this.showAlert('error', 'Select at least one day.');
-                        return null;
-                    }
-
-                    if (!data.faculty_course_id || !timeStart || !timeEnd) {
+                    if (!data.faculty_course_id) {
                         this.showAlert('error', 'Please complete all required fields.');
                         return null;
                     }
 
-                    data.time = `${timeStart} to ${timeEnd}`;
+                    if ((timeStart && !timeEnd) || (!timeStart && timeEnd)) {
+                        this.showAlert('error', 'Please select both start and end time, or leave both blank for Open Hour.');
+                        return null;
+                    }
+
+                    data.time = timeStart && timeEnd ? `${timeStart} to ${timeEnd}` : '';
 
                     return data;
                 }
@@ -1903,6 +1920,20 @@
                     const [start = '', end = ''] = this.splitTimeRange(timeString);
                     this.setTimeDropdownValue(form, 'time_start', start);
                     this.setTimeDropdownValue(form, 'time_end', end);
+                }
+
+                isOpenHourValue(value) {
+                    const normalized = String(value ?? '')
+                        .replace(/\s+/g, ' ')
+                        .trim()
+                        .toUpperCase();
+
+                    return ['', 'N/A', 'NA', 'NONE', '-', '--', 'TBA', 'OPEN', 'OPEN HOUR', 'OPEN HOURS', 'NO TIME', 'NO SCHEDULE']
+                        .includes(normalized);
+                }
+
+                isOpenHourSchedule(day, time) {
+                    return this.isOpenHourValue(day) && this.isOpenHourValue(time);
                 }
 
                 splitDayString(dayString) {
@@ -1998,6 +2029,7 @@
                         semester: facultyCourse?.semester ?? '',
                         time: payload.time,
                         day: payload.day,
+                        schedule_label: payload.display_label ?? payload.schedule_label ?? '',
                         status: payload.status ?? 'scheduled',
                     };
                 }

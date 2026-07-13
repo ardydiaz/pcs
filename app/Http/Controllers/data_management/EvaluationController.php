@@ -662,7 +662,7 @@ class EvaluationController extends Controller
                     'course' => trim(($course->class_code ?? 'N/A') . (($course->subject_code ?? '') !== '' ? ' - ' . $course->subject_code : '')),
                     'subject_type' => ($course->subject_type ?? '') === 'minor' ? 'GenEd' : 'Professional',
                     'section' => $assignment->section ?? 'N/A',
-                    'schedule' => trim(($schedule->day ?? 'N/A') . ' ' . ($schedule->time ?? 'N/A')),
+                    'schedule' => Schedule::formatScheduleLabel($schedule->day, $schedule->time),
                 ];
             })
             ->unique(fn($item) => $item['course'] . '|' . $item['section'] . '|' . $item['schedule'])

@@ -316,16 +316,10 @@
                 $course = optional($assignment->course);
                 $schedules = $assignment->schedules
                     ? $assignment->schedules->map(function ($schedule) {
-                        $day = trim((string) ($schedule->day ?? ''));
-                        $time = trim((string) ($schedule->time ?? ''));
-                        $dayUpper = strtoupper($day);
-                        $displayDay = in_array($dayUpper, ['N/A', 'NA', 'NONE', '-'], true) ? '' : $day;
-                        $label = trim(($displayDay !== '' ? $displayDay . ' ' : '') . $time);
-
                         return [
                             'day' => $schedule->day ?? '',
                             'time' => $schedule->time ?? '',
-                            'label' => $label !== '' ? $label : 'N/A',
+                            'label' => \App\Models\Schedule::formatScheduleLabel($schedule->day ?? null, $schedule->time ?? null),
                         ];
                     })->values()
                     : collect();

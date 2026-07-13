@@ -634,17 +634,12 @@ class FacultyController extends Controller // Controller class for managing facu
                     $course = $assignment->course;
                     $schedules = $assignment->schedules
                         ->map(function (Schedule $schedule) {
-                            $day = trim((string) ($schedule->day ?? ''));
-                            $time = trim((string) ($schedule->time ?? ''));
-                            $displayDay = in_array(strtoupper($day), ['N/A', 'NA', 'NONE', '-'], true) ? '' : $day;
-                            $label = trim(($displayDay !== '' ? $displayDay . ' ' : '') . $time);
-
                             return [
                                 'id' => $schedule->id,
                                 'day' => $schedule->day,
                                 'time' => $schedule->time,
                                 'status' => $schedule->status,
-                                'label' => $label,
+                                'label' => Schedule::formatScheduleLabel($schedule->day, $schedule->time),
                             ];
                         })
                         ->values();

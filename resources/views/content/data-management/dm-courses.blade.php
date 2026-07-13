@@ -8,13 +8,7 @@
 -->
 @php
     $formatScheduleLabel = function ($schedule) {
-        $day = trim((string) ($schedule->day ?? ''));
-        $time = trim((string) ($schedule->time ?? ''));
-        $dayUpper = strtoupper($day);
-        $displayDay = in_array($dayUpper, ['N/A', 'NA', 'NONE', '-'], true) ? '' : $day;
-        $label = trim(($displayDay !== '' ? $displayDay . ' ' : '') . $time);
-
-        return $label !== '' ? $label : 'N/A';
+        return \App\Models\Schedule::formatScheduleLabel($schedule->day ?? null, $schedule->time ?? null);
     };
 
     $handlersByCourseId = $facultyCourses

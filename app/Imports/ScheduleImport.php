@@ -71,9 +71,29 @@ class ScheduleImport implements ToModel, WithHeadingRow
         $time = $this->normalizeTime((string) ($row['time'] ?? ''));
         $day = $this->normalizeDay((string) ($row['day'] ?? ''));
 
-        if ($time === '' || $day === '') {
+        if (($time === '' && !Schedule::isOpenHourValue((string) ($row['time'] ?? ''))) ||
+            ($day === '' && !Schedule::isOpenHourValue((string) ($row['day'] ?? '')))) {
             $this->logError($row, 'Invalid time or day format');
             return null;
+        }
+
+        $time = Schedule::normalizeOpenHourValue($time);
+        $day = Schedule::normalizeOpenHourValue($day);
+
+        if ($time === null && $day !== null) {
+            $schedule = Schedule::where('faculty_course_id', $facultyCourse->id)
+                ->where('day', $day)
+                ->orderBy('id')
+                ->first();
+
+            if ($schedule) {
+                $schedule->update([
+                    'time' => null,
+                    'status' => $row['status'] ?? 'scheduled',
+                ]);
+
+                return null;
+            }
         }
 
         $exists = Schedule::where('faculty_course_id', $facultyCourse->id)

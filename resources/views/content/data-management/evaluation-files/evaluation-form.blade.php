@@ -214,11 +214,318 @@
                 opacity: 1;
             }
         }
+
+        :root {
+            --mcu-purple-midnight: #3a0050;
+            --mcu-purple: #5c297c;
+            --mcu-purple-haze: #6f2a8f;
+            --mcu-gold: #ffb736;
+            --mcu-gold-soft: #fff3d4;
+            --mcu-mist: #b7d0cc;
+            --mcu-text: #1f2937;
+            --mcu-muted: #667085;
+            --mcu-border: #eadff0;
+        }
+
+        body {
+            color: var(--mcu-text);
+            background:
+                radial-gradient(circle at 82% 12%, rgba(255, 183, 54, 0.22), transparent 18rem),
+                radial-gradient(circle at 12% 86%, rgba(183, 208, 204, 0.34), transparent 22rem),
+                linear-gradient(135deg, #2b003d 0%, #4b1168 45%, #6f2a8f 100%);
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        body::before,
+        body::after {
+            content: "";
+            position: fixed;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        body::before {
+            width: 34rem;
+            height: 34rem;
+            right: -12rem;
+            top: -10rem;
+            border-radius: 50%;
+            background: rgba(255, 183, 54, 0.16);
+        }
+
+        body::after {
+            width: 28rem;
+            height: 28rem;
+            left: -10rem;
+            bottom: -12rem;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .form-container {
+            position: relative;
+            z-index: 1;
+            max-width: 880px;
+            padding: 24px;
+        }
+
+        .survey-brand {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            margin: 0 auto 18px;
+            padding: 14px 18px;
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            color: #ffffff;
+            backdrop-filter: blur(12px);
+            box-shadow: 0 22px 60px rgba(15, 23, 42, 0.18);
+        }
+
+        .survey-brand-main {
+            display: flex;
+            align-items: center;
+            gap: 0.85rem;
+            min-width: 0;
+        }
+
+        .survey-brand-logo {
+            width: 52px;
+            height: 52px;
+            border-radius: 18px;
+            background: #ffffff;
+            object-fit: contain;
+            padding: 8px;
+            box-shadow: 0 10px 24px rgba(0, 0, 0, 0.16);
+        }
+
+        .survey-brand-title {
+            margin: 0;
+            font-size: 0.78rem;
+            font-weight: 800;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: var(--mcu-gold);
+        }
+
+        .survey-brand-subtitle {
+            margin: 0.15rem 0 0;
+            font-size: 1rem;
+            font-weight: 700;
+            color: #ffffff;
+        }
+
+        .survey-brand-term {
+            flex: 0 0 auto;
+            border-radius: 999px;
+            background: rgba(255, 183, 54, 0.18);
+            color: #ffffff;
+            font-weight: 800;
+            padding: 0.55rem 0.9rem;
+            border: 1px solid rgba(255, 183, 54, 0.34);
+        }
+
+        .progress-bar-custom {
+            height: 8px;
+            max-width: 760px;
+            margin: 0 auto 18px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.34);
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            background: linear-gradient(90deg, var(--mcu-gold), #ffe08a, var(--mcu-purple-haze));
+            border-radius: inherit;
+        }
+
+        .section-card,
+        .thank-you-screen {
+            border: 1px solid rgba(255, 255, 255, 0.58);
+            border-radius: 24px;
+            background:
+                radial-gradient(circle at 100% 0%, rgba(255, 183, 54, 0.12), transparent 18rem),
+                #ffffff;
+            box-shadow: 0 26px 70px rgba(15, 23, 42, 0.22);
+        }
+
+        .section-card {
+            padding: 42px;
+        }
+
+        .header-section {
+            padding-bottom: 1.25rem;
+            border-bottom: 1px solid #f0e8f5;
+        }
+
+        .header-section h1 {
+            color: var(--mcu-purple);
+            letter-spacing: 0;
+        }
+
+        .header-section .subtitle,
+        .text-muted,
+        .form-text {
+            color: var(--mcu-muted) !important;
+        }
+
+        .department-pill {
+            background: rgba(92, 41, 124, 0.1);
+            color: var(--mcu-purple);
+            border: 1px solid rgba(92, 41, 124, 0.14);
+        }
+
+        .section-title {
+            color: var(--mcu-purple);
+            border-bottom: 0;
+            padding-bottom: 0.85rem;
+            position: relative;
+        }
+
+        .section-title::after {
+            content: "";
+            position: absolute;
+            left: 0;
+            bottom: 0;
+            width: 76px;
+            height: 4px;
+            border-radius: 999px;
+            background: linear-gradient(90deg, var(--mcu-gold), var(--mcu-purple));
+        }
+
+        .text-primary {
+            color: var(--mcu-purple) !important;
+        }
+
+        .consent-section {
+            border-left: 0;
+            padding: 1.25rem;
+            border-radius: 18px;
+            background: #fbf8fd;
+            border: 1px solid var(--mcu-border);
+        }
+
+        .form-control,
+        .form-select {
+            min-height: 48px;
+            border-radius: 14px;
+            border-color: #ded6e6;
+            color: var(--mcu-text);
+        }
+
+        .form-control:focus,
+        .form-select:focus {
+            border-color: var(--mcu-purple);
+            box-shadow: 0 0 0 0.22rem rgba(92, 41, 124, 0.14);
+        }
+
+        .form-check-input:checked {
+            background-color: var(--mcu-purple);
+            border-color: var(--mcu-purple);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--mcu-purple-midnight), var(--mcu-purple-haze));
+            border: 0;
+            box-shadow: 0 14px 30px rgba(92, 41, 124, 0.24);
+        }
+
+        .btn-primary:hover,
+        .btn-primary:focus {
+            background: linear-gradient(135deg, #2d003f, var(--mcu-purple));
+            box-shadow: 0 16px 34px rgba(92, 41, 124, 0.3);
+        }
+
+        .btn-outline-secondary,
+        .btn-outline-primary {
+            border-color: rgba(92, 41, 124, 0.35);
+            color: var(--mcu-purple);
+            background: #ffffff;
+        }
+
+        .btn-outline-secondary:hover,
+        .btn-outline-primary:hover {
+            background: var(--mcu-gold-soft);
+            border-color: var(--mcu-gold);
+            color: var(--mcu-purple-midnight);
+        }
+
+        .rating-container {
+            gap: 1rem;
+        }
+
+        .rating-option {
+            margin: 0;
+            padding: 1rem;
+            border: 1px solid var(--mcu-border);
+            border-radius: 18px;
+            background: #ffffff;
+            transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+        }
+
+        .rating-option:hover {
+            transform: translateY(-2px);
+            border-color: rgba(92, 41, 124, 0.36);
+            box-shadow: 0 12px 28px rgba(92, 41, 124, 0.12);
+        }
+
+        .rating-option:has(input[type="radio"]:checked) {
+            border-color: var(--mcu-purple);
+            background: linear-gradient(180deg, #ffffff, #fbf6ff);
+            box-shadow: 0 12px 30px rgba(92, 41, 124, 0.14);
+        }
+
+        .rating-option input[type="radio"] {
+            accent-color: var(--mcu-purple);
+        }
+
+        .cooldown-timer {
+            color: var(--mcu-purple);
+        }
+
+        @media (max-width: 768px) {
+            .form-container {
+                padding: 16px;
+            }
+
+            .survey-brand {
+                align-items: flex-start;
+                flex-direction: column;
+                border-radius: 18px;
+            }
+
+            .survey-brand-term {
+                align-self: flex-start;
+            }
+
+            .section-card {
+                padding: 26px 20px;
+                border-radius: 20px;
+            }
+
+            .rating-option {
+                flex: 1 1 100%;
+            }
+        }
     </style>
 </head>
 
 <body>
     <div class="form-container">
+        <div class="survey-brand">
+            <div class="survey-brand-main">
+                <img src="{{ asset('storage/images/logo_color.png') }}" alt="MCU logo" class="survey-brand-logo">
+                <div>
+                    <p class="survey-brand-title">Post-Class Student Survey</p>
+                    <p class="survey-brand-subtitle">Manila Central University</p>
+                </div>
+            </div>
+            <div class="survey-brand-term">{{ $evaluation->academic_year }} | {{ $evaluation->semester }} Semester</div>
+        </div>
+
         <!-- Progress Bar (hidden during thank you screens) -->
         <div class="progress-bar-custom" id="progressBarContainer">
             <div class="progress-fill" id="progressBar" style="width: 25%"></div>
@@ -363,12 +670,15 @@
                         onchange="checkCooldownForSchedule()">
                         <option value="">Select your answer</option>
                         @foreach ($schedules as $schedule)
+                            @php
+                                $scheduleLabel = \App\Models\Schedule::formatScheduleLabel($schedule->day, $schedule->time);
+                            @endphp
                             <option value="{{ $schedule->id }}"
                                 data-section="{{ optional($schedule->facultyCourse)->section }}">
                                 {{ $schedule->facultyCourse->course->class_code }} -
                                 {{ $schedule->facultyCourse->course->subject_code }} -
                                 {{ $schedule->facultyCourse->section }} -
-                                {{ $schedule->day }} {{ $schedule->time }}
+                                {{ $scheduleLabel }}
                             </option>
                         @endforeach
                     </select>

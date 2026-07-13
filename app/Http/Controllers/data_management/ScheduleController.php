@@ -94,13 +94,13 @@ class ScheduleController extends Controller
 
         $validated = $request->validate([
             'faculty_course_id' => 'required|exists:faculty_courses,id',
-            'time' => 'required|string', // e.g. "07:00a - 08:30a"
-            'day' => 'required|array',
+            'time' => 'nullable|string', // e.g. "07:00a - 08:30a"
+            'day' => 'nullable|array',
             'day.*' => 'in:M,T,W,TH,F,S,SU',
         ]);
 
-        $validated['day'] = implode('', $validated['day']); // e.g. ["T","TH"] => "TTH"
-        $validated['time'] = $this->normalizeTimeInput($validated['time']);
+        $validated['day'] = !empty($validated['day'] ?? []) ? implode('', $validated['day']) : null; // e.g. ["T","TH"] => "TTH"
+        $validated['time'] = $this->normalizeTimeInput((string) ($validated['time'] ?? ''));
 
         $exists = Schedule::where('faculty_course_id', $validated['faculty_course_id'])
             ->where('time', $validated['time'])
@@ -132,13 +132,13 @@ class ScheduleController extends Controller
 
         $validated = $request->validate([
             'faculty_course_id' => 'required|exists:faculty_courses,id',
-            'time' => 'required|string', // e.g. "07:00a - 08:30a"
-            'day' => 'required|array',
+            'time' => 'nullable|string', // e.g. "07:00a - 08:30a"
+            'day' => 'nullable|array',
             'day.*' => 'in:M,T,W,TH,F,S,SU', // Validate that each day is one of the allowed values
         ]);
 
-        $validated['day'] = implode('', $validated['day']);
-        $validated['time'] = $this->normalizeTimeInput($validated['time']);
+        $validated['day'] = !empty($validated['day'] ?? []) ? implode('', $validated['day']) : null;
+        $validated['time'] = $this->normalizeTimeInput((string) ($validated['time'] ?? ''));
         $targetFacultyCourse = FacultyCourse::with('faculty.user')->findOrFail($validated['faculty_course_id']);
         $this->authorizeFacultyCourseDepartmentAccess($targetFacultyCourse);
 
@@ -203,10 +203,10 @@ class ScheduleController extends Controller
     /**
      * Ensure stored time uses "-" instead of "to" regardless of user input.
      */
-    private function normalizeTimeInput(string $time): string
+    private function normalizeTimeInput(string $time): ?string
     {
         $normalized = preg_replace('/\s*to\s*/i', ' - ', $time);
-        return preg_replace('/\s+/', ' ', trim($normalized));
+        return Schedule::normalizeOpenHourValue($normalized);
     }
 
     private function authorizeAdminOnly(): void

@@ -458,8 +458,7 @@
                     $course = $facultyCourse?->course;
                     $subject = $course?->subject_code ?? 'Subject not available';
                     $section = $facultyCourse?->section ?? 'N/A';
-                    $scheduleText = trim(($schedule->day ?? '') . ' ' . ($schedule->time ?? ''));
-                    $scheduleText = $scheduleText === '' ? 'Schedule not available' : $scheduleText;
+                    $scheduleText = \App\Models\Schedule::formatScheduleLabel($schedule->day, $schedule->time);
                 @endphp
 
                 <section class="poster">

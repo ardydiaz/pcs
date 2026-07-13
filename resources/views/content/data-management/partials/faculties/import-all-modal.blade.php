@@ -356,10 +356,14 @@
                         if (!contentType || !contentType.includes('application/json')) {
                             throw new Error('Server returned invalid response type: ' + contentType);
                         }
-                        if (!response.ok) {
-                            throw new Error('Network response was not ok: ' + response.statusText);
-                        }
-                        return response.json();
+                        return response.json().then(data => {
+                            if (!response.ok) {
+                                const error = new Error(data.message || 'Import failed: ' + response.statusText);
+                                error.data = data;
+                                throw error;
+                            }
+                            return data;
+                        });
                     })
                     .then(data => {
                         console.log('Import All Response:', data);
@@ -392,6 +396,11 @@
                     .catch(error => {
                         clearInterval(progressInterval);
                         console.error('Import All error:', error);
+                        if (error.data) {
+                            showErrorMessage(error.data);
+                            submitBtn.disabled = false;
+                            return;
+                        }
                         progressSection.classList.add('d-none');
                         skippedSection.classList.add('d-none');
                         fileSection.classList.remove('d-none');
