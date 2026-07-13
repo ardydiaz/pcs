@@ -398,7 +398,7 @@
         };
         const deletedCoursesUrl = '{{ route('dm.courses.deleted', 'major') }}';
         const restoreCourseUrlTemplate = '{{ route('dm.courses.restore', ':id') }}';
-        const deletedAssignmentsUrl = '{{ route('dm.faculty-courses.deleted') }}';
+        const deletedAssignmentsUrl = '{{ route('dm.faculty-courses.deleted', 'major') }}';
         const restoreAssignmentUrlTemplate = '{{ route('dm.faculty-courses.restore', ':id') }}';
 
         document.addEventListener('DOMContentLoaded', () => {

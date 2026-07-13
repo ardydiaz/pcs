@@ -1232,9 +1232,11 @@ class CourseController extends Controller
     }
 
     // Faculty Course Assignment CRUD
-    public function deletedFacultyCourses(): JsonResponse
+    public function deletedFacultyCourses(string $type = 'major'): JsonResponse
     {
         $this->authorizeAdminOnly();
+
+        $subjectType = $type === 'minor' ? 'minor' : 'major';
 
         $assignments = FacultyCourse::onlyTrashed()
             ->with([
@@ -1243,8 +1245,8 @@ class CourseController extends Controller
                 'course:id,class_code,subject_code,subject_type',
                 'schedules:id,faculty_course_id,time,day,status',
             ])
-            ->whereHas('course', function ($query) {
-                $query->where('subject_type', 'major');
+            ->whereHas('course', function ($query) use ($subjectType) {
+                $query->where('subject_type', $subjectType);
             })
             ->latest('deleted_at')
             ->limit(100)

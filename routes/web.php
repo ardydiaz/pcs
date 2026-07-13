@@ -87,7 +87,7 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('/data-management/courses/{course}', [CourseController::class, 'destroyCourse'])->name('dm.courses.destroy')->middleware('access.level:courses');
     Route::post('/data-management/courses/bulk-delete', [CourseController::class, 'bulkDestroyCourses'])->name('dm.courses.bulk-destroy')->middleware('access.level:courses');
     Route::post('/data-management/faculty-courses', [CourseController::class, 'storeFacultyCourse'])->name('dm.faculty-courses.store')->middleware('access.level:courses');
-    Route::get('/data-management/faculty-courses/deleted', [CourseController::class, 'deletedFacultyCourses'])->name('dm.faculty-courses.deleted')->middleware('admin');
+    Route::get('/data-management/faculty-courses/deleted/{type?}', [CourseController::class, 'deletedFacultyCourses'])->name('dm.faculty-courses.deleted')->middleware('admin');
     Route::post('/data-management/faculty-courses/restore/{id}', [CourseController::class, 'restoreFacultyCourse'])->name('dm.faculty-courses.restore')->middleware('admin');
     Route::put('/data-management/faculty-courses/{facultyCourse}', [CourseController::class, 'updateFacultyCourse'])->name('dm.faculty-courses.update')->middleware('access.level:courses');
     Route::delete('/data-management/faculty-courses/{facultyCourse}', [CourseController::class, 'destroyFacultyCourse'])->name('dm.faculty-courses.destroy')->middleware('access.level:courses');
