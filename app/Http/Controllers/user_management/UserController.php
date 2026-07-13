@@ -120,7 +120,7 @@ class UserController extends Controller
     {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['nullable', 'email', 'max:255', 'unique:users,email'],
+            'email' => ['nullable', 'email', 'max:255', Rule::unique('users', 'email')->whereNull('deleted_at')],
             'department' => ['required', 'string', 'max:255'],
             'job_title' => ['required', 'string', 'max:255'],
             'role' => ['required', 'in:Admin,NTP,Faculty,Student'],
@@ -161,7 +161,7 @@ class UserController extends Controller
                 'nullable',
                 'email',
                 'max:255',
-                Rule::unique('users', 'email')->ignore($user->id),
+                Rule::unique('users', 'email')->ignore($user->id)->whereNull('deleted_at'),
             ],
             'department' => ['nullable', 'string', 'max:255'],
             'job_title' => ['nullable', 'string', 'max:255'],
@@ -269,6 +269,50 @@ class UserController extends Controller
                 ? "{$deleted} users deleted successfully."
                 : 'User deleted successfully.',
             'deleted' => $ids,
+        ]);
+    }
+
+    public function deletedList(): JsonResponse
+    {
+        $users = User::onlyTrashed()
+            ->with('faculty:id,user_id,department,job_title')
+            ->latest('deleted_at')
+            ->limit(100)
+            ->get()
+            ->map(function (User $user) {
+                $data = $this->serializeUserForList($user);
+                $data['deleted_at'] = optional($user->deleted_at)->format('M d, Y h:i A') ?? 'N/A';
+
+                return $data;
+            })
+            ->values();
+
+        return response()->json([
+            'success' => true,
+            'data' => $users,
+        ]);
+    }
+
+    public function restore(int $id): JsonResponse
+    {
+        $user = User::onlyTrashed()->findOrFail($id);
+
+        if ($user->email) {
+            $duplicateEmail = User::where('email', $user->email)->exists();
+            if ($duplicateEmail) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'This user cannot be restored because an active user already uses the same email.',
+                ], 422);
+            }
+        }
+
+        $user->restore();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'User restored successfully.',
+            'data' => $this->serializeUserForList($user->load('faculty:id,user_id,department,job_title')),
         ]);
     }
 

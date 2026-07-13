@@ -237,6 +237,44 @@
             box-shadow: none;
         }
 
+        .btn-deleted-user {
+            min-height: calc(2.25rem + 2px);
+            padding: 0 1rem;
+            border: 1px solid rgba(92, 41, 124, 0.18);
+            border-radius: 0.55rem;
+            background: #5c297c;
+            color: #ffffff;
+            font-size: 0.85rem;
+            font-weight: 700;
+            box-shadow: 0 0.45rem 1rem rgba(92, 41, 124, 0.14);
+        }
+
+        .btn-deleted-user:hover,
+        .btn-deleted-user:focus {
+            border-color: #e6a431;
+            background: #ffb736;
+            color: #3a0050;
+            box-shadow: 0 0.55rem 1.1rem rgba(230, 164, 49, 0.2);
+        }
+
+        .btn-restore-user {
+            background: linear-gradient(135deg, #5c297c, #6f2a8f);
+            border: 1px solid #5c297c;
+            color: #ffffff;
+            border-radius: 999px;
+            font-weight: 700;
+            padding: 0.45rem 0.9rem;
+            box-shadow: 0 0.55rem 1.2rem rgba(92, 41, 124, 0.18);
+        }
+
+        .btn-restore-user:hover,
+        .btn-restore-user:focus {
+            background: linear-gradient(135deg, #ffb736, #e6a431);
+            border-color: #e6a431;
+            color: #3a0050;
+            box-shadow: 0 0.65rem 1.35rem rgba(230, 164, 49, 0.24);
+        }
+
         .user-card--table {
             border-radius: var(--bs-card-border-radius);
             padding: 0;
@@ -1483,6 +1521,10 @@
                                 <option value="100">100</option>
                                {{-- <option value="all">All</option> --}}
                             </select>
+                            <button type="button" class="btn btn-deleted-user" data-bs-toggle="modal"
+                                data-bs-target="#userDeletedModal">
+                                <i class="fa-solid fa-trash-arrow-up me-2"></i>Deleted Users
+                            </button>
                         </div>
                     </div>
                     <div class="col-md-6">
@@ -2008,7 +2050,7 @@
                     <button type="button" class="evaluation-modal-close" data-bs-dismiss="modal" aria-label="Close">×</button>
                 </div>
                 <div class="modal-body evaluation-modal-body">
-                    <p class="mb-0">You are about to delete <span class="fw-semibold" id="userBulkDeleteCount">0</span> user(s). This action cannot be undone. Continue?</p>
+                    <p class="mb-0">You are about to delete <span class="fw-semibold" id="userBulkDeleteCount">0</span> user(s). You can restore them later from Deleted Users. Continue?</p>
                 </div>
                 <div class="modal-footer evaluation-modal-footer">
                     <button type="button" class="btn btn-tertiary evaluation-modal-btn" data-bs-dismiss="modal">Cancel</button>
@@ -2027,11 +2069,60 @@
                     <button type="button" class="evaluation-modal-close" data-bs-dismiss="modal" aria-label="Close">×</button>
                 </div>
                 <div class="modal-body evaluation-modal-body">
-                    <p class="mb-0">Are you sure you want to delete <span class="fw-semibold" id="userDeleteName">this user</span>? This action cannot be undone.</p>
+                    <p class="mb-0">Are you sure you want to delete <span class="fw-semibold" id="userDeleteName">this user</span>? You can restore it later from Deleted Users.</p>
                 </div>
                 <div class="modal-footer evaluation-modal-footer">
                     <button type="button" class="btn btn-tertiary evaluation-modal-btn" data-bs-dismiss="modal">Cancel</button>
                     <button type="button" class="btn btn-delete-action evaluation-modal-btn" id="confirmUserDeleteBtn" data-default-text="Delete" data-loading-text="Deleting...">Delete</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {{-- Deleted Users Modal --}}
+    <div class="modal fade" id="userDeletedModal" tabindex="-1" aria-labelledby="userDeletedModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable evaluation-modal-dialog">
+            <div class="modal-content evaluation-card">
+                <div class="modal-header evaluation-modal-header">
+                    <div>
+                        <h5 class="modal-title mb-1" id="userDeletedModalLabel">Deleted Users</h5>
+                        <small class="text-muted">Restore soft-deleted user accounts when needed.</small>
+                    </div>
+                    <button type="button" class="evaluation-modal-close" data-bs-dismiss="modal" aria-label="Close">&times;</button>
+                </div>
+                <div class="modal-body evaluation-modal-body">
+                    <div id="userDeletedAlert"></div>
+                    <div id="userDeletedLoading" class="text-center py-5">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading deleted users...</span>
+                        </div>
+                        <p class="text-muted mt-3 mb-0">Loading deleted users...</p>
+                    </div>
+                    <div id="userDeletedEmpty" class="text-center py-5 d-none">
+                        <i class="fa-solid fa-user-check text-muted mb-3" style="font-size: 2rem;"></i>
+                        <h5 class="mb-1">No Deleted Users</h5>
+                        <p class="text-muted mb-0">Soft-deleted user accounts will appear here.</p>
+                    </div>
+                    <div id="userDeletedTableWrap" class="table-responsive d-none">
+                        <table class="table align-middle mb-0 evaluation-table">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Email</th>
+                                    <th>Department</th>
+                                    <th>Job Title</th>
+                                    <th>Role</th>
+                                    <th>Status</th>
+                                    <th>Deleted At</th>
+                                    <th class="text-end">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="userDeletedTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="modal-footer evaluation-modal-footer">
+                    <button type="button" class="btn btn-tertiary evaluation-modal-btn" data-bs-dismiss="modal">Close</button>
                 </div>
             </div>
         </div>
@@ -2091,6 +2182,8 @@
         const userBulkAccessUrl = "{{ route('um.users.bulk-access') }}";
         const userUpdateUrlTemplate = "{{ route('um.users.update', ':id') }}";
         const userListUrl = "{{ route('um.users.list') }}";
+        const userDeletedListUrl = "{{ route('um.users.deleted') }}";
+        const userRestoreUrlTemplate = "{{ route('um.users.restore', ':id') }}";
         const usersPayload = @json($userPayload);
 
         function getPillColor(value, paletteName) {
@@ -3164,6 +3257,8 @@
                     pendingUserDeleteId = null;
                 });
             }
+
+            initDeletedUsersModal();
 
             const editModalEl = document.getElementById('editUserModal');
             if (editModalEl && typeof bootstrap !== 'undefined') {
@@ -4397,6 +4492,149 @@
             const restored = defaultText || button.dataset.defaultText || button.textContent.trim();
             button.textContent = restored;
             button.disabled = false;
+        }
+
+        function initDeletedUsersModal() {
+            const modalEl = document.getElementById('userDeletedModal');
+            const tableBody = document.getElementById('userDeletedTableBody');
+            if (!modalEl || !tableBody) {
+                return;
+            }
+
+            modalEl.addEventListener('shown.bs.modal', loadDeletedUsers);
+            tableBody.addEventListener('click', (event) => {
+                const button = event.target.closest('[data-restore-user]');
+                if (!button) {
+                    return;
+                }
+                restoreDeletedUser(button);
+            });
+        }
+
+        function loadDeletedUsers() {
+            setDeletedUsersState('loading');
+
+            fetch(userDeletedListUrl, {
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                cache: 'no-store',
+            })
+                .then(async (response) => {
+                    const payload = await response.json().catch(() => ({}));
+                    if (!response.ok || payload.success === false) {
+                        throw new Error(payload.message || 'Failed to load deleted users.');
+                    }
+                    return payload;
+                })
+                .then((payload) => renderDeletedUsers(payload.data || []))
+                .catch((error) => {
+                    setDeletedUsersState('empty');
+                    showDeletedUsersAlert('danger', error.message || 'Failed to load deleted users.');
+                });
+        }
+
+        function renderDeletedUsers(users) {
+            const tableBody = document.getElementById('userDeletedTableBody');
+            if (!tableBody) {
+                return;
+            }
+
+            const rows = Array.isArray(users) ? users : [];
+            tableBody.innerHTML = rows.map((user) => `
+                <tr>
+                    <td>${escapeUserHtml(user.name || 'Unnamed User')}</td>
+                    <td>${escapeUserHtml(user.email || '—')}</td>
+                    <td>${escapeUserHtml(user.department_label || '—')}</td>
+                    <td>${escapeUserHtml(user.job_title || '—')}</td>
+                    <td><span class="evaluation-pill" data-pill-palette="blue" data-pill-value="${escapeUserAttribute(user.role || 'user')}">${escapeUserHtml(user.role || 'User')}</span></td>
+                    <td><span class="evaluation-status evaluation-status--${escapeUserAttribute(user.status_class || 'inactive')}">${escapeUserHtml(user.status_label || 'Inactive')}</span></td>
+                    <td>${escapeUserHtml(user.deleted_at || 'N/A')}</td>
+                    <td class="text-end">
+                        <button type="button" class="btn btn-sm btn-restore-user" data-restore-user="${user.id}">
+                            <i class="fa-solid fa-rotate-left me-1"></i> Restore
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+
+            setDeletedUsersState(rows.length ? 'table' : 'empty');
+            applyEvaluationPillColors(document.getElementById('userDeletedModal') || document);
+        }
+
+        function restoreDeletedUser(button) {
+            const userId = button?.dataset?.restoreUser;
+            if (!userId) {
+                return;
+            }
+
+            setButtonLoading(button, true, 'Restore', 'Restoring...');
+
+            fetch(userRestoreUrlTemplate.replace(':id', userId), {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                },
+            })
+                .then(async (response) => {
+                    const payload = await response.json().catch(() => ({}));
+                    if (!response.ok || payload.success === false) {
+                        throw new Error(payload.message || 'Failed to restore user.');
+                    }
+                    return payload;
+                })
+                .then((payload) => {
+                    showDeletedUsersAlert('success', payload.message || 'User restored successfully.');
+                    showTemporaryToast(payload.message || 'User restored successfully.', 'success');
+                    setTimeout(() => {
+                        loadDeletedUsers();
+                        window.usersPage?.renderTable();
+                    }, 500);
+                })
+                .catch((error) => {
+                    showDeletedUsersAlert('danger', error.message || 'Failed to restore user.');
+                    setButtonLoading(button, false, 'Restore');
+                });
+        }
+
+        function setDeletedUsersState(state) {
+            document.getElementById('userDeletedLoading')?.classList.toggle('d-none', state !== 'loading');
+            document.getElementById('userDeletedEmpty')?.classList.toggle('d-none', state !== 'empty');
+            document.getElementById('userDeletedTableWrap')?.classList.toggle('d-none', state !== 'table');
+            const alert = document.getElementById('userDeletedAlert');
+            if (alert) {
+                alert.innerHTML = '';
+            }
+        }
+
+        function showDeletedUsersAlert(type, message) {
+            const alert = document.getElementById('userDeletedAlert');
+            if (!alert) {
+                showTemporaryToast(message, type === 'danger' ? 'danger' : 'success');
+                return;
+            }
+
+            alert.innerHTML = `
+                <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+                    ${escapeUserHtml(message)}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            `;
+        }
+
+        function escapeUserHtml(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function escapeUserAttribute(value) {
+            return escapeUserHtml(value).replace(/`/g, '&#096;');
         }
 
         function handleUserBulkDeleteConfirm(button) {
