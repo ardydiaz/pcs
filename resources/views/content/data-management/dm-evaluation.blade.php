@@ -252,6 +252,44 @@
             color: #ffffff;
         }
 
+        .btn-deleted-evaluation {
+            min-height: calc(2.25rem + 2px);
+            padding: 0 1rem;
+            border: 1px solid rgba(92, 41, 124, 0.18);
+            border-radius: 0.55rem;
+            background: #5c297c;
+            color: #ffffff;
+            font-size: 0.85rem;
+            font-weight: 700;
+            box-shadow: 0 0.45rem 1rem rgba(92, 41, 124, 0.14);
+        }
+
+        .btn-deleted-evaluation:hover,
+        .btn-deleted-evaluation:focus {
+            border-color: #e6a431;
+            background: #ffb736;
+            color: #3a0050;
+            box-shadow: 0 0.55rem 1.1rem rgba(230, 164, 49, 0.2);
+        }
+
+        .btn-restore-evaluation {
+            background: linear-gradient(135deg, #5c297c, #6f2a8f);
+            border: 1px solid #5c297c;
+            color: #ffffff;
+            border-radius: 999px;
+            font-weight: 700;
+            padding: 0.45rem 0.9rem;
+            box-shadow: 0 0.55rem 1.2rem rgba(92, 41, 124, 0.18);
+        }
+
+        .btn-restore-evaluation:hover,
+        .btn-restore-evaluation:focus {
+            background: linear-gradient(135deg, #ffb736, #e6a431);
+            border-color: #e6a431;
+            color: #3a0050;
+            box-shadow: 0 0.65rem 1.35rem rgba(230, 164, 49, 0.24);
+        }
+
         .evaluation-card--table {
             border-radius: var(--bs-card-border-radius);
             padding: 0;
@@ -1224,6 +1262,12 @@
                                 <option value="100">100</option>
                                 <option value="all">All</option>
                             </select>
+                            @if ($canDelete)
+                                <button type="button" class="btn btn-deleted-evaluation evaluation-modal-trigger"
+                                    data-bs-toggle="modal" data-bs-target="#evaluationDeletedModal">
+                                    <i class="fa-solid fa-trash-arrow-up me-2"></i> Deleted Evaluation
+                                </button>
+                            @endif
                         </div>
                     </div>
                     <div class="col-md-6">
@@ -1897,7 +1941,7 @@
                 </div>
                 <div class="modal-body evaluation-modal-body">
                     <p class="mb-0">Are you sure you want to delete <span class="fw-semibold"
-                            id="evaluationDeleteName">this evaluation form</span>? This action cannot be undone.</p>
+                            id="evaluationDeleteName">this evaluation form</span>? You can restore it later from Deleted Evaluation.</p>
                 </div>
                 <div class="modal-footer evaluation-modal-footer">
                     <button type="button" class="btn btn-tertiary evaluation-modal-btn"
@@ -1922,7 +1966,7 @@
                 </div>
                 <div class="modal-body evaluation-modal-body">
                     <p class="mb-0">You are about to delete <span class="fw-semibold"
-                            id="evaluationBulkDeleteCount">0</span> evaluation form(s). This action cannot be undone.
+                            id="evaluationBulkDeleteCount">0</span> evaluation form(s). You can restore them later from Deleted Evaluation.
                         Continue?</p>
                 </div>
                 <div class="modal-footer evaluation-modal-footer">
@@ -1931,6 +1975,58 @@
                     <button type="button" class="btn btn-delete-action evaluation-modal-btn"
                         id="confirmEvaluationBulkDeleteBtn" data-default-text="Delete Selected"
                         data-loading-text="Deleting...">Delete Selected</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {{-- Deleted Evaluation Restore Modal --}}
+    <div class="modal fade" id="evaluationDeletedModal" tabindex="-1" aria-labelledby="evaluationDeletedModalLabel"
+        aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable evaluation-modal-dialog">
+            <div class="modal-content evaluation-card">
+                <div class="modal-header evaluation-modal-header">
+                    <div>
+                        <h5 class="modal-title mb-1" id="evaluationDeletedModalLabel">Deleted Evaluation</h5>
+                        <small class="text-muted">Restore soft-deleted evaluation forms when needed.</small>
+                    </div>
+                    <button type="button" class="evaluation-modal-close" data-bs-dismiss="modal"
+                        aria-label="Close">Ã—</button>
+                </div>
+                <div class="modal-body evaluation-modal-body">
+                    <div id="evaluationDeletedAlert"></div>
+                    <div id="evaluationDeletedLoading" class="text-center py-5">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading deleted evaluations...</span>
+                        </div>
+                        <p class="text-muted mt-2 mb-0">Loading deleted evaluations...</p>
+                    </div>
+                    <div id="evaluationDeletedEmpty" class="empty-state d-none">
+                        <i class="fa-solid fa-trash-arrow-up display-4 text-muted mb-2"></i>
+                        <h5 class="mb-1">No deleted evaluations</h5>
+                        <p class="text-muted mb-0">Deleted evaluation forms will appear here.</p>
+                    </div>
+                    <div id="evaluationDeletedTableWrap" class="table-responsive d-none">
+                        <table class="table align-middle mb-0 evaluation-table">
+                            <thead>
+                                <tr>
+                                    <th>Faculty Name</th>
+                                    <th>Department</th>
+                                    <th>Academic Year</th>
+                                    <th>Semester</th>
+                                    <th>Status</th>
+                                    <th>Responses</th>
+                                    <th>Deleted At</th>
+                                    <th class="text-end">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="evaluationDeletedTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="modal-footer evaluation-modal-footer">
+                    <button type="button" class="btn btn-tertiary evaluation-modal-btn"
+                        data-bs-dismiss="modal">Close</button>
                 </div>
             </div>
         </div>
@@ -2065,6 +2161,8 @@
             canDelete: @json($canDelete),
             canImport: @json($canImport),
         };
+        const evaluationDeletedListUrl = '{{ route('dm.evaluation.deleted') }}';
+        const evaluationRestoreUrlTemplate = '{{ route('dm.evaluation.restore', ':id') }}';
 
         const evaluationSelection = new Set();
         const evaluationSortState = {
@@ -2081,6 +2179,7 @@
         const evaluationAllowedDepartmentOptions = @json($allowedDepartmentFilterOptions);
         let evaluationDeleteModalInstance;
         let evaluationBulkDeleteModalInstance;
+        let evaluationDeletedModalInstance;
         let evaluationTableController = null;
         let pendingEvaluationDeleteContext = null;
         let pendingEvaluationBulk = null;
@@ -2171,6 +2270,25 @@
                 });
             }
 
+            const deletedModalEl = document.getElementById('evaluationDeletedModal');
+            if (deletedModalEl) {
+                evaluationDeletedModalInstance = new bootstrap.Modal(deletedModalEl);
+                deletedModalEl.addEventListener('shown.bs.modal', () => {
+                    loadDeletedEvaluations();
+                });
+            }
+
+            const deletedTableBodyEl = document.getElementById('evaluationDeletedTableBody');
+            if (deletedTableBodyEl) {
+                deletedTableBodyEl.addEventListener('click', (event) => {
+                    const button = event.target.closest('[data-restore-evaluation]');
+                    if (!button) {
+                        return;
+                    }
+                    restoreDeletedEvaluation(Number(button.dataset.restoreEvaluation), button);
+                });
+            }
+
             const qrModalEl = document.getElementById('qrModal');
             if (qrModalEl) {
                 qrModalEl.addEventListener('hidden.bs.modal', () => {
@@ -2220,6 +2338,122 @@
                 });
             }
         });
+
+        function loadDeletedEvaluations() {
+            if (!evaluationPermissions.canDelete) {
+                return;
+            }
+
+            setDeletedEvaluationState('loading');
+            fetch(evaluationDeletedListUrl, {
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                    cache: 'no-store',
+                })
+                .then(async (response) => {
+                    const payload = await response.json().catch(() => ({}));
+                    if (!response.ok || payload.success === false) {
+                        throw new Error(payload.message || 'Failed to load deleted evaluations.');
+                    }
+                    return payload.data || [];
+                })
+                .then((items) => {
+                    renderDeletedEvaluations(items);
+                })
+                .catch((error) => {
+                    setDeletedEvaluationState('empty');
+                    showDeletedEvaluationAlert('danger', error.message || 'Failed to load deleted evaluations.');
+                });
+        }
+
+        function renderDeletedEvaluations(items) {
+            const tableBody = document.getElementById('evaluationDeletedTableBody');
+            if (!tableBody) {
+                return;
+            }
+
+            const rows = Array.isArray(items) ? items : [];
+            tableBody.innerHTML = rows.map((evaluation) => `
+                <tr data-deleted-evaluation-id="${evaluation.id}">
+                    <td>
+                        <div class="fw-semibold">${escapeEvaluationHtml(evaluation.faculty_name || 'Unknown')}</div>
+                    </td>
+                    <td>${escapeEvaluationHtml(evaluation.department || 'N/A')}</td>
+                    <td><span class="evaluation-pill" data-pill-palette="purple" data-pill-value="${escapeEvaluationHtml(evaluation.academic_year || 'n/a')}">${escapeEvaluationHtml(evaluation.academic_year || 'N/A')}</span></td>
+                    <td><span class="evaluation-pill" data-pill-palette="blue" data-pill-value="${escapeEvaluationHtml(evaluation.semester || 'n/a')}">${escapeEvaluationHtml(evaluation.semester || 'N/A')}</span></td>
+                    <td>${escapeEvaluationHtml(evaluation.status || 'N/A')}</td>
+                    <td><span class="evaluation-count-pill" data-pill-palette="gray" data-pill-value="responses">${escapeEvaluationHtml(evaluation.responses_count ?? 0)}</span></td>
+                    <td>${escapeEvaluationHtml(evaluation.deleted_at || 'N/A')}</td>
+                    <td class="text-end">
+                        <button type="button" class="btn btn-sm btn-restore-evaluation" data-restore-evaluation="${evaluation.id}">
+                            <i class="fa-solid fa-rotate-left me-1"></i> Restore
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+
+            setDeletedEvaluationState(rows.length ? 'table' : 'empty');
+            applyEvaluationPillColors(document.getElementById('evaluationDeletedModal') || document);
+        }
+
+        function restoreDeletedEvaluation(evaluationId, button) {
+            if (!evaluationId) {
+                return;
+            }
+
+            toggleButtonLoading(button, true, 'Restore', 'Restoring...');
+            fetch(evaluationRestoreUrlTemplate.replace(':id', evaluationId), {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': getCsrfToken(),
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                })
+                .then(async (response) => {
+                    const payload = await response.json().catch(() => ({}));
+                    if (!response.ok || payload.success === false) {
+                        throw new Error(payload.message || 'Failed to restore evaluation form.');
+                    }
+                    return payload;
+                })
+                .then((payload) => {
+                    showDeletedEvaluationAlert('success', payload.message || 'Evaluation form restored successfully.');
+                    loadDeletedEvaluations();
+                    setTimeout(() => window.location.reload(), 700);
+                })
+                .catch((error) => {
+                    showDeletedEvaluationAlert('danger', error.message || 'Failed to restore evaluation form.');
+                    toggleButtonLoading(button, false, 'Restore');
+                });
+        }
+
+        function setDeletedEvaluationState(state) {
+            document.getElementById('evaluationDeletedLoading')?.classList.toggle('d-none', state !== 'loading');
+            document.getElementById('evaluationDeletedEmpty')?.classList.toggle('d-none', state !== 'empty');
+            document.getElementById('evaluationDeletedTableWrap')?.classList.toggle('d-none', state !== 'table');
+            const alertEl = document.getElementById('evaluationDeletedAlert');
+            if (alertEl) {
+                alertEl.innerHTML = '';
+            }
+        }
+
+        function showDeletedEvaluationAlert(type, message) {
+            const alertEl = document.getElementById('evaluationDeletedAlert');
+            if (!alertEl) {
+                showTemporaryToast(message, type);
+                return;
+            }
+
+            alertEl.innerHTML = `
+                <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+                    ${escapeEvaluationHtml(message)}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            `;
+        }
 
         function initEvaluationTableEnhancements(controllerRoot, controller) {
             initEvaluationSelection(controllerRoot, controller);

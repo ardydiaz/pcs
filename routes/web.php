@@ -51,6 +51,8 @@ Route::middleware(['auth'])->group(function () {
     // Faculty Management Routes
     Route::get('/data-management/faculties', [FacultyController::class, 'index'])->name('dm.faculties')->middleware('access.level:faculties');
     Route::get('/data-management/faculties/list', [FacultyController::class, 'list'])->name('dm.faculties.list')->middleware('access.level:faculties');
+    Route::get('/data-management/faculties/deleted', [FacultyController::class, 'deletedList'])->name('dm.faculties.deleted')->middleware('access.level:faculties');
+    Route::post('/data-management/faculties/restore/{id}', [FacultyController::class, 'restore'])->name('dm.faculties.restore')->middleware('access.level:faculties');
     Route::post('/faculties/search-employee', [FacultyController::class, 'searchEmployeeNo'])->name('faculties.search-employee')->middleware('access.level:faculties');
     Route::post('/faculties/import', [FacultyController::class, 'import'])->name('faculties.import')->middleware('access.level:faculties');
     Route::post('/faculties/convert-import-template', [FacultyController::class, 'convertImportTemplate'])->name('faculties.convert-import-template')->middleware('access.level:faculties');
@@ -79,10 +81,14 @@ Route::middleware(['auth'])->group(function () {
     
     Route::post('/data-management/courses/import', [CourseController::class, 'import'])->name('dm.courses.import')->middleware('access.level:courses');
     Route::post('/data-management/courses', [CourseController::class, 'storeCourse'])->name('dm.courses.store')->middleware('access.level:courses');
+    Route::get('/data-management/courses/deleted/{type?}', [CourseController::class, 'deletedCourses'])->name('dm.courses.deleted')->middleware('admin');
+    Route::post('/data-management/courses/restore/{id}', [CourseController::class, 'restoreCourse'])->name('dm.courses.restore')->middleware('admin');
     Route::put('/data-management/courses/{course}', [CourseController::class, 'updateCourse'])->name('dm.courses.update')->middleware('access.level:courses');
     Route::delete('/data-management/courses/{course}', [CourseController::class, 'destroyCourse'])->name('dm.courses.destroy')->middleware('access.level:courses');
     Route::post('/data-management/courses/bulk-delete', [CourseController::class, 'bulkDestroyCourses'])->name('dm.courses.bulk-destroy')->middleware('access.level:courses');
     Route::post('/data-management/faculty-courses', [CourseController::class, 'storeFacultyCourse'])->name('dm.faculty-courses.store')->middleware('access.level:courses');
+    Route::get('/data-management/faculty-courses/deleted', [CourseController::class, 'deletedFacultyCourses'])->name('dm.faculty-courses.deleted')->middleware('admin');
+    Route::post('/data-management/faculty-courses/restore/{id}', [CourseController::class, 'restoreFacultyCourse'])->name('dm.faculty-courses.restore')->middleware('admin');
     Route::put('/data-management/faculty-courses/{facultyCourse}', [CourseController::class, 'updateFacultyCourse'])->name('dm.faculty-courses.update')->middleware('access.level:courses');
     Route::delete('/data-management/faculty-courses/{facultyCourse}', [CourseController::class, 'destroyFacultyCourse'])->name('dm.faculty-courses.destroy')->middleware('access.level:courses');
     Route::post('/data-management/faculty-courses/bulk-delete', [CourseController::class, 'bulkDestroyFacultyCourses'])->name('dm.faculty-courses.bulk-destroy')->middleware('access.level:courses');
@@ -91,6 +97,8 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/data-management/schedules', [ScheduleController::class, 'index'])->name('dm.schedules')->middleware('access.level:schedules');
     Route::post('/data-management/schedules/import', [ScheduleController::class, 'import'])->name('dm.schedules.import')->middleware('access.level:schedules');
     Route::post('/data-management/schedules', [ScheduleController::class, 'store'])->name('dm.schedules.store')->middleware('access.level:schedules');
+    Route::get('/data-management/schedules/deleted', [ScheduleController::class, 'deletedList'])->name('dm.schedules.deleted')->middleware('admin');
+    Route::post('/data-management/schedules/restore/{id}', [ScheduleController::class, 'restore'])->name('dm.schedules.restore')->middleware('admin');
     Route::put('/data-management/schedules/{schedule}', [ScheduleController::class, 'update'])->name('dm.schedules.update')->middleware('access.level:schedules');
     Route::delete('/data-management/schedules/{schedule}', [ScheduleController::class, 'destroy'])->name('dm.schedules.destroy')->middleware('access.level:schedules');
     Route::post('/data-management/schedules/bulk-delete', [ScheduleController::class, 'bulkDestroy'])->name('dm.schedules.bulk-destroy')->middleware('access.level:schedules');
@@ -99,6 +107,8 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/data-management/evaluation', [EvaluationController::class, 'index'])->name('dm.evaluation')->middleware('access.level:evaluations');
     Route::post('/data-management/evaluation', [EvaluationController::class, 'store'])->name('dm.evaluation.store')->middleware('access.level:evaluations.manage');
     Route::post('/data-management/evaluation/generate-all', [EvaluationController::class, 'generateAll'])->name('dm.evaluation.generateAll')->middleware('access.level:evaluations.manage');
+    Route::get('/data-management/evaluation/deleted', [EvaluationController::class, 'deletedList'])->name('dm.evaluation.deleted')->middleware('admin');
+    Route::post('/data-management/evaluation/restore/{id}', [EvaluationController::class, 'restore'])->name('dm.evaluation.restore')->middleware('admin');
     Route::patch('/data-management/evaluation/{evaluation}/toggle', [EvaluationController::class, 'toggleStatus'])->name('dm.evaluation.toggle')->middleware('access.level:evaluations.manage');
     Route::delete('/data-management/evaluation/{evaluation}', [EvaluationController::class, 'destroy'])->name('dm.evaluation.destroy')->middleware('access.level:evaluations.manage');
     Route::delete('/data-management/evaluation', [EvaluationController::class, 'bulkDestroy'])->name('dm.evaluation.bulkDestroy')->middleware('access.level:evaluations.manage');

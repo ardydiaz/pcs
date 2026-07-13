@@ -22,11 +22,15 @@ class ScheduleImport implements ToModel, WithHeadingRow
         }
 
         // 1. Find faculty by employeeno
-        $faculty = Faculty::where('employee_no', $employeeNo)->first();
+        $faculty = Faculty::withTrashed()->where('employee_no', $employeeNo)->first();
 
         if (!$faculty) {
            $this->logError($row, 'Faculty not found');
             return null;
+        }
+
+        if ($faculty->trashed()) {
+            $faculty->restore();
         }
 
         $classCode = isset($row['classcode']) ? trim((string) $row['classcode']) : '';

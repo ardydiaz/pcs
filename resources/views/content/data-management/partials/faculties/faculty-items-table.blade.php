@@ -12,6 +12,12 @@
                                 <option value="100">100</option>
                                 <option value="all">All</option>
                             </select>
+                            @if ($canDelete)
+                                <button type="button" class="btn btn-deleted-faculty evaluation-modal-trigger" data-bs-toggle="modal"
+                                    data-bs-target="#facultyDeletedModal">
+                                    <i class="fa-solid fa-trash-arrow-up me-2"></i> Deleted Faculty
+                                </button>
+                            @endif
                         </div>
                     </div>
                     <div class="col-md-6">

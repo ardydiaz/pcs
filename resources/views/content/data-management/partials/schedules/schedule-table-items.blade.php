@@ -14,6 +14,12 @@
                         <option value="100">100</option>
                         <option value="all">All</option>
                     </select>
+                    @if ($canDelete)
+                        <button type="button" class="btn btn-deleted-schedule" data-bs-toggle="modal"
+                            data-bs-target="#scheduleDeletedModal">
+                            <i class="fa-solid fa-trash-arrow-up me-2"></i>Deleted Schedule
+                        </button>
+                    @endif
                 </div>
             </div>
             <div class="col-md-6">

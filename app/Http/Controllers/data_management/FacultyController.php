@@ -468,10 +468,7 @@ class FacultyController extends Controller // Controller class for managing facu
     {
         $this->authorizeAdminOnly();
 
-        DB::transaction(function () use ($faculty) {
-            $this->deleteFacultyAssignments([$faculty->id]);
-            $faculty->delete();
-        });
+        $faculty->delete();
 
         return response()->json([
             'success' => true,
@@ -490,10 +487,7 @@ class FacultyController extends Controller // Controller class for managing facu
 
         $ids = collect($validated['ids'])->unique()->all();
 
-        $deleted = DB::transaction(function () use ($ids) {
-            $this->deleteFacultyAssignments($ids);
-            return Faculty::whereIn('id', $ids)->delete();
-        });
+        $deleted = Faculty::whereIn('id', $ids)->delete();
 
         return response()->json([
             'success' => true,
@@ -504,25 +498,56 @@ class FacultyController extends Controller // Controller class for managing facu
         ]);
     }
 
-    /**
-     * Remove faculty-course assignments and schedules for the given faculty ids.
-     */
-    private function deleteFacultyAssignments(array $facultyIds): void
+    public function deletedList(): JsonResponse
     {
-        $facultyIds = collect($facultyIds)->filter()->unique()->values();
+        $this->authorizeAdminOnly();
 
-        if ($facultyIds->isEmpty()) {
-            return;
+        $faculties = Faculty::onlyTrashed()
+            ->with(['user:id,name,email,department,job_title'])
+            ->orderByDesc('deleted_at')
+            ->limit(100)
+            ->get()
+            ->map(function (Faculty $faculty) {
+                return [
+                    'id' => $faculty->id,
+                    'employee_no' => $faculty->employee_no,
+                    'department' => $faculty->department,
+                    'job_title' => $faculty->job_title ?? optional($faculty->user)->job_title,
+                    'deleted_at' => optional($faculty->deleted_at)->format('M d, Y h:i A'),
+                    'user' => [
+                        'id' => optional($faculty->user)->id,
+                        'name' => optional($faculty->user)->name ?? $faculty->name ?? 'Unknown',
+                        'email' => optional($faculty->user)->email,
+                        'job_title' => optional($faculty->user)->job_title,
+                    ],
+                ];
+            })
+            ->values();
+
+        return response()->json([
+            'success' => true,
+            'data' => $faculties,
+        ]);
+    }
+
+    public function restore(int $id): JsonResponse
+    {
+        $this->authorizeAdminOnly();
+
+        $faculty = Faculty::onlyTrashed()->findOrFail($id);
+        $faculty->restore();
+
+        if ($faculty->user) {
+            $faculty->user->update(['status' => 'Active']);
         }
 
-        $facultyCourseIds = FacultyCourse::whereIn('faculty_id', $facultyIds)->pluck('id')->all();
-
-        if (empty($facultyCourseIds)) {
-            return;
-        }
-
-        Schedule::whereIn('faculty_course_id', $facultyCourseIds)->delete();
-        FacultyCourse::whereIn('id', $facultyCourseIds)->delete();
+        return response()->json([
+            'success' => true,
+            'message' => 'Faculty member restored successfully!',
+            'data' => $this->serializeFacultyForList(
+                $faculty->fresh(['user', 'facultyCourses.course', 'facultyCourses.schedules'])
+            ),
+        ]);
     }
 
     private function authorizeAdminOnly(): void

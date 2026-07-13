@@ -55,7 +55,7 @@ class CourseImport implements ToModel, WithHeadingRow // Class to handle the imp
         // 3. Course handling
         // =========================
         // Match manual restriction: class_code must be unique.
-        $course = Course::where('class_code', $classCode)->first();
+        $course = Course::withTrashed()->where('class_code', $classCode)->first();
         if (!$course) {
             if ($subjectCode === '') {
                 $this->errors[] =  "Row {$rowNumber}: Missing subject code for class {$classCode}";
@@ -67,6 +67,9 @@ class CourseImport implements ToModel, WithHeadingRow // Class to handle the imp
                 'subject_type' => $subjectType,
             ]);
         }else{
+            if ($course->trashed()) {
+                $course->restore();
+            }
             // Update subject_type if changed
             if ($course->subject_type !== $subjectType) {
                 $course->update([
@@ -91,15 +94,17 @@ class CourseImport implements ToModel, WithHeadingRow // Class to handle the imp
              // =========================
             // 5. FacultyCourse insert
             // =========================
-            $exists = FacultyCourse::where([
+            $facultyCourse = FacultyCourse::withTrashed()->where([
                 'faculty_id' => $faculty->id,
                 'course_id' => $course->id,
                 'section' => $section,
                 'academic_year' => $academicYear,
                 'semester' => $semester,
-            ])->exists();
+            ])->first();
 
-            if (!$exists) {
+            if ($facultyCourse && $facultyCourse->trashed()) {
+                $facultyCourse->restore();
+            } elseif (!$facultyCourse) {
                 FacultyCourse::create([
                     'faculty_id' => $faculty->id,
                     'course_id' => $course->id,

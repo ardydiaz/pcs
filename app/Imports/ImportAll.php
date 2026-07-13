@@ -119,7 +119,7 @@ class ImportAll implements ToModel, WithHeadingRow // Class to handle the import
             }
 
             // 2. Find existing Faculty or create new one if optional fields provided
-            $faculty = Faculty::where('employee_no', $employeeNo)->first();
+            $faculty = Faculty::withTrashed()->where('employee_no', $employeeNo)->first();
 
             if (!$faculty) {
                 // Create faculty even when optional profile details are missing.
@@ -148,6 +148,41 @@ class ImportAll implements ToModel, WithHeadingRow // Class to handle the import
                     'department' => $normalizedDepartment,
                     'job_title' => $jobTitle === '' ? null : $jobTitle,
                 ]);
+            } elseif ($faculty->trashed()) {
+                $faculty->restore();
+
+                $name = $this->cell($row, 'name') ?: $this->cell($row, 'fullname');
+                $department = $this->cell($row, 'department');
+                $jobTitle = $this->cell($row, 'jobtitle');
+                $normalizedDepartment = $department === ''
+                    ? $faculty->department
+                    : Faculty::serializeDepartmentList(Faculty::normalizeDepartmentList($department));
+
+                if (!$faculty->user && $name !== '') {
+                    $user = User::create([
+                        'name' => $name,
+                        'department' => $normalizedDepartment,
+                        'job_title' => $jobTitle === '' ? null : $jobTitle,
+                        'role' => 'Faculty',
+                        'status' => 'Active',
+                    ]);
+
+                    $faculty->user_id = $user->id;
+                }
+
+                $faculty->department = $normalizedDepartment;
+                if ($jobTitle !== '') {
+                    $faculty->job_title = $jobTitle;
+                }
+                $faculty->save();
+
+                if ($faculty->user) {
+                    $faculty->user->update([
+                        'department' => $normalizedDepartment,
+                        'job_title' => $jobTitle === '' ? $faculty->job_title : $jobTitle,
+                        'status' => 'Active',
+                    ]);
+                }
             }
             
             // Validate faculty exists and has valid ID
@@ -157,14 +192,17 @@ class ImportAll implements ToModel, WithHeadingRow // Class to handle the import
             }
 
             // 3. Find or create FacultyCourse linking record
-            $facultyCourse = FacultyCourse::where('faculty_id', $faculty->id)
+            $facultyCourse = FacultyCourse::withTrashed()
+                ->where('faculty_id', $faculty->id)
                 ->where('course_id', $course->id)
                 ->where('section', $section)
                 ->where('academic_year', $academicYear)
                 ->where('semester', $semester)
                 ->first();
 
-            if (!$facultyCourse) {
+            if ($facultyCourse && $facultyCourse->trashed()) {
+                $facultyCourse->restore();
+            } elseif (!$facultyCourse) {
                 $facultyCourse = FacultyCourse::create([
                     'faculty_id' => $faculty->id,
                     'course_id' => $course->id,

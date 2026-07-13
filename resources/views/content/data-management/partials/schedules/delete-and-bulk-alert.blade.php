@@ -9,7 +9,7 @@
                     <button type="button" class="schedule-modal-close" data-bs-dismiss="modal" aria-label="Close">×</button>
                 </div>
                 <div class="modal-body schedule-modal-body">
-                    <p class="mb-0">Are you sure you want to delete <span class="fw-semibold" id="scheduleDeleteName">this schedule</span>? This action cannot be undone.</p>
+                    <p class="mb-0">Are you sure you want to delete <span class="fw-semibold" id="scheduleDeleteName">this schedule</span>? You can restore it later from Deleted Schedule.</p>
                 </div>
                 <div class="modal-footer schedule-modal-footer">
                     <button type="button" class="btn btn-tertiary schedule-modal-btn" data-bs-dismiss="modal">Cancel</button>
@@ -28,7 +28,7 @@
                     <button type="button" class="schedule-modal-close" data-bs-dismiss="modal" aria-label="Close">×</button>
                 </div>
                 <div class="modal-body schedule-modal-body">
-                    <p class="mb-0">You are about to delete <span class="fw-semibold" id="scheduleBulkDeleteCount">0</span> schedule(s). This action cannot be undone. Continue?</p>
+                    <p class="mb-0">You are about to delete <span class="fw-semibold" id="scheduleBulkDeleteCount">0</span> schedule(s). You can restore them later from Deleted Schedule. Continue?</p>
                 </div>
                 <div class="modal-footer schedule-modal-footer">
                     <button type="button" class="btn btn-tertiary schedule-modal-btn" data-bs-dismiss="modal">Cancel</button>

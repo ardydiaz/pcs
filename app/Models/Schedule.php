@@ -4,12 +4,13 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use App\Models\FacultyCourse; // Import FacultyCourse model for relationship definition faculty_id, faculty_course_id
 
 class Schedule extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     private const OPEN_HOUR_VALUES = [
         '',

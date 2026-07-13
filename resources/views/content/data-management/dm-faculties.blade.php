@@ -140,6 +140,8 @@
             canImportAll: @json($canImportAll),
         };
         const facultyListUrl = '{{ route('dm.faculties.list') }}';
+        const facultyDeletedListUrl = '{{ route('dm.faculties.deleted') }}';
+        const facultyRestoreUrlTemplate = '{{ route('dm.faculties.restore', ':id') }}';
         const facultyFilterOptions = {
             department: @json(collect($departmentFilterOptions ?? [])->map(fn($value) => ['value' => strtolower(trim($value)), 'label' => $value])->values()),
             job: @json(collect($jobTitleOptions ?? [])->map(fn($value) => ['value' => strtolower(trim($value)), 'label' => $value])->values()),
@@ -623,6 +625,12 @@
                 this.editModalEl = document.getElementById('facultyEditModal');
                 this.deleteModalEl = document.getElementById('facultyDeleteModal');
                 this.bulkDeleteModalEl = document.getElementById('facultyBulkDeleteModal');
+                this.deletedModalEl = document.getElementById('facultyDeletedModal');
+                this.deletedLoadingEl = document.getElementById('facultyDeletedLoading');
+                this.deletedEmptyEl = document.getElementById('facultyDeletedEmpty');
+                this.deletedTableWrapEl = document.getElementById('facultyDeletedTableWrap');
+                this.deletedTableBodyEl = document.getElementById('facultyDeletedTableBody');
+                this.deletedAlertEl = document.getElementById('facultyDeletedAlert');
                 this.loadModalEl = document.getElementById('facultyLoadModal');
                 this.loadModalTitleEl = document.getElementById('facultyLoadModalTitle');
                 this.loadModalEmployeeEl = document.getElementById('facultyLoadModalEmployee');
@@ -634,6 +642,7 @@
                 this.editModal = this.editModalEl && hasBootstrap ? new bootstrap.Modal(this.editModalEl) : null;
                 this.deleteModal = this.deleteModalEl && hasBootstrap ? new bootstrap.Modal(this.deleteModalEl) : null;
                 this.bulkDeleteModal = this.bulkDeleteModalEl && hasBootstrap ? new bootstrap.Modal(this.bulkDeleteModalEl) : null;
+                this.deletedModal = this.deletedModalEl && hasBootstrap ? new bootstrap.Modal(this.deletedModalEl) : null;
                 this.loadModal = this.loadModalEl && hasBootstrap ? new bootstrap.Modal(this.loadModalEl) : null;
 
                 this.currentEditId = null;
@@ -723,6 +732,22 @@
                         } else if (button.dataset.bulkAction === 'delete') {
                             this.handleBulkDeletePrompt();
                         }
+                    });
+                }
+
+                if (this.deletedModalEl) {
+                    this.deletedModalEl.addEventListener('shown.bs.modal', () => {
+                        this.loadDeletedFaculties();
+                    });
+                }
+
+                if (this.deletedTableBodyEl) {
+                    this.deletedTableBodyEl.addEventListener('click', (event) => {
+                        const button = event.target.closest('[data-restore-faculty]');
+                        if (!button) {
+                            return;
+                        }
+                        this.restoreDeletedFaculty(Number(button.dataset.restoreFaculty), button);
                     });
                 }
 
@@ -1800,6 +1825,125 @@
                     });
             }
 
+            loadDeletedFaculties() {
+                if (!facultyPermissions.canDelete || !this.deletedTableBodyEl) {
+                    return;
+                }
+
+                this.setDeletedModalState('loading');
+                fetch(facultyDeletedListUrl, {
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    }
+                })
+                    .then(async (response) => {
+                        const payload = await response.json();
+                        if (!response.ok || !payload.success) {
+                            throw new Error(payload.message || 'Failed to load deleted faculty.');
+                        }
+                        return payload.data || [];
+                    })
+                    .then((items) => {
+                        this.renderDeletedFaculties(items);
+                    })
+                    .catch((error) => {
+                        this.setDeletedModalState('empty');
+                        this.showDeletedAlert('danger', error.message || 'Failed to load deleted faculty.');
+                    });
+            }
+
+            renderDeletedFaculties(items) {
+                const rows = Array.isArray(items) ? items : [];
+                this.deletedTableBodyEl.innerHTML = rows.map((faculty) => {
+                    const facultyUser = faculty.user || {};
+                    const name = this.escapeHtml(facultyUser.name || 'Unknown');
+                    const employeeNo = this.escapeHtml(faculty.employee_no || 'N/A');
+                    const department = this.escapeHtml(faculty.department || 'N/A');
+                    const jobTitle = this.escapeHtml(faculty.job_title || facultyUser.job_title || 'N/A');
+                    const deletedAt = this.escapeHtml(faculty.deleted_at || 'N/A');
+
+                    return `
+                        <tr data-deleted-faculty-id="${faculty.id}">
+                            <td>
+                                <div class="fw-semibold">${name}</div>
+                                ${facultyUser.email ? `<small class="text-muted">${this.escapeHtml(facultyUser.email)}</small>` : ''}
+                            </td>
+                            <td><span class="evaluation-pill" data-pill-palette="purple" data-pill-value="${employeeNo}">${employeeNo}</span></td>
+                            <td>${department}</td>
+                            <td>${jobTitle}</td>
+                            <td>${deletedAt}</td>
+                            <td class="text-end">
+                                <button type="button" class="btn btn-sm btn-restore-faculty" data-restore-faculty="${faculty.id}">
+                                    <i class="fa-solid fa-rotate-left me-1"></i> Restore
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+
+                this.setDeletedModalState(rows.length ? 'table' : 'empty');
+                this.refreshPillPalettes();
+            }
+
+            restoreDeletedFaculty(facultyId, button) {
+                if (!facultyId) {
+                    return;
+                }
+
+                this.toggleButtonLoading(button, true, 'Restore', 'Restoring...');
+                fetch(facultyRestoreUrlTemplate.replace(':id', facultyId), {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                        'X-Requested-With': 'XMLHttpRequest',
+                    }
+                })
+                    .then(async (response) => {
+                        const payload = await response.json();
+                        if (!response.ok || !payload.success) {
+                            throw new Error(payload.message || 'Failed to restore faculty member.');
+                        }
+                        return payload;
+                    })
+                    .then((payload) => {
+                        this.showDeletedAlert('success', payload.message || 'Faculty member restored successfully.');
+                        this.renderTable();
+                        this.refreshFilterOptions();
+                        this.loadDeletedFaculties();
+                    })
+                    .catch((error) => {
+                        this.showDeletedAlert('danger', error.message || 'Failed to restore faculty member.');
+                    })
+                    .finally(() => {
+                        this.toggleButtonLoading(button, false, 'Restore');
+                    });
+            }
+
+            setDeletedModalState(state) {
+                this.deletedLoadingEl?.classList.toggle('d-none', state !== 'loading');
+                this.deletedEmptyEl?.classList.toggle('d-none', state !== 'empty');
+                this.deletedTableWrapEl?.classList.toggle('d-none', state !== 'table');
+                if (this.deletedAlertEl) {
+                    this.deletedAlertEl.innerHTML = '';
+                }
+            }
+
+            showDeletedAlert(type, message) {
+                if (!this.deletedAlertEl) {
+                    this.showAlert(type === 'danger' ? 'error' : 'success', message);
+                    return;
+                }
+
+                this.deletedAlertEl.innerHTML = `
+                    <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+                        ${this.escapeHtml(message)}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                `;
+            }
+
             openEditModal(facultyId) {
                 const faculty = this.faculties.find((item) => item.id === facultyId);
                 if (!faculty) {
@@ -2209,6 +2353,7 @@
     @include('content.data-management.partials.faculties.edit-faculty-form-modal') <!-- Edit Faculty Form Modal -->
     @include('content.data-management.partials.faculties.delete-alert-modal') <!-- Delete Faculty Form Modal -->
     @include('content.data-management.partials.faculties.bulk-delete-modal') <!-- Bulk Delete Faculty Form Modal -->
+    @include('content.data-management.partials.faculties.deleted-faculty-modal') <!-- Deleted Faculty Restore Modal -->
     <div class="modal fade" id="facultyLoadModal" tabindex="-1" aria-labelledby="facultyLoadModalLabel"
         aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-lg">

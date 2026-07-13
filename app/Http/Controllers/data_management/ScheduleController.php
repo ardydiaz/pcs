@@ -200,6 +200,61 @@ class ScheduleController extends Controller
         ]);
     }
 
+    public function deletedList(): JsonResponse
+    {
+        $this->authorizeAdminOnly();
+
+        $schedules = Schedule::onlyTrashed()
+            ->with([
+                'facultyCourse:id,faculty_id,course_id,section,academic_year,semester',
+                'facultyCourse.faculty:id,user_id,department,job_title',
+                'facultyCourse.faculty.user:id,name,email',
+                'facultyCourse.course:id,class_code,subject_code,subject_type',
+            ])
+            ->latest('deleted_at')
+            ->limit(100)
+            ->get()
+            ->map(function (Schedule $schedule) {
+                $facultyCourse = $schedule->facultyCourse;
+                $course = $facultyCourse?->course;
+                $faculty = $facultyCourse?->faculty;
+                $facultyUser = $faculty?->user;
+
+                return [
+                    'id' => $schedule->id,
+                    'course' => trim(($course?->class_code ?? 'N/A') . ' - ' . ($course?->subject_code ?? '')),
+                    'subject_type' => $course?->subject_type ?? 'N/A',
+                    'section' => $facultyCourse?->section ?? 'N/A',
+                    'faculty_name' => $facultyUser?->name ?? 'N/A',
+                    'academic_year' => $facultyCourse?->academic_year ?? 'N/A',
+                    'semester' => $facultyCourse?->semester ?? 'N/A',
+                    'schedule' => Schedule::formatScheduleLabel($schedule->day, $schedule->time),
+                    'status' => $schedule->status ?? 'scheduled',
+                    'deleted_at' => optional($schedule->deleted_at)->format('M d, Y h:i A') ?? 'N/A',
+                ];
+            })
+            ->values();
+
+        return response()->json([
+            'success' => true,
+            'data' => $schedules,
+        ]);
+    }
+
+    public function restore(int $id): JsonResponse
+    {
+        $this->authorizeAdminOnly();
+
+        $schedule = Schedule::onlyTrashed()->findOrFail($id);
+        $schedule->restore();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Schedule restored successfully.',
+            'data' => $schedule,
+        ]);
+    }
+
     /**
      * Ensure stored time uses "-" instead of "to" regardless of user input.
      */

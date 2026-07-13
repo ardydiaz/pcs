@@ -435,6 +435,10 @@ class EvaluationController extends Controller
 
     public function destroy(Request $request, Evaluation $evaluation)
     {
+        if (auth()->user()?->role !== 'Admin') {
+            abort(403);
+        }
+
         $logValues = [
             'faculty_id' => $evaluation->faculty_id,
             'faculty_name' => $evaluation->resolved_faculty_name,
@@ -470,6 +474,10 @@ class EvaluationController extends Controller
 
     public function bulkDestroy(Request $request)
     {
+        if (auth()->user()?->role !== 'Admin') {
+            abort(403);
+        }
+
         $ids = $request->input('ids', []);
 
         if (!is_array($ids) || empty($ids)) {
@@ -504,6 +512,74 @@ class EvaluationController extends Controller
             'success' => true,
             'message' => 'Selected evaluations deleted successfully.',
             'deleted' => $deleted,
+        ]);
+    }
+
+    public function deletedList(): JsonResponse
+    {
+        if (auth()->user()?->role !== 'Admin') {
+            abort(403);
+        }
+
+        $evaluations = Evaluation::onlyTrashed()
+            ->with('faculty')
+            ->withCount('responses')
+            ->latest('deleted_at')
+            ->limit(100)
+            ->get()
+            ->map(function (Evaluation $evaluation) {
+                return [
+                    'id' => $evaluation->id,
+                    'faculty_name' => $evaluation->resolved_faculty_name,
+                    'department' => $evaluation->resolved_faculty_department ?: 'N/A',
+                    'academic_year' => $evaluation->academic_year ?: 'N/A',
+                    'semester' => $this->formatSemesterLabel($evaluation->semester),
+                    'status' => $evaluation->is_active ? 'Active' : 'Inactive',
+                    'responses_count' => $evaluation->responses_count ?? 0,
+                    'deleted_at' => optional($evaluation->deleted_at)->format('M d, Y h:i A') ?? 'N/A',
+                ];
+            })
+            ->values();
+
+        return response()->json([
+            'success' => true,
+            'data' => $evaluations,
+        ]);
+    }
+
+    public function restore(int $id): JsonResponse
+    {
+        if (auth()->user()?->role !== 'Admin') {
+            abort(403);
+        }
+
+        $evaluation = Evaluation::onlyTrashed()->findOrFail($id);
+        $logValues = [
+            'faculty_id' => $evaluation->faculty_id,
+            'faculty_name' => $evaluation->resolved_faculty_name,
+            'academic_year' => $evaluation->academic_year,
+            'semester' => $evaluation->semester,
+            'is_active' => $evaluation->is_active,
+            'form_link' => $evaluation->form_link,
+        ];
+
+        $evaluation->restore();
+
+        AuditLogger::log('evaluation_restored', [
+            'module' => 'Evaluation',
+            'description' => "Restored evaluation form for {$logValues['faculty_name']} ({$logValues['academic_year']} - {$logValues['semester']}).",
+            'target_type' => Evaluation::class,
+            'target_id' => $evaluation->id,
+            'after_values' => $logValues,
+            'severity' => 'info',
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Evaluation form restored successfully.',
+            'data' => [
+                'id' => $evaluation->id,
+            ],
         ]);
     }
 

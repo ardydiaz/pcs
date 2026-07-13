@@ -24,6 +24,12 @@
                 </div>
                 <div class="col-md-6">
                     <div class="d-flex justify-content-end align-items-center gap-2 flex-wrap">
+                        @if ($canDelete)
+                            <button type="button" class="btn btn-deleted-assignment" data-bs-toggle="modal"
+                                data-bs-target="#assignmentDeletedModal">
+                                <i class="fa-solid fa-trash-arrow-up me-2"></i>Deleted Assignment
+                            </button>
+                        @endif
                         <div class="dropdown table-filter-dropdown">
                             <button class="filter-toggle" type="button" id="assignmentFilterToggle"
                                 data-bs-toggle="dropdown" aria-expanded="false">

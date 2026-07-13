@@ -431,11 +431,23 @@ class CourseController extends Controller
                 'subject_code' => 'required|string',
             ]);
 
-            Course::create([
-                'class_code' => $request->class_code,
-                'subject_code' => $request->subject_code,
-                'subject_type' => 'minor', // DEFAULT VALUE
-            ]);
+            $course = Course::withTrashed()
+                ->where('class_code', $request->class_code)
+                ->where('subject_code', $request->subject_code)
+                ->where('subject_type', 'minor')
+                ->first();
+
+            if ($course) {
+                if ($course->trashed()) {
+                    $course->restore();
+                }
+            } else {
+                Course::create([
+                    'class_code' => $request->class_code,
+                    'subject_code' => $request->subject_code,
+                    'subject_type' => 'minor', // DEFAULT VALUE
+                ]);
+            }
 
             return response()->json([
                 'success' => true,
@@ -870,26 +882,30 @@ class CourseController extends Controller
             'semester' => 'required|in:1st,2nd,Summer',
         ]);
 
-        // 🔥 Prevent duplicate safely (no race condition)
-        $facultyCourse = FacultyCourse::firstOrCreate(
-            [
-                'faculty_id' => $validated['faculty_id'],
-                'course_id' => $validated['course_id'],
-                'section' => $validated['section'],
-                'academic_year' => $validated['academic_year'],
-                'semester' => $validated['semester'],
-            ]
-        );
+        $assignmentKeys = [
+            'faculty_id' => $validated['faculty_id'],
+            'course_id' => $validated['course_id'],
+            'section' => $validated['section'],
+            'academic_year' => $validated['academic_year'],
+            'semester' => $validated['semester'],
+        ];
 
-        // If already existed (was not newly created)
-        if (!$facultyCourse->wasRecentlyCreated) {
+        $facultyCourse = FacultyCourse::withTrashed()->where($assignmentKeys)->first();
+
+        if ($facultyCourse && !$facultyCourse->trashed()) {
             return response()->json([
                 'title' => 'Duplicate',
                 'message' => 'This course is already assigned to the faculty.',
             ], 422);
         }
 
-        $facultyCourse->load(['faculty.user', 'course']);
+        if ($facultyCourse && $facultyCourse->trashed()) {
+            $facultyCourse->restore();
+            $facultyCourse->load(['faculty.user', 'course']);
+        } else {
+            $facultyCourse = FacultyCourse::create($assignmentKeys);
+            $facultyCourse->load(['faculty.user', 'course']);
+        }
 
         return response()->json([
             'title' => 'Success',
@@ -1067,19 +1083,30 @@ class CourseController extends Controller
         $subjectType = $request->subject_type ?? 'major';
 
         $validated = $request->validate([
-            'class_code' => [
-                'required',
-                'string',
-                'max:255',
-                Rule::unique('courses', 'class_code')
-                    ->where('subject_code', $request->subject_code)
-                    ->where('subject_type', $subjectType),
-            ],
+            'class_code' => 'required|string|max:255',
             'subject_code' => 'required|string|max:255',
         ]);
 
         $validated['subject_type'] = $subjectType;
-        $course = Course::create($validated);
+        $course = Course::withTrashed()
+            ->where('class_code', $validated['class_code'])
+            ->where('subject_code', $validated['subject_code'])
+            ->where('subject_type', $subjectType)
+            ->first();
+
+        if ($course) {
+            if (!$course->trashed()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Course already exists.'
+                ], 422);
+            }
+
+            $course->restore();
+            $course->update($validated);
+        } else {
+            $course = Course::create($validated);
+        }
 
         return response()->json([
             'success' => true,
@@ -1121,10 +1148,7 @@ class CourseController extends Controller
     {
         $this->authorizeAdminOnly();
 
-        DB::transaction(function () use ($course) {
-            $this->deleteAssignmentsForCourseIds([$course->id]);
-            $course->delete();
-        });
+        $course->delete();
 
         return response()->json([
             'success' => true,
@@ -1143,10 +1167,7 @@ class CourseController extends Controller
 
         $ids = collect($validated['ids'])->unique()->values()->all();
 
-        $deleted = DB::transaction(function () use ($ids) {
-            $this->deleteAssignmentsForCourseIds($ids);
-            return Course::whereIn('id', $ids)->delete();
-        });
+        $deleted = Course::whereIn('id', $ids)->delete();
 
         return response()->json([
             'success' => true,
@@ -1157,7 +1178,136 @@ class CourseController extends Controller
         ]);
     }
 
+    public function deletedCourses(string $type = 'major'): JsonResponse
+    {
+        $this->authorizeAdminOnly();
+
+        $subjectType = $type === 'minor' ? 'minor' : 'major';
+        $courses = Course::onlyTrashed()
+            ->withCount('facultyCourses')
+            ->where('subject_type', $subjectType)
+            ->latest('deleted_at')
+            ->limit(100)
+            ->get()
+            ->map(fn (Course $course) => [
+                'id' => $course->id,
+                'class_code' => $course->class_code,
+                'subject_code' => $course->subject_code,
+                'subject_type' => $course->subject_type,
+                'handlers_count' => $course->faculty_courses_count ?? 0,
+                'deleted_at' => optional($course->deleted_at)->format('M d, Y h:i A') ?? 'N/A',
+            ])
+            ->values();
+
+        return response()->json([
+            'success' => true,
+            'data' => $courses,
+        ]);
+    }
+
+    public function restoreCourse(int $id): JsonResponse
+    {
+        $this->authorizeAdminOnly();
+
+        $course = Course::onlyTrashed()->findOrFail($id);
+        $duplicateExists = Course::where('class_code', $course->class_code)
+            ->where('subject_code', $course->subject_code)
+            ->where('subject_type', $course->subject_type)
+            ->exists();
+
+        if ($duplicateExists) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Cannot restore because an active course with the same class code and subject already exists.',
+            ], 422);
+        }
+
+        $course->restore();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Course restored successfully.',
+            'data' => $course->loadCount('facultyCourses'),
+        ]);
+    }
+
     // Faculty Course Assignment CRUD
+    public function deletedFacultyCourses(): JsonResponse
+    {
+        $this->authorizeAdminOnly();
+
+        $assignments = FacultyCourse::onlyTrashed()
+            ->with([
+                'faculty:id,user_id,employee_no,department,job_title',
+                'faculty.user:id,name,email',
+                'course:id,class_code,subject_code,subject_type',
+                'schedules:id,faculty_course_id,time,day,status',
+            ])
+            ->whereHas('course', function ($query) {
+                $query->where('subject_type', 'major');
+            })
+            ->latest('deleted_at')
+            ->limit(100)
+            ->get()
+            ->map(function ($assignment) {
+                $faculty = optional($assignment->faculty);
+                $facultyUser = optional($faculty->user);
+                $course = optional($assignment->course);
+                $scheduleLabel = $assignment->schedules
+                    ? $assignment->schedules->map(function ($schedule) {
+                        return $this->formatScheduleLabel($schedule);
+                    })->filter()->unique()->implode(' | ')
+                    : '';
+
+                return [
+                    'id' => $assignment->id,
+                    'faculty_name' => $facultyUser->name ?? 'N/A',
+                    'employee_no' => $faculty->employee_no ?? '',
+                    'course' => trim(($course->class_code ?? 'N/A').' - '.($course->subject_code ?? '')),
+                    'section' => $assignment->section ?? 'N/A',
+                    'academic_year' => $assignment->academic_year ?? 'N/A',
+                    'semester' => $assignment->semester ?? 'N/A',
+                    'schedule' => $scheduleLabel !== '' ? $scheduleLabel : 'N/A',
+                    'deleted_at' => optional($assignment->deleted_at)->format('M d, Y h:i A') ?? 'N/A',
+                ];
+            });
+
+        return response()->json([
+            'success' => true,
+            'data' => $assignments,
+        ]);
+    }
+
+    public function restoreFacultyCourse(int $id): JsonResponse
+    {
+        $this->authorizeAdminOnly();
+
+        $assignment = FacultyCourse::onlyTrashed()->findOrFail($id);
+
+        $duplicateExists = FacultyCourse::where([
+            'faculty_id' => $assignment->faculty_id,
+            'course_id' => $assignment->course_id,
+            'section' => $assignment->section,
+            'academic_year' => $assignment->academic_year,
+            'semester' => $assignment->semester,
+        ])->exists();
+
+        if ($duplicateExists) {
+            return response()->json([
+                'success' => false,
+                'message' => 'This assignment cannot be restored because an active matching assignment already exists.',
+            ], 422);
+        }
+
+        $assignment->restore();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Course assignment restored successfully.',
+            'data' => $assignment->load(['faculty.user', 'course']),
+        ]);
+    }
+
     public function storeFacultyCourse(Request $request): JsonResponse
     {
         $this->authorizeAdminOnly();
@@ -1169,29 +1319,30 @@ class CourseController extends Controller
             'academic_year' => 'required|string|max:20',
             'semester' => 'required|in:1st,2nd,Summer'
         ]);
-        // Check for duplicate assignment
-        $exists = FacultyCourse::where([
+        $assignmentKeys = [
             'faculty_id' => $validated['faculty_id'],
             'course_id' => $validated['course_id'],
             'section' => $validated['section'],
             'academic_year' => $validated['academic_year'],
             'semester' => $validated['semester']
-        ])->exists();
+        ];
 
-        if ($exists) {
+        $existingAssignment = FacultyCourse::withTrashed()->where($assignmentKeys)->first();
+
+        if ($existingAssignment && !$existingAssignment->trashed()) {
             return response()->json([
                 'success' => false,
                 'message' => 'This course is already assigned to the faculty for the same academic year and semester.'
             ], 422);
         }
 
-        $facultyCourse = FacultyCourse::firstOrCreate([
-            'faculty_id' => $validated['faculty_id'],
-            'course_id' => $validated['course_id'],
-            'section' => $validated['section'],
-            'academic_year' => $validated['academic_year'],
-            'semester' => $validated['semester'],
-        ]);
+        if ($existingAssignment && $existingAssignment->trashed()) {
+            $existingAssignment->restore();
+            $facultyCourse = $existingAssignment;
+        } else {
+            $facultyCourse = FacultyCourse::create($assignmentKeys);
+        }
+
         $facultyCourse->load(['faculty.user', 'course']);
 
         return response()->json([
@@ -1214,7 +1365,7 @@ class CourseController extends Controller
         ]);
 
         // Check for duplicate assignment (excluding current record)
-        $exists = FacultyCourse::where([
+        $exists = FacultyCourse::withTrashed()->where([
             'faculty_id' => $validated['faculty_id'],
             'course_id' => $validated['course_id'],
             'section' => $validated['section'],
@@ -1252,10 +1403,7 @@ class CourseController extends Controller
     {
         $this->authorizeAdminOnly();
 
-        DB::transaction(function () use ($facultyCourse) {
-            $this->deleteSchedulesByAssignmentIds([$facultyCourse->id]);
-            $facultyCourse->delete();
-        });
+        $facultyCourse->delete();
 
         return response()->json([
             'success' => true,
@@ -1274,10 +1422,7 @@ class CourseController extends Controller
 
         $ids = collect($validated['ids'])->unique()->values()->all();
 
-        $deleted = DB::transaction(function () use ($ids) {
-            $this->deleteSchedulesByAssignmentIds($ids);
-            return FacultyCourse::whereIn('id', $ids)->delete();
-        });
+        $deleted = FacultyCourse::whereIn('id', $ids)->delete();
 
         return response()->json([
             'success' => true,

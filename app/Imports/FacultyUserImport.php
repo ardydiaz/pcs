@@ -47,9 +47,28 @@ class FacultyUserImport implements ToModel, WithHeadingRow
             Faculty::normalizeDepartmentList($department)
         );
 
-        // Skip if faculty already exists with same employeeno and track the skipped record
-        $existingFaculty = Faculty::where('employee_no', $employeeNo)->first();
+        // Restore soft-deleted faculty records instead of creating duplicate employee numbers.
+        $existingFaculty = Faculty::withTrashed()->where('employee_no', $employeeNo)->first();
         if ($existingFaculty) {
+            if ($existingFaculty->trashed()) {
+                $existingFaculty->restore();
+                $existingFaculty->update([
+                    'department' => $normalizedDepartment,
+                    'job_title' => $jobTitle,
+                ]);
+
+                if ($existingFaculty->user) {
+                    $existingFaculty->user->update([
+                        'department' => $normalizedDepartment,
+                        'job_title' => $jobTitle,
+                        'status' => 'Active',
+                    ]);
+                }
+
+                $this->importedCount++;
+                return $existingFaculty;
+            }
+
             $this->skippedRecords[] = $employeeNo;
             return null;
         }

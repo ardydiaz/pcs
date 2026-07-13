@@ -164,6 +164,58 @@
     <!-- Delete Schedule and Bulk Delete Modal Component render from partials/schedules/delete-and-bulk-alert -->
     @include('content.data-management.partials.schedules.delete-and-bulk-alert') <!-- This includes the delete confirmation modal and the bulk delete confirmation modal -->
 
+    @if ($canDelete)
+        <div class="modal fade" id="scheduleDeletedModal" tabindex="-1" aria-labelledby="scheduleDeletedModalLabel"
+            aria-hidden="true">
+            <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable schedule-modal-dialog">
+                <div class="modal-content schedule-card">
+                    <div class="modal-header schedule-modal-header">
+                        <div>
+                            <h5 class="modal-title mb-1" id="scheduleDeletedModalLabel">Deleted Schedules</h5>
+                            <small class="text-muted">Restore soft-deleted schedules when needed.</small>
+                        </div>
+                        <button type="button" class="schedule-modal-close" data-bs-dismiss="modal"
+                            aria-label="Close">Ã—</button>
+                    </div>
+                    <div class="modal-body schedule-modal-body">
+                        <div id="scheduleDeletedAlert"></div>
+                        <div id="scheduleDeletedLoading" class="text-center py-5">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading deleted schedules...</span>
+                            </div>
+                            <p class="text-muted mt-2 mb-0">Loading deleted schedules...</p>
+                        </div>
+                        <div id="scheduleDeletedEmpty" class="empty-state d-none">
+                            <i class="fa-solid fa-trash-arrow-up display-4 text-muted mb-2"></i>
+                            <h5 class="mb-1">No deleted schedules</h5>
+                            <p class="text-muted mb-0">Deleted schedules will appear here.</p>
+                        </div>
+                        <div id="scheduleDeletedTableWrap" class="table-responsive d-none">
+                            <table class="table align-middle mb-0 schedule-table">
+                                <thead>
+                                    <tr>
+                                        <th>Course</th>
+                                        <th>Section</th>
+                                        <th>Faculty</th>
+                                        <th>Term</th>
+                                        <th>Schedule</th>
+                                        <th>Deleted At</th>
+                                        <th class="text-end">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="scheduleDeletedTableBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="modal-footer schedule-modal-footer">
+                        <button type="button" class="btn btn-tertiary schedule-modal-btn"
+                            data-bs-dismiss="modal">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endif
+
     <!-- Excel Import Modal Component render from partials/schedules/excel-import -->
     @include('content.data-management.partials.schedules.excel-import') <!-- This includes the excel import modal -->
 
@@ -257,6 +309,8 @@
                 showDeleteDisabled: @json($showDeleteDisabled),
                 canImport: @json($canImport),
             };
+            const deletedSchedulesUrl = '{{ route('dm.schedules.deleted') }}';
+            const restoreScheduleUrlTemplate = '{{ route('dm.schedules.restore', ':id') }}';
 
             document.addEventListener('DOMContentLoaded', () => {
                 initScheduleCourseDropdowns();
@@ -851,6 +905,8 @@
                     this.editModalEl = document.getElementById('scheduleEditModal');
                     this.deleteModalEl = document.getElementById('scheduleDeleteModal');
                     this.bulkDeleteModalEl = document.getElementById('scheduleBulkDeleteModal');
+                    this.deletedModalEl = document.getElementById('scheduleDeletedModal');
+                    this.deletedTableBody = document.getElementById('scheduleDeletedTableBody');
                     this.detailsModalEl = document.getElementById('scheduleDetailsModal');
 
                     const hasBootstrap = typeof bootstrap !== 'undefined' && bootstrap?.Modal;
@@ -859,6 +915,8 @@
                     this.deleteModal = this.deleteModalEl && hasBootstrap ? new bootstrap.Modal(this.deleteModalEl) : null;
                     this.bulkDeleteModal = this.bulkDeleteModalEl && hasBootstrap ? new bootstrap.Modal(this
                         .bulkDeleteModalEl) : null;
+                    this.deletedModal = this.deletedModalEl && hasBootstrap ? new bootstrap.Modal(this.deletedModalEl) :
+                        null;
                     this.detailsModal = this.detailsModalEl && hasBootstrap ? new bootstrap.Modal(this.detailsModalEl) :
                         null;
 
@@ -884,6 +942,7 @@
                     this.bindForms();
                     this.bindSearchInputs();
                     this.bindBulkBar();
+                    this.bindDeletedSchedulesModal();
                     this.initSorting();
                     this.initFilters();
                     this.renderTable();
@@ -995,6 +1054,124 @@
                             this.promptBulkDelete();
                         }
                     });
+                }
+
+                bindDeletedSchedulesModal() {
+                    if (!this.deletedModalEl || !schedulePermissions.canDelete) {
+                        return;
+                    }
+
+                    this.deletedModalEl.addEventListener('shown.bs.modal', () => {
+                        this.loadDeletedSchedules();
+                    });
+
+                    if (this.deletedTableBody) {
+                        this.deletedTableBody.addEventListener('click', (event) => {
+                            const button = event.target.closest('[data-restore-schedule]');
+                            if (!button) {
+                                return;
+                            }
+                            this.restoreDeletedSchedule(Number(button.dataset.restoreSchedule), button);
+                        });
+                    }
+                }
+
+                async loadDeletedSchedules() {
+                    this.setDeletedSchedulesState('loading');
+
+                    try {
+                        const response = await fetch(deletedSchedulesUrl, {
+                            headers: {
+                                'Accept': 'application/json',
+                                'X-Requested-With': 'XMLHttpRequest',
+                            },
+                            cache: 'no-store',
+                        });
+                        const payload = await response.json().catch(() => ({}));
+                        if (!response.ok || !payload.success) {
+                            throw new Error(payload.message || 'Failed to load deleted schedules.');
+                        }
+                        this.renderDeletedSchedules(payload.data || []);
+                    } catch (error) {
+                        this.setDeletedSchedulesState('empty');
+                        this.showDeletedSchedulesAlert('danger', error.message || 'Failed to load deleted schedules.');
+                    }
+                }
+
+                renderDeletedSchedules(items) {
+                    if (!this.deletedTableBody) {
+                        return;
+                    }
+
+                    const rows = Array.isArray(items) ? items : [];
+                    this.deletedTableBody.innerHTML = rows.map((schedule) => `
+                        <tr data-deleted-schedule-id="${schedule.id}">
+                            <td>${this.escapeHtml(schedule.course || 'N/A')}</td>
+                            <td><span class="schedule-pill" data-pill-palette="green" data-pill-value="section">${this.escapeHtml(schedule.section || 'N/A')}</span></td>
+                            <td>${this.escapeHtml(schedule.faculty_name || 'N/A')}</td>
+                            <td>${this.escapeHtml([schedule.academic_year, this.formatSemesterLabel(schedule.semester)].filter(Boolean).join(' | '))}</td>
+                            <td><span class="schedule-pill" data-pill-palette="blue" data-pill-value="schedule">${this.escapeHtml(schedule.schedule || 'N/A')}</span></td>
+                            <td>${this.escapeHtml(schedule.deleted_at || 'N/A')}</td>
+                            <td class="text-end">
+                                <button type="button" class="btn btn-sm btn-restore-schedule" data-restore-schedule="${schedule.id}">
+                                    <i class="fa-solid fa-rotate-left me-1"></i> Restore
+                                </button>
+                            </td>
+                        </tr>
+                    `).join('');
+
+                    this.setDeletedSchedulesState(rows.length ? 'table' : 'empty');
+                    applyPillPalettes(this.deletedModalEl || document);
+                }
+
+                async restoreDeletedSchedule(scheduleId, button) {
+                    if (!scheduleId) {
+                        return;
+                    }
+
+                    this.toggleButtonLoading(button, true, 'Restore', 'Restoring...');
+
+                    try {
+                        const response = await fetch(restoreScheduleUrlTemplate.replace(':id', scheduleId), {
+                            method: 'POST',
+                            headers: this.deleteHeaders(),
+                        });
+                        const payload = await response.json().catch(() => ({}));
+                        if (!response.ok || !payload.success) {
+                            throw new Error(payload.message || 'Failed to restore schedule.');
+                        }
+
+                        this.showDeletedSchedulesAlert('success', payload.message || 'Schedule restored successfully.');
+                        setTimeout(() => window.location.reload(), 700);
+                    } catch (error) {
+                        this.showDeletedSchedulesAlert('danger', error.message || 'Failed to restore schedule.');
+                        this.toggleButtonLoading(button, false, 'Restore');
+                    }
+                }
+
+                setDeletedSchedulesState(state) {
+                    document.getElementById('scheduleDeletedLoading')?.classList.toggle('d-none', state !== 'loading');
+                    document.getElementById('scheduleDeletedEmpty')?.classList.toggle('d-none', state !== 'empty');
+                    document.getElementById('scheduleDeletedTableWrap')?.classList.toggle('d-none', state !== 'table');
+                    const alert = document.getElementById('scheduleDeletedAlert');
+                    if (alert) {
+                        alert.innerHTML = '';
+                    }
+                }
+
+                showDeletedSchedulesAlert(type, message) {
+                    const alert = document.getElementById('scheduleDeletedAlert');
+                    if (!alert) {
+                        this.showAlert(type === 'danger' ? 'error' : 'success', message);
+                        return;
+                    }
+
+                    alert.innerHTML = `
+                        <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+                            ${this.escapeHtml(message)}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    `;
                 }
 
                 renderTable() {

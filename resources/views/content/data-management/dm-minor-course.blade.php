@@ -271,6 +271,41 @@
             font-weight: 700;
         }
 
+        .btn-deleted-minor-course {
+            min-height: calc(2.25rem + 2px);
+            padding: 0 1rem;
+            border: 1px solid rgba(92, 41, 124, 0.18);
+            border-radius: 0.55rem;
+            background: #5c297c;
+            color: #ffffff;
+            font-size: 0.85rem;
+            font-weight: 700;
+            box-shadow: 0 0.45rem 1rem rgba(92, 41, 124, 0.14);
+        }
+
+        .btn-deleted-minor-course:hover,
+        .btn-deleted-minor-course:focus {
+            border-color: #e6a431;
+            background: #ffb736;
+            color: #3a0050;
+        }
+
+        .btn-restore-course {
+            background: linear-gradient(135deg, #5c297c, #6f2a8f);
+            border: 1px solid #5c297c;
+            color: #ffffff;
+            border-radius: 999px;
+            font-weight: 700;
+            padding: 0.45rem 0.9rem;
+        }
+
+        .btn-restore-course:hover,
+        .btn-restore-course:focus {
+            background: linear-gradient(135deg, #ffb736, #e6a431);
+            border-color: #e6a431;
+            color: #3a0050;
+        }
+
         @media (max-width: 768px) {
             .course-handlers-summary,
             .course-handler-fields {
@@ -980,6 +1015,55 @@
         </div>
     </div>
 
+    @if ($canDelete)
+        <div class="modal fade" id="minorCourseDeletedModal" tabindex="-1" aria-labelledby="minorCourseDeletedLabel"
+            aria-hidden="true">
+            <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+                <div class="modal-content evaluation-card">
+                    <div class="modal-header evaluation-modal-header">
+                        <div>
+                            <h5 class="modal-title mb-1" id="minorCourseDeletedLabel">Deleted GenEd Courses</h5>
+                            <small class="text-muted">Restore soft-deleted GenEd courses when needed.</small>
+                        </div>
+                        <button type="button" class="evaluation-modal-close" data-bs-dismiss="modal"
+                            aria-label="Close">Ã—</button>
+                    </div>
+                    <div class="modal-body evaluation-modal-body">
+                        <div id="minorCourseDeletedAlert"></div>
+                        <div id="minorCourseDeletedLoading" class="text-center py-5">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading deleted GenEd courses...</span>
+                            </div>
+                            <p class="text-muted mt-2 mb-0">Loading deleted GenEd courses...</p>
+                        </div>
+                        <div id="minorCourseDeletedEmpty" class="course-handlers-empty d-none">
+                            <h6 class="mb-1">No deleted GenEd courses</h6>
+                            <p class="mb-0">Deleted GenEd courses will appear here.</p>
+                        </div>
+                        <div id="minorCourseDeletedTableWrap" class="table-responsive d-none">
+                            <table class="table align-middle mb-0 evaluation-table">
+                                <thead>
+                                    <tr>
+                                        <th>Class Code</th>
+                                        <th>Subject</th>
+                                        <th>Handlers</th>
+                                        <th>Deleted At</th>
+                                        <th class="text-end">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="minorCourseDeletedTableBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="modal-footer evaluation-modal-footer">
+                        <button type="button" class="btn btn-tertiary evaluation-modal-btn"
+                            data-bs-dismiss="modal">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endif
+
     <div class="modal fade" id="minorCourseHandlersModal" tabindex="-1" aria-labelledby="minorCourseHandlersTitle"
         aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-lg">
@@ -1018,9 +1102,108 @@
         var minorTable = null;
         var minorTableAssign = null;
         const minorAssignmentItems = @json($minorAssignmentItems);
+        const deletedMinorCoursesUrl = '{{ route('dm.courses.deleted', 'minor') }}';
+        const restoreMinorCourseUrlTemplate = '{{ route('dm.courses.restore', ':id') }}';
         var list_methods = {
             addMinorCourse: function(e) {
                 $('#add-modal-minor-course').modal('show');
+            },
+            mountDeletedMinorCourseButton: function() {
+                @if ($canDelete)
+                    const lengthWrapper = $('#courses-table-minor_length');
+                    if (!lengthWrapper.length || lengthWrapper.find('[data-open-deleted-minor-courses]').length) {
+                        return;
+                    }
+
+                    lengthWrapper.addClass('d-flex align-items-center gap-2 flex-wrap');
+                    lengthWrapper.append(`
+                        <button type="button" class="btn btn-deleted-minor-course" data-open-deleted-minor-courses>
+                            <i class="fa-solid fa-trash-arrow-up me-2"></i>Deleted GenEd Course
+                        </button>
+                    `);
+                    lengthWrapper.on('click', '[data-open-deleted-minor-courses]', function() {
+                        list_methods.loadDeletedMinorCourses();
+                        $('#minorCourseDeletedModal').modal('show');
+                    });
+                @endif
+            },
+            loadDeletedMinorCourses: function() {
+                $('#minorCourseDeletedAlert').empty();
+                $('#minorCourseDeletedLoading').removeClass('d-none');
+                $('#minorCourseDeletedEmpty').addClass('d-none');
+                $('#minorCourseDeletedTableWrap').addClass('d-none');
+
+                $.ajax({
+                    url: deletedMinorCoursesUrl,
+                    method: 'GET',
+                    dataType: 'JSON',
+                    success: function(response) {
+                        list_methods.renderDeletedMinorCourses(response.data || []);
+                    },
+                    error: function(xhr) {
+                        $('#minorCourseDeletedLoading').addClass('d-none');
+                        $('#minorCourseDeletedEmpty').removeClass('d-none');
+                        list_methods.showDeletedMinorAlert('danger', xhr.responseJSON?.message || 'Failed to load deleted GenEd courses.');
+                    }
+                });
+            },
+            renderDeletedMinorCourses: function(items) {
+                const rows = Array.isArray(items) ? items : [];
+                $('#minorCourseDeletedTableBody').html(rows.map((course) => `
+                    <tr>
+                        <td><span class="evaluation-pill">${list_methods.escapeHtml(course.class_code || 'N/A')}</span></td>
+                        <td>${list_methods.escapeHtml(course.subject_code || 'N/A')}</td>
+                        <td>${list_methods.escapeHtml(course.handlers_count ?? 0)}</td>
+                        <td>${list_methods.escapeHtml(course.deleted_at || 'N/A')}</td>
+                        <td class="text-end">
+                            <button type="button" class="btn btn-sm btn-restore-course" data-restore-minor-course="${course.id}">
+                                <i class="fa-solid fa-rotate-left me-1"></i> Restore
+                            </button>
+                        </td>
+                    </tr>
+                `).join(''));
+
+                $('#minorCourseDeletedLoading').addClass('d-none');
+                $('#minorCourseDeletedEmpty').toggleClass('d-none', rows.length > 0);
+                $('#minorCourseDeletedTableWrap').toggleClass('d-none', rows.length === 0);
+            },
+            restoreDeletedMinorCourse: function(button) {
+                const id = $(button).data('restore-minor-course');
+                if (!id) {
+                    return;
+                }
+
+                const original = $(button).html();
+                $(button).prop('disabled', true).text('Restoring...');
+
+                $.ajax({
+                    url: restoreMinorCourseUrlTemplate.replace(':id', id),
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': "{{ csrf_token() }}",
+                        'Accept': 'application/json',
+                    },
+                    success: function(response) {
+                        list_methods.showDeletedMinorAlert('success', response.message || 'GenEd course restored successfully.');
+                        setTimeout(() => {
+                            $('#minorCourseDeletedModal').modal('hide');
+                            minorTable.ajax.reload(null, false);
+                            minorTableAssign.ajax.reload(null, false);
+                        }, 700);
+                    },
+                    error: function(xhr) {
+                        list_methods.showDeletedMinorAlert('danger', xhr.responseJSON?.message || 'Failed to restore GenEd course.');
+                        $(button).prop('disabled', false).html(original);
+                    }
+                });
+            },
+            showDeletedMinorAlert: function(type, message) {
+                $('#minorCourseDeletedAlert').html(`
+                    <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+                        ${list_methods.escapeHtml(message)}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                `);
             },
             saveAddMinor: function(e) {
                 var formData = new FormData();
@@ -1668,6 +1851,10 @@
                             targets: [3, 4],
                             orderable: false
                         }]
+                    });
+                    list_methods.mountDeletedMinorCourseButton();
+                    $('#minorCourseDeletedTableBody').on('click', '[data-restore-minor-course]', function() {
+                        list_methods.restoreDeletedMinorCourse(this);
                     });
 
 

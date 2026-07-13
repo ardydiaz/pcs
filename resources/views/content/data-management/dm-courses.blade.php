@@ -199,6 +199,56 @@
     <!-- Delete Course Alert & Bulk Component -->
     @include('content.data-management.partials.courses.delete-alert') <!-- This is included as a separate partial component for better organization -->
 
+    @if ($canDelete)
+        <div class="modal fade" id="courseDeletedModal" tabindex="-1" aria-labelledby="courseDeletedModalLabel"
+            aria-hidden="true">
+            <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable evaluation-modal-dialog">
+                <div class="modal-content evaluation-card">
+                    <div class="modal-header evaluation-modal-header">
+                        <div>
+                            <h5 class="modal-title mb-1" id="courseDeletedModalLabel">Deleted Professional Courses</h5>
+                            <small class="text-muted">Restore soft-deleted professional courses when needed.</small>
+                        </div>
+                        <button type="button" class="evaluation-modal-close" data-bs-dismiss="modal"
+                            aria-label="Close">Ã—</button>
+                    </div>
+                    <div class="modal-body evaluation-modal-body">
+                        <div id="courseDeletedAlert"></div>
+                        <div id="courseDeletedLoading" class="text-center py-5">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading deleted courses...</span>
+                            </div>
+                            <p class="text-muted mt-2 mb-0">Loading deleted courses...</p>
+                        </div>
+                        <div id="courseDeletedEmpty" class="empty-state d-none">
+                            <i class="fa-solid fa-trash-arrow-up display-4 text-muted mb-2"></i>
+                            <h5 class="mb-1">No deleted courses</h5>
+                            <p class="text-muted mb-0">Deleted professional courses will appear here.</p>
+                        </div>
+                        <div id="courseDeletedTableWrap" class="table-responsive d-none">
+                            <table class="table align-middle mb-0 evaluation-table">
+                                <thead>
+                                    <tr>
+                                        <th>Class Code</th>
+                                        <th>Subject</th>
+                                        <th>Handlers</th>
+                                        <th>Deleted At</th>
+                                        <th class="text-end">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="courseDeletedTableBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="modal-footer evaluation-modal-footer">
+                        <button type="button" class="btn btn-tertiary evaluation-modal-btn"
+                            data-bs-dismiss="modal">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endif
+
     <!-- Assign Course Form Modal Component -->
     @include('content.data-management.partials.courses.assign-course-form-modal') <!-- This is included as a separate partial component for better organization -->
 
@@ -207,6 +257,56 @@
 
     <!-- Delete Assignment Alert & Bulk Component -->
     @include('content.data-management.partials.courses.delete-assignment-alert') <!-- This is included as a separate partial component for better organization -->
+
+    @if ($canDelete)
+        <div class="modal fade" id="assignmentDeletedModal" tabindex="-1" aria-labelledby="assignmentDeletedModalLabel"
+            aria-hidden="true">
+            <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable evaluation-modal-dialog">
+                <div class="modal-content evaluation-card">
+                    <div class="modal-header evaluation-modal-header">
+                        <div>
+                            <h5 class="modal-title mb-1" id="assignmentDeletedModalLabel">Deleted Course Assignments</h5>
+                            <small class="text-muted">Restore soft-deleted professional course assignments when needed.</small>
+                        </div>
+                        <button type="button" class="evaluation-modal-close" data-bs-dismiss="modal"
+                            aria-label="Close">&times;</button>
+                    </div>
+                    <div class="modal-body evaluation-modal-body">
+                        <div id="assignmentDeletedAlert"></div>
+                        <div id="assignmentDeletedLoading" class="text-center py-5">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <p class="text-muted mt-3 mb-0">Loading deleted assignments...</p>
+                        </div>
+                        <div id="assignmentDeletedEmpty" class="text-center py-5 d-none">
+                            <i class="fa-solid fa-user-check fa-2x text-muted mb-3"></i>
+                            <h6 class="mb-1">No deleted assignments</h6>
+                            <p class="text-muted mb-0">Deleted professional assignments will appear here.</p>
+                        </div>
+                        <div id="assignmentDeletedTableWrap" class="table-responsive d-none">
+                            <table class="table align-middle mb-0 evaluation-table">
+                                <thead>
+                                    <tr>
+                                        <th>Faculty</th>
+                                        <th>Employee No.</th>
+                                        <th>Course</th>
+                                        <th>Section</th>
+                                        <th>Academic Year</th>
+                                        <th>Semester</th>
+                                        <th>Schedule</th>
+                                        <th>Deleted At</th>
+                                        <th class="text-end">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="assignmentDeletedTableBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endif
 
     <div class="modal fade" id="courseHandlersModal" tabindex="-1" aria-labelledby="courseHandlersModalTitle"
         aria-hidden="true">
@@ -296,6 +396,10 @@
             canDelete: @json($canDelete),
             showDeleteDisabled: @json($showDeleteDisabled),
         };
+        const deletedCoursesUrl = '{{ route('dm.courses.deleted', 'major') }}';
+        const restoreCourseUrlTemplate = '{{ route('dm.courses.restore', ':id') }}';
+        const deletedAssignmentsUrl = '{{ route('dm.faculty-courses.deleted') }}';
+        const restoreAssignmentUrlTemplate = '{{ route('dm.faculty-courses.restore', ':id') }}';
 
         document.addEventListener('DOMContentLoaded', () => {
             initUserDropdowns();
@@ -680,6 +784,8 @@
                 this.courseEditModalEl = document.getElementById('courseEditModal');
                 this.courseDeleteModalEl = document.getElementById('courseDeleteModal');
                 this.courseBulkDeleteModalEl = document.getElementById('courseBulkDeleteModal');
+                this.courseDeletedModalEl = document.getElementById('courseDeletedModal');
+                this.courseDeletedTableBody = document.getElementById('courseDeletedTableBody');
                 this.courseHandlersModalEl = document.getElementById('courseHandlersModal');
                 this.courseHandlersTitle = document.getElementById('courseHandlersModalTitle');
                 this.courseHandlersSubtitle = document.getElementById('courseHandlersModalSubtitle');
@@ -691,6 +797,8 @@
                 this.assignmentEditModalEl = document.getElementById('assignmentEditModal');
                 this.assignmentDeleteModalEl = document.getElementById('assignmentDeleteModal');
                 this.assignmentBulkDeleteModalEl = document.getElementById('assignmentBulkDeleteModal');
+                this.assignmentDeletedModalEl = document.getElementById('assignmentDeletedModal');
+                this.assignmentDeletedTableBody = document.getElementById('assignmentDeletedTableBody');
 
                 const hasBootstrap = typeof bootstrap !== 'undefined' && bootstrap?.Modal;
                 this.courseCreateModal = this.courseCreateModalEl && hasBootstrap ? new bootstrap.Modal(this
@@ -701,6 +809,8 @@
                     .courseDeleteModalEl) : null;
                 this.courseBulkDeleteModal = this.courseBulkDeleteModalEl && hasBootstrap ? new bootstrap.Modal(this
                     .courseBulkDeleteModalEl) : null;
+                this.courseDeletedModal = this.courseDeletedModalEl && hasBootstrap ? new bootstrap.Modal(this
+                    .courseDeletedModalEl) : null;
                 this.courseHandlersModal = this.courseHandlersModalEl && hasBootstrap ? new bootstrap.Modal(this
                     .courseHandlersModalEl) : null;
 
@@ -712,6 +822,8 @@
                     .assignmentDeleteModalEl) : null;
                 this.assignmentBulkDeleteModal = this.assignmentBulkDeleteModalEl && hasBootstrap ? new bootstrap.Modal(
                     this.assignmentBulkDeleteModalEl) : null;
+                this.assignmentDeletedModal = this.assignmentDeletedModalEl && hasBootstrap ? new bootstrap.Modal(this
+                    .assignmentDeletedModalEl) : null;
 
                 this.alertContainer = document.getElementById('courseAlertContainer');
 
@@ -756,6 +868,8 @@
                 this.bindForms();
                 this.bindSearchInputs();
                 this.bindBulkBars();
+                this.bindDeletedCoursesModal();
+                this.bindDeletedAssignmentsModal();
                 this.bindFacultyLoadPreview();
                 this.initCourseSorting();
                 this.initAssignmentSorting();
@@ -1275,6 +1389,242 @@
                         }
                     });
                 }
+            }
+
+            bindDeletedCoursesModal() {
+                if (!this.courseDeletedModalEl || !coursePermissions.canDelete) {
+                    return;
+                }
+
+                this.courseDeletedModalEl.addEventListener('shown.bs.modal', () => {
+                    this.loadDeletedCourses();
+                });
+
+                if (this.courseDeletedTableBody) {
+                    this.courseDeletedTableBody.addEventListener('click', (event) => {
+                        const button = event.target.closest('[data-restore-course]');
+                        if (!button) {
+                            return;
+                        }
+                        this.restoreDeletedCourse(Number(button.dataset.restoreCourse), button);
+                    });
+                }
+            }
+
+            async loadDeletedCourses() {
+                this.setDeletedCoursesState('loading');
+
+                try {
+                    const response = await fetch(deletedCoursesUrl, {
+                        headers: {
+                            'Accept': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest',
+                        },
+                        cache: 'no-store',
+                    });
+                    const payload = await response.json().catch(() => ({}));
+                    if (!response.ok || !payload.success) {
+                        throw new Error(payload.message || 'Failed to load deleted courses.');
+                    }
+                    this.renderDeletedCourses(payload.data || []);
+                } catch (error) {
+                    this.setDeletedCoursesState('empty');
+                    this.showDeletedCoursesAlert('danger', error.message || 'Failed to load deleted courses.');
+                }
+            }
+
+            renderDeletedCourses(items) {
+                if (!this.courseDeletedTableBody) {
+                    return;
+                }
+
+                const rows = Array.isArray(items) ? items : [];
+                this.courseDeletedTableBody.innerHTML = rows.map((course) => `
+                    <tr data-deleted-course-id="${course.id}">
+                        <td><span class="evaluation-pill" data-pill-palette="purple" data-pill-value="${this.escapeAttribute(course.class_code || 'n/a')}">${this.escapeHtml(course.class_code || 'N/A')}</span></td>
+                        <td>${this.escapeHtml(course.subject_code || 'N/A')}</td>
+                        <td><span class="evaluation-count-pill" data-pill-palette="gray" data-pill-value="handlers">${this.escapeHtml(course.handlers_count ?? 0)}</span></td>
+                        <td>${this.escapeHtml(course.deleted_at || 'N/A')}</td>
+                        <td class="text-end">
+                            <button type="button" class="btn btn-sm btn-restore-course" data-restore-course="${course.id}">
+                                <i class="fa-solid fa-rotate-left me-1"></i> Restore
+                            </button>
+                        </td>
+                    </tr>
+                `).join('');
+
+                this.setDeletedCoursesState(rows.length ? 'table' : 'empty');
+                applyPillPalettes(this.courseDeletedModalEl || document);
+            }
+
+            async restoreDeletedCourse(courseId, button) {
+                if (!courseId) {
+                    return;
+                }
+
+                this.toggleButtonLoading(button, true, 'Restore', 'Restoring...');
+
+                try {
+                    const response = await fetch(restoreCourseUrlTemplate.replace(':id', courseId), {
+                        method: 'POST',
+                        headers: this.deleteHeaders(),
+                    });
+                    const payload = await response.json().catch(() => ({}));
+                    if (!response.ok || !payload.success) {
+                        throw new Error(payload.message || 'Failed to restore course.');
+                    }
+
+                    this.showDeletedCoursesAlert('success', payload.message || 'Course restored successfully.');
+                    setTimeout(() => window.location.reload(), 700);
+                } catch (error) {
+                    this.showDeletedCoursesAlert('danger', error.message || 'Failed to restore course.');
+                    this.toggleButtonLoading(button, false, 'Restore');
+                }
+            }
+
+            setDeletedCoursesState(state) {
+                document.getElementById('courseDeletedLoading')?.classList.toggle('d-none', state !== 'loading');
+                document.getElementById('courseDeletedEmpty')?.classList.toggle('d-none', state !== 'empty');
+                document.getElementById('courseDeletedTableWrap')?.classList.toggle('d-none', state !== 'table');
+                const alert = document.getElementById('courseDeletedAlert');
+                if (alert) {
+                    alert.innerHTML = '';
+                }
+            }
+
+            showDeletedCoursesAlert(type, message) {
+                const alert = document.getElementById('courseDeletedAlert');
+                if (!alert) {
+                    this.showAlert(type === 'danger' ? 'error' : 'success', message);
+                    return;
+                }
+
+                alert.innerHTML = `
+                    <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+                        ${this.escapeHtml(message)}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                `;
+            }
+
+            bindDeletedAssignmentsModal() {
+                if (!this.assignmentDeletedModalEl || !coursePermissions.canDelete) {
+                    return;
+                }
+
+                this.assignmentDeletedModalEl.addEventListener('shown.bs.modal', () => {
+                    this.loadDeletedAssignments();
+                });
+
+                if (this.assignmentDeletedTableBody) {
+                    this.assignmentDeletedTableBody.addEventListener('click', (event) => {
+                        const button = event.target.closest('[data-restore-assignment]');
+                        if (!button) {
+                            return;
+                        }
+                        this.restoreDeletedAssignment(Number(button.dataset.restoreAssignment), button);
+                    });
+                }
+            }
+
+            async loadDeletedAssignments() {
+                this.setDeletedAssignmentsState('loading');
+
+                try {
+                    const response = await fetch(deletedAssignmentsUrl, {
+                        headers: {
+                            'Accept': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest',
+                        },
+                        cache: 'no-store',
+                    });
+                    const payload = await response.json().catch(() => ({}));
+                    if (!response.ok || !payload.success) {
+                        throw new Error(payload.message || 'Failed to load deleted assignments.');
+                    }
+                    this.renderDeletedAssignments(payload.data || []);
+                } catch (error) {
+                    this.setDeletedAssignmentsState('empty');
+                    this.showDeletedAssignmentsAlert('danger', error.message || 'Failed to load deleted assignments.');
+                }
+            }
+
+            renderDeletedAssignments(items) {
+                if (!this.assignmentDeletedTableBody) {
+                    return;
+                }
+
+                const rows = Array.isArray(items) ? items : [];
+                this.assignmentDeletedTableBody.innerHTML = rows.map((assignment) => `
+                    <tr data-deleted-assignment-id="${assignment.id}">
+                        <td>${this.escapeHtml(assignment.faculty_name || 'N/A')}</td>
+                        <td><span class="evaluation-pill" data-pill-palette="purple" data-pill-value="${this.escapeAttribute(assignment.employee_no || 'n/a')}">${this.escapeHtml(assignment.employee_no || 'N/A')}</span></td>
+                        <td>${this.escapeHtml(assignment.course || 'N/A')}</td>
+                        <td>${this.escapeHtml(assignment.section || 'N/A')}</td>
+                        <td>${this.escapeHtml(assignment.academic_year || 'N/A')}</td>
+                        <td>${this.escapeHtml(this.formatSemester(assignment.semester || 'N/A'))}</td>
+                        <td>${this.escapeHtml(assignment.schedule || 'N/A')}</td>
+                        <td>${this.escapeHtml(assignment.deleted_at || 'N/A')}</td>
+                        <td class="text-end">
+                            <button type="button" class="btn btn-sm btn-restore-assignment" data-restore-assignment="${assignment.id}">
+                                <i class="fa-solid fa-rotate-left me-1"></i> Restore
+                            </button>
+                        </td>
+                    </tr>
+                `).join('');
+
+                this.setDeletedAssignmentsState(rows.length ? 'table' : 'empty');
+                applyPillPalettes(this.assignmentDeletedModalEl || document);
+            }
+
+            async restoreDeletedAssignment(assignmentId, button) {
+                if (!assignmentId) {
+                    return;
+                }
+
+                this.toggleButtonLoading(button, true, 'Restore', 'Restoring...');
+
+                try {
+                    const response = await fetch(restoreAssignmentUrlTemplate.replace(':id', assignmentId), {
+                        method: 'POST',
+                        headers: this.deleteHeaders(),
+                    });
+                    const payload = await response.json().catch(() => ({}));
+                    if (!response.ok || !payload.success) {
+                        throw new Error(payload.message || 'Failed to restore assignment.');
+                    }
+
+                    this.showDeletedAssignmentsAlert('success', payload.message || 'Assignment restored successfully.');
+                    setTimeout(() => window.location.reload(), 700);
+                } catch (error) {
+                    this.showDeletedAssignmentsAlert('danger', error.message || 'Failed to restore assignment.');
+                    this.toggleButtonLoading(button, false, 'Restore');
+                }
+            }
+
+            setDeletedAssignmentsState(state) {
+                document.getElementById('assignmentDeletedLoading')?.classList.toggle('d-none', state !== 'loading');
+                document.getElementById('assignmentDeletedEmpty')?.classList.toggle('d-none', state !== 'empty');
+                document.getElementById('assignmentDeletedTableWrap')?.classList.toggle('d-none', state !== 'table');
+                const alert = document.getElementById('assignmentDeletedAlert');
+                if (alert) {
+                    alert.innerHTML = '';
+                }
+            }
+
+            showDeletedAssignmentsAlert(type, message) {
+                const alert = document.getElementById('assignmentDeletedAlert');
+                if (!alert) {
+                    this.showAlert(type === 'danger' ? 'error' : 'success', message);
+                    return;
+                }
+
+                alert.innerHTML = `
+                    <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+                        ${this.escapeHtml(message)}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                `;
             }
 
             initCourseSorting() {

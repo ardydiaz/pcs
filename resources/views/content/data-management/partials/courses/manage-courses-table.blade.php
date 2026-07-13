@@ -20,6 +20,12 @@
                                 <i class="fa-solid fa-circle-plus me-2"></i>Add Course
                             </button>
                         @endif
+                        @if ($canDelete)
+                            <button type="button" class="btn btn-deleted-course" data-bs-toggle="modal"
+                                data-bs-target="#courseDeletedModal">
+                                <i class="fa-solid fa-trash-arrow-up me-2"></i>Deleted Course
+                            </button>
+                        @endif
                     </div>
                 </div>
                 <div class="col-md-6">

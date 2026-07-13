@@ -103,6 +103,44 @@
             color: #ffffff;
         }
 
+        .btn-deleted-faculty {
+            min-height: calc(2.25rem + 2px);
+            padding: 0 1rem;
+            border: 1px solid rgba(92, 41, 124, 0.18);
+            border-radius: 0.55rem;
+            background: #5c297c;
+            color: #ffffff;
+            font-size: 0.85rem;
+            font-weight: 700;
+            box-shadow: 0 0.45rem 1rem rgba(92, 41, 124, 0.14);
+        }
+
+        .btn-deleted-faculty:hover,
+        .btn-deleted-faculty:focus {
+            border-color: #e6a431;
+            background: #ffb736;
+            color: #3a0050;
+            box-shadow: 0 0.55rem 1.1rem rgba(230, 164, 49, 0.2);
+        }
+
+        .btn-restore-faculty {
+            background: linear-gradient(135deg, #5c297c, #6f2a8f);
+            border: 1px solid #5c297c;
+            color: #ffffff;
+            border-radius: 999px;
+            font-weight: 700;
+            padding: 0.45rem 0.9rem;
+            box-shadow: 0 0.55rem 1.2rem rgba(92, 41, 124, 0.18);
+        }
+
+        .btn-restore-faculty:hover,
+        .btn-restore-faculty:focus {
+            background: linear-gradient(135deg, #ffb736, #e6a431);
+            border-color: #e6a431;
+            color: #3a0050;
+            box-shadow: 0 0.65rem 1.35rem rgba(230, 164, 49, 0.24);
+        }
+
         .evaluation-card--table {
             border-radius: var(--bs-card-border-radius);
             padding: 0;
