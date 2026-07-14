@@ -1004,7 +1004,9 @@ class EvaluationController extends Controller
             ->orderBy('created_at', 'desc')
             ->get();
 
-        return view('content.data-management.evaluation-files.evaluation-form', compact('evaluation', 'schedules'));
+        $canSubmitEvaluation = strtolower((string) auth()->user()?->role) === 'student';
+
+        return view('content.data-management.evaluation-files.evaluation-form', compact('evaluation', 'schedules', 'canSubmitEvaluation'));
     }
 
     public function submitResponse(Request $request, $token)
@@ -1013,10 +1015,16 @@ class EvaluationController extends Controller
             ->where('is_active', true)
             ->firstOrFail();
 
+        if (strtolower((string) $request->user()?->role) !== 'student') {
+            return back()
+                ->with('error', 'Only students are allowed to submit an evaluation.')
+                ->withInput();
+        }
+
         $request->validate([
             'schedule_id' => 'required|exists:schedules,id',
             'effectiveness_rating' => 'required|in:1,2,3,4',
-            'feedback_comments' => 'nullable|string|max:1000',
+            'feedback_comments' => 'required|string|max:1000',
         ]);
 
         $schedule = Schedule::with(['facultyCourse.course'])->findOrFail($request->schedule_id);

@@ -422,6 +422,23 @@
             box-shadow: 0 0 0 0.22rem rgba(92, 41, 124, 0.14);
         }
 
+        .form-control.is-invalid {
+            border-color: #dc3545;
+            box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.12);
+        }
+
+        .field-error-message {
+            color: #dc3545;
+            display: none;
+            font-size: 0.86rem;
+            font-weight: 700;
+            margin-top: 0.45rem;
+        }
+
+        .field-error-message.is-visible {
+            display: block;
+        }
+
         .course-preview {
             display: none;
             margin-top: 0.8rem;
@@ -781,7 +798,11 @@
                     </p>
 
                     <textarea name="feedback_comments" id="feedback_comments" class="form-control" rows="6"
-                        placeholder="Enter your feedback (optional)"></textarea>
+                        placeholder="Enter your feedback" required></textarea>
+                    <div class="field-error-message" id="feedbackError">
+                        Please enter your feedback before proceeding.
+                    </div>
+                    <small class="text-muted d-block mt-2" id="feedbackHelp">Feedback is required before proceeding.</small>
                 </div>
 
                 <div class="d-flex justify-content-between">
@@ -810,12 +831,24 @@
                         Make sure all information is accurate.
                     </div>
 
+                    @unless ($canSubmitEvaluation ?? false)
+                        <div class="alert alert-warning mb-4">
+                            <strong>View only:</strong> You can open this evaluation form, but only student accounts are allowed to submit an evaluation.
+                        </div>
+                    @endunless
+
                     <div class="d-flex justify-content-center gap-3">
                         <button type="button" class="btn btn-outline-secondary"
                             onclick="prevSection()">Previous</button>
-                        <button type="submit" class="btn btn-primary btn-lg" id="submitBtn">
-                            <i class="bi bi-check-circle me-2"></i>Submit Evaluation
-                        </button>
+                        @if ($canSubmitEvaluation ?? false)
+                            <button type="submit" class="btn btn-primary btn-lg" id="submitBtn">
+                                <i class="bi bi-check-circle me-2"></i>Submit Evaluation
+                            </button>
+                        @else
+                            <button type="button" class="btn btn-secondary btn-lg" id="submitBtn" disabled>
+                                <i class="bi bi-lock me-2"></i>Student Only
+                            </button>
+                        @endif
                     </div>
                 </div>
             </div>
@@ -925,9 +958,11 @@
                         return false;
                     }
                 } else if (!field.value.trim()) {
-                    alert('Please complete all required fields before proceeding.');
+                    showFieldError(field);
                     field.focus();
                     return false;
+                } else {
+                    clearFieldError(field);
                 }
             }
 
@@ -941,6 +976,30 @@
 
             return true;
         }
+
+        function showFieldError(field) {
+            field.classList.add('is-invalid');
+
+            if (field.id === 'feedback_comments') {
+                document.getElementById('feedbackError')?.classList.add('is-visible');
+                document.getElementById('feedbackHelp')?.classList.add('d-none');
+            }
+        }
+
+        function clearFieldError(field) {
+            field.classList.remove('is-invalid');
+
+            if (field.id === 'feedback_comments') {
+                document.getElementById('feedbackError')?.classList.remove('is-visible');
+                document.getElementById('feedbackHelp')?.classList.remove('d-none');
+            }
+        }
+
+        document.getElementById('feedback_comments')?.addEventListener('input', function() {
+            if (this.value.trim()) {
+                clearFieldError(this);
+            }
+        });
 
         // Handle form submission
         document.getElementById('evaluationForm').addEventListener('submit', function(e) {
