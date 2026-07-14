@@ -32,56 +32,34 @@
         ->sort()
         ->values();
 
-    $predefinedDepartments = [
-        'Academic Department',
-        'Admissions and Financial Aid Department',
-        'Basic Education',
-        'Campus Development Department',
-        'College of Arts & Sciences',
+    $officialDepartments = [
+        'College of Nursing',
         'College of Dentistry',
+        'College of Arts and Sciences',
         'College of Medical Technology',
         'College of Medicine',
-        'College of Nursing',
         'College of Optometry',
         'College of Pharmacy',
         'College of Physical Therapy',
-        'Executive Vice Chair',
-        'Executive Vice President',
-        'External Affairs Office',
-        'Finance Department',
-        'Human Resource Department',
-        'Information Technology Department',
-        'Institute of Education',
-        'Institutional Research Office',
-        'Internal Audit Office',
-        'Lead Institute',
-        'Library Services Department',
-        'Marketing Department',
-        'Office of the President',
-        'Office of the Registrar',
-        'Quality Assurance Office',
-        'Research Ethics Office',
+        'Basic Education',
         'School of Business and Management',
-        'Student Affairs Services',
     ];
 
     $container = 'container-xxl';
     $accessLevels = collect(auth()->user()?->access_level ?? []);
     $isAdmin = auth()->user()?->role === 'Admin';
 
-    $departmentSelectOptions = collect($isAdmin ? $predefinedDepartments : [])
-        ->merge($departmentFilterOptions ?? [])
-        ->merge($users->flatMap(function ($user) {
-            return collect(explode(',', $user->department ?? ''))
-                ->map(function ($value) {
-                    return trim($value);
-                })
-                ->filter(function ($value) {
-                    return $value !== '';
-                });
-        }))
-        ->unique()
-        ->sort()
+    $departmentSelectOptions = collect($officialDepartments)
+        ->when(!$isAdmin, function ($departments) use ($departmentFilterOptions) {
+            $allowedDepartments = collect($departmentFilterOptions ?? [])
+                ->map(fn ($department) => trim((string) $department))
+                ->filter(fn ($department) => $department !== '')
+                ->values();
+
+            return $allowedDepartments->isEmpty()
+                ? collect()
+                : $departments->intersect($allowedDepartments)->values();
+        })
         ->values();
 
     $canManageFaculties = $isAdmin || $accessLevels->contains('Manage Faculties');
