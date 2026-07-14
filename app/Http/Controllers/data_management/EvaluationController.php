@@ -11,6 +11,7 @@ use App\Support\AuditLogger;
 use App\Support\BrandedQrCode;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Response;
+use Illuminate\Database\QueryException;
 use Maatwebsite\Excel\Facades\Excel;
 use Carbon\Carbon;
 use ZipArchive;
@@ -1004,9 +1005,19 @@ class EvaluationController extends Controller
             ->orderBy('created_at', 'desc')
             ->get();
 
+        $studentUserId = auth()->id();
         $canSubmitEvaluation = strtolower((string) auth()->user()?->role) === 'student';
+        $evaluatedScheduleIds = $canSubmitEvaluation
+            ? EvaluationResponse::where('evaluation_id', $evaluation->id)
+                ->where('student_user_id', $studentUserId)
+                ->pluck('schedule_id')
+                ->filter()
+                ->map(fn ($id) => (int) $id)
+                ->values()
+                ->all()
+            : [];
 
-        return view('content.data-management.evaluation-files.evaluation-form', compact('evaluation', 'schedules', 'canSubmitEvaluation'));
+        return view('content.data-management.evaluation-files.evaluation-form', compact('evaluation', 'schedules', 'canSubmitEvaluation', 'evaluatedScheduleIds'));
     }
 
     public function submitResponse(Request $request, $token)
@@ -1027,11 +1038,24 @@ class EvaluationController extends Controller
             'feedback_comments' => 'required|string|max:1000',
         ]);
 
+        $studentUserId = $request->user()?->id;
         $schedule = Schedule::with(['facultyCourse.course'])->findOrFail($request->schedule_id);
         $course = optional($schedule->facultyCourse)->course;
 
         $ipAddress = $request->ip();
         $scheduleId = $request->schedule_id;
+
+        $alreadyEvaluated = EvaluationResponse::where('evaluation_id', $evaluation->id)
+            ->where('schedule_id', $scheduleId)
+            ->where('student_user_id', $studentUserId)
+            ->exists();
+
+        if ($alreadyEvaluated) {
+            return back()
+                ->with('error', 'Already evaluated')
+                ->withInput();
+        }
+
         $cooldownMinutes = 1; // 1 minute cooldown
 
         // Check if IP is still in cooldown period for this specific schedule
@@ -1043,17 +1067,28 @@ class EvaluationController extends Controller
             return back()->with('error', "Please wait {$remainingTime} before submitting another evaluation for this course.")->withInput();
         }
 
-        EvaluationResponse::create([
-            'evaluation_id' => $evaluation->id,
-            'schedule_id' => $request->schedule_id,
-            'ip_address' => $ipAddress,
-            'effectiveness_rating' => $request->effectiveness_rating,
-            'feedback_comments' => $request->feedback_comments,
-            'course_code_snapshot' => $course->class_code ?? null,
-            'course_name_snapshot' => $course->subject_code ?? null,
-            'schedule_time_snapshot' => $schedule->time,
-            'schedule_days_snapshot' => $schedule->day,
-        ]);
+        try {
+            EvaluationResponse::create([
+                'evaluation_id' => $evaluation->id,
+                'schedule_id' => $request->schedule_id,
+                'student_user_id' => $studentUserId,
+                'ip_address' => $ipAddress,
+                'effectiveness_rating' => $request->effectiveness_rating,
+                'feedback_comments' => $request->feedback_comments,
+                'course_code_snapshot' => $course->class_code ?? null,
+                'course_name_snapshot' => $course->subject_code ?? null,
+                'schedule_time_snapshot' => $schedule->time,
+                'schedule_days_snapshot' => $schedule->day,
+            ]);
+        } catch (QueryException $exception) {
+            if ((string) $exception->getCode() === '23000') {
+                return back()
+                    ->with('error', 'Already evaluated')
+                    ->withInput();
+            }
+
+            throw $exception;
+        }
 
         return back()->with('success', 'Thank you! Your evaluation has been submitted successfully.');
     }

@@ -10,6 +10,7 @@ class EvaluationResponse extends Model
     protected $fillable = [
         'evaluation_id',
         'schedule_id',
+        'student_user_id',
         'ip_address',
         'effectiveness_rating',
         'feedback_comments',
@@ -27,6 +28,11 @@ class EvaluationResponse extends Model
     public function schedule()
     {
         return $this->belongsTo(Schedule::class);
+    }
+
+    public function student()
+    {
+        return $this->belongsTo(User::class, 'student_user_id');
     }
 
     public function getEffectivenessTextAttribute()

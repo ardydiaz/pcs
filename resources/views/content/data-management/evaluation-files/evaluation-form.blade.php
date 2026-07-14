@@ -266,7 +266,7 @@
         .form-container {
             position: relative;
             z-index: 1;
-            max-width: 880px;
+            max-width: 1080px;
             padding: 24px;
         }
 
@@ -330,7 +330,7 @@
 
         .progress-bar-custom {
             height: 8px;
-            max-width: 760px;
+            max-width: 980px;
             margin: 0 auto 18px;
             border-radius: 999px;
             background: rgba(255, 255, 255, 0.34);
@@ -687,6 +687,7 @@
                 <h3 class="section-title">Course Selection</h3>
 
                 @php
+                    $evaluatedScheduleIds = collect($evaluatedScheduleIds ?? [])->map(fn ($id) => (int) $id)->all();
                     $sectionOptions = $schedules
                         ->map(function ($schedule) {
                             return optional($schedule->facultyCourse)->section;
@@ -718,13 +719,19 @@
                                 $scheduleLabel = \App\Models\Schedule::formatScheduleLabel($schedule->day, $schedule->time);
                                 $course = $schedule->facultyCourse->course;
                                 $fullCourseLabel = trim(($course->class_code ?? '') . ' - ' . ($course->subject_code ?? '') . ' - ' . ($schedule->facultyCourse->section ?? '') . ' - ' . $scheduleLabel);
+                                $isAlreadyEvaluated = in_array((int) $schedule->id, $evaluatedScheduleIds, true);
+                                $displayCourseLabel = $isAlreadyEvaluated
+                                    ? 'Already evaluated - ' . $fullCourseLabel
+                                    : $fullCourseLabel;
                                 $shortCourseLabel = \Illuminate\Support\Str::limit($fullCourseLabel, 92);
                             @endphp
                             <option value="{{ $schedule->id }}"
                                 data-section="{{ optional($schedule->facultyCourse)->section }}"
                                 data-course-label="{{ $fullCourseLabel }}"
-                                title="{{ $fullCourseLabel }}">
-                                {{ $shortCourseLabel }}
+                                data-already-evaluated="{{ $isAlreadyEvaluated ? '1' : '0' }}"
+                                title="{{ $displayCourseLabel }}"
+                                @disabled($isAlreadyEvaluated)>
+                                {{ $isAlreadyEvaluated ? \Illuminate\Support\Str::limit($displayCourseLabel, 118) : $shortCourseLabel }}
                             </option>
                         @endforeach
                     </select>
@@ -1138,8 +1145,9 @@
             const options = scheduleSelect.querySelectorAll('option[data-section]');
             options.forEach((option) => {
                 const matches = selectedSection !== '' && option.dataset.section === selectedSection;
+                const alreadyEvaluated = option.dataset.alreadyEvaluated === '1';
                 option.hidden = !matches;
-                option.disabled = !matches;
+                option.disabled = !matches || alreadyEvaluated;
             });
             scheduleSelect.disabled = selectedSection === '';
             if (resetSchedule) {
