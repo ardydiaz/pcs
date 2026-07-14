@@ -32,60 +32,22 @@
         ['value' => 'View/Answer Forms', 'label' => 'View/Answer Forms'],
     ];
 
-    $predefinedDepartments = [
-        'Academic Department',
-        'Admissions and Financial Aid Department',
-        'Basic Education',
-        'Campus Development Department',
-        'College of Arts & Sciences',
-        'College of Dentistry',
-        'College of Medical Technology',
-        'College of Medicine',
-        'College of Nursing',
-        'College of Optometry',
-        'College of Pharmacy',
-        'College of Physical Therapy',
-        'Executive Vice Chair',
-        'Executive Vice President',
-        'External Affairs Office',
-        'Finance Department',
-        'Human Resource Department',
-        'Information Technology Department',
-        'Institute of Education',
-        'Institutional Research Office',
-        'Internal Audit Office',
-        'Lead Institute',
-        'Library Services Department',
-        'Marketing Department',
-        'Office of the President',
-        'Office of the Registrar',
-        'Quality Assurance Office',
-        'Research Ethics Office',
-        'School of Business and Management',
-        'Student Affairs Services',
-    ];
-
-    $departmentOptions = (isset($departmentOptions) ? collect($departmentOptions) : $enhancedUsers
-            ->flatMap(function ($user) {
-                $raw = $user->resolved_department ?? '';
-                return collect(explode(',', $raw))
-                    ->map(function ($value) {
-                        return trim($value);
-                    })
-                    ->filter(function ($value) {
-                        return $value !== '';
-                    })
-                    ->values();
-            }))
+    $departmentOptions = (isset($departmentOptions) ? collect($departmentOptions) : collect([
+            'College of Nursing',
+            'College of Dentistry',
+            'College of Arts and Sciences',
+            'College of Medical Technology',
+            'College of Medicine',
+            'College of Optometry',
+            'College of Pharmacy',
+            'College of Physical Therapy',
+            'Basic Education',
+            'School of Business and Management',
+        ]))
         ->unique()
-        ->sort()
         ->values();
 
-    $departmentSelectOptions = collect($predefinedDepartments)
-        ->merge($departmentOptions)
-        ->unique()
-        ->sort()
-        ->values();
+    $departmentSelectOptions = $departmentOptions;
 
     $jobTitleOptions = (isset($jobTitleOptions) ? collect($jobTitleOptions) : $enhancedUsers
             ->pluck('resolved_job_title'))

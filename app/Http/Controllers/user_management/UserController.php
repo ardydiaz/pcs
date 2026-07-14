@@ -26,6 +26,19 @@ class UserController extends Controller
         'View/Answer Forms',
     ];
 
+    private const OFFICIAL_DEPARTMENTS = [
+        'College of Nursing',
+        'College of Dentistry',
+        'College of Arts and Sciences',
+        'College of Medical Technology',
+        'College of Medicine',
+        'College of Optometry',
+        'College of Pharmacy',
+        'College of Physical Therapy',
+        'Basic Education',
+        'School of Business and Management',
+    ];
+
     /**
      * Display the list of users in the management console.
      */
@@ -33,7 +46,7 @@ class UserController extends Controller
     {
         return view('content.user-management.users', [
             'users' => collect(),
-            'departmentOptions' => $this->getDistinctListOptions(['users.department', 'faculties.department']),
+            'departmentOptions' => collect(self::OFFICIAL_DEPARTMENTS),
             'jobTitleOptions' => $this->getDistinctListOptions(['users.job_title', 'faculties.job_title']),
         ]);
     }
