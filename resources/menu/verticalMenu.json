@@ -13,6 +13,12 @@
       "slug": "reports"
     },
     {
+      "url": "/department-org-chart",
+      "name": "Department Org Chart",
+      "icon": "menu-icon tf-icons bx bx-sitemap",
+      "slug": "department-org-chart"
+    },
+    {
       "menuHeader": "Data Management"
     },
     {

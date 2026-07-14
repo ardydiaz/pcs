@@ -101,12 +101,13 @@ a:hover {
 
 .layout-menu .menu-item.active > .menu-link {
   background: linear-gradient(135deg, var(--mcu-gold-ignite), var(--mcu-heritage-gold));
-  color: var(--mcu-purple-midnight);
+  color: #000000 !important;
   box-shadow: 0 0.55rem 1rem rgba(246, 182, 45, 0.26);
 }
 
+.layout-menu .menu-item.active > .menu-link div,
 .layout-menu .menu-item.active > .menu-link .menu-icon {
-  color: var(--mcu-purple-midnight);
+  color: #000000 !important;
 }
 
 .layout-navbar,

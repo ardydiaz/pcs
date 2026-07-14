@@ -11,6 +11,7 @@ use App\Http\Controllers\data_management\EvaluationController;
 use App\Http\Controllers\pages\AccountSettingsAccount;
 use App\Http\Controllers\user_management\UserController as UserManagementController;
 use App\Http\Controllers\user_management\AuditLogsController;
+use App\Http\Controllers\organization\DepartmentOrgChartController;
 
 /*
 |--------------------------------------------------------------------------
@@ -47,6 +48,8 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/reports/metric-details', [ReportsController::class, 'getMetricDetails'])->name('reports.metric.details')->middleware('access.level:reports');
     Route::get('/reports/department-faculties', [ReportsController::class, 'getDepartmentFaculties'])->name('reports.department.faculties')->middleware('access.level:reports');
     Route::get('/reports/department-faculties/export', [ReportsController::class, 'exportDepartmentFaculties'])->name('reports.department.export')->middleware('access.level:reports');
+    Route::get('/department-org-chart', [DepartmentOrgChartController::class, 'index'])->name('department-org-chart')->middleware('access.level:reports');
+    Route::post('/department-org-chart/clean-departments', [DepartmentOrgChartController::class, 'cleanDepartments'])->name('department-org-chart.clean')->middleware('admin');
     
     // Faculty Management Routes
     Route::get('/data-management/faculties', [FacultyController::class, 'index'])->name('dm.faculties')->middleware('access.level:faculties');

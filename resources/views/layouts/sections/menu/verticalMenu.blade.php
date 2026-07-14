@@ -38,6 +38,7 @@
     $visibilityBySlug = [
       'dashboard' => $canAccessDashboard,
       'reports' => $canViewReports,
+      'department-org-chart' => $canViewReports,
       'dm.faculties' => $canManageFaculties,
       'dm' => $canManageCourses,
       'dm.courses' => $canManageCourses,
