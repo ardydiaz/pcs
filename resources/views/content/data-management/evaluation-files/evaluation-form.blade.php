@@ -328,6 +328,66 @@
             border: 1px solid rgba(255, 183, 54, 0.34);
         }
 
+        .evaluation-context {
+            display: grid;
+            grid-template-columns: minmax(0, 1.35fr) minmax(220px, 0.65fr);
+            gap: 1rem;
+            margin: 0 auto 18px;
+            padding: 18px;
+            border-radius: 22px;
+            background:
+                radial-gradient(circle at 100% 0%, rgba(255, 183, 54, 0.18), transparent 14rem),
+                rgba(255, 255, 255, 0.96);
+            border: 1px solid rgba(255, 255, 255, 0.72);
+            box-shadow: 0 22px 58px rgba(15, 23, 42, 0.16);
+        }
+
+        .evaluation-context-label {
+            margin: 0 0 0.25rem;
+            font-size: 0.72rem;
+            font-weight: 800;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: var(--mcu-muted);
+        }
+
+        .evaluation-context-name {
+            margin: 0;
+            color: var(--mcu-purple);
+            font-size: clamp(1.35rem, 2vw, 2rem);
+            font-weight: 900;
+            line-height: 1.1;
+        }
+
+        .evaluation-context-program {
+            margin: 0.55rem 0 0;
+            color: #27364f;
+            font-weight: 700;
+        }
+
+        .evaluation-context .department-pill-group {
+            justify-content: flex-start;
+        }
+
+        .evaluation-context-meta {
+            display: grid;
+            gap: 0.75rem;
+        }
+
+        .evaluation-context-item {
+            border-radius: 16px;
+            border: 1px solid #eadff0;
+            background: #ffffff;
+            padding: 0.85rem 1rem;
+        }
+
+        .evaluation-context-value {
+            margin: 0;
+            color: #1f2937;
+            font-weight: 800;
+            line-height: 1.25;
+        }
+
         .progress-bar-custom {
             height: 8px;
             max-width: 980px;
@@ -545,6 +605,12 @@
                 align-self: flex-start;
             }
 
+            .evaluation-context {
+                grid-template-columns: 1fr;
+                padding: 16px;
+                border-radius: 18px;
+            }
+
             .section-card {
                 padding: 26px 20px;
                 border-radius: 20px;
@@ -559,6 +625,18 @@
 
 <body>
     <div class="form-container">
+        @php
+            $programLabel = $evaluation->resolved_program_label;
+            $facultyDepartments = collect(explode(',', $evaluation->resolved_faculty_department ?? ''))
+                ->map(function ($value) {
+                    return trim($value);
+                })
+                ->filter(function ($value) {
+                    return $value !== '';
+                })
+                ->values();
+        @endphp
+
         <div class="survey-brand">
             <div class="survey-brand-main">
                 <img src="{{ asset('storage/images/logo_color.png') }}" alt="MCU logo" class="survey-brand-logo">
@@ -568,6 +646,33 @@
                 </div>
             </div>
             <div class="survey-brand-term">{{ $evaluation->academic_year }} | {{ $evaluation->semester }} Semester</div>
+        </div>
+
+        <div class="evaluation-context" id="evaluationContext">
+            <div>
+                <p class="evaluation-context-label">Faculty to Evaluate</p>
+                <h1 class="evaluation-context-name">{{ $evaluation->resolved_faculty_name }}</h1>
+                @if ($programLabel !== '')
+                    <p class="evaluation-context-program">{{ $programLabel }}</p>
+                @endif
+                <div class="department-pill-group justify-content-start">
+                    @forelse($facultyDepartments as $department)
+                        <span class="department-pill">{{ $department }}</span>
+                    @empty
+                        <span class="department-pill">No department</span>
+                    @endforelse
+                </div>
+            </div>
+            <div class="evaluation-context-meta">
+                <div class="evaluation-context-item">
+                    <p class="evaluation-context-label">School Year</p>
+                    <p class="evaluation-context-value">{{ $evaluation->academic_year }}</p>
+                </div>
+                <div class="evaluation-context-item">
+                    <p class="evaluation-context-label">Semester</p>
+                    <p class="evaluation-context-value">{{ $evaluation->semester }} Semester</p>
+                </div>
+            </div>
         </div>
 
         <!-- Progress Bar (hidden during thank you screens) -->
@@ -616,32 +721,7 @@
 
             <!-- Section 1: Header & Privacy Consent -->
             <div class="section-card active" data-section="1">
-                <div class="header-section">
-                    <h1>{{ $evaluation->resolved_faculty_name }}</h1>
-                    @php
-                        $programLabel = $evaluation->resolved_program_label;
-                        $facultyDepartments = collect(explode(',', $evaluation->resolved_faculty_department ?? ''))
-                            ->map(function ($value) {
-                                return trim($value);
-                            })
-                            ->filter(function ($value) {
-                                return $value !== '';
-                            })
-                            ->values();
-                    @endphp
-                    <div class="department-pill-group">
-                        @forelse($facultyDepartments as $department)
-                            <span class="department-pill">{{ $department }}</span>
-                        @empty
-                            <span class="department-pill">No department</span>
-                        @endforelse
-                    </div>
-                    @if ($programLabel !== '')
-                        <p class="fw-semibold mb-1">{{ $programLabel }}</p>
-                    @endif
-                    <p class="text-muted">{{ $evaluation->semester }} Semester {{ $evaluation->academic_year }}
-                        Post-Class Student Survey</p>
-                </div>
+                <h3 class="section-title">Privacy Consent</h3>
 
                 <div class="consent-section">
                     <h4 class="text-primary mb-3">DATA PRIVACY STATEMENT</h4>
