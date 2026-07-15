@@ -16,6 +16,19 @@ use ZipArchive;
 
 class ReportsController extends Controller
 {
+    private const OFFICIAL_DEPARTMENTS = [
+        'College of Nursing',
+        'College of Dentistry',
+        'College of Arts and Sciences',
+        'College of Medical Technology',
+        'College of Medicine',
+        'College of Optometry',
+        'College of Pharmacy',
+        'College of Physical Therapy',
+        'Basic Education',
+        'School of Business and Management',
+    ];
+
     private const EXCLUDED_DEPARTMENTS = [
         'Academic Department',
         'Research Ethics Office',
@@ -52,6 +65,9 @@ class ReportsController extends Controller
         }
 
         $selectedDepartment = $request->get('department', 'all');
+        if ($selectedDepartment !== 'all') {
+            $selectedDepartment = $this->normalizeDepartmentName($selectedDepartment) ?? $selectedDepartment;
+        }
         $selectedAcademicYear = $request->get('academic_year', 'all');
         $selectedSemester = $request->get('semester', 'all');
         $selectedSubjectType = $request->get('subject_type', 'all');
@@ -85,16 +101,17 @@ class ReportsController extends Controller
             ->reject(function ($department) use ($excludedDepartments) {
                 return in_array($department, $excludedDepartments, true);
             })
-            // Deduplicate case-insensitively, prefer mixed-case over ALL-CAPS
-            ->groupBy(fn($d) => strtolower($d))
-            ->map(fn($group) => $group->first(fn($v) => $v !== strtoupper($v)) ?? $group->first())
-            ->sort()
+            ->filter(fn ($department) => in_array($department, self::OFFICIAL_DEPARTMENTS, true))
+            ->unique()
+            ->sortBy(fn ($department) => array_search($department, self::OFFICIAL_DEPARTMENTS, true))
             ->values();
         if ($isDepartmentScoped) {
             $departments = $lockedDepartments
                 ->reject(function ($department) use ($excludedDepartments) {
                     return in_array($department, $excludedDepartments, true);
                 })
+                ->filter(fn ($department) => in_array($department, self::OFFICIAL_DEPARTMENTS, true))
+                ->unique()
                 ->values();
         }
 
@@ -121,23 +138,13 @@ class ReportsController extends Controller
         }
 
         if ($isDepartmentScoped && $lockedDepartments->isNotEmpty()) {
-            $evaluationsQuery->where(function ($query) use ($lockedDepartments) {
-                foreach ($lockedDepartments as $department) {
-                    $query->orWhereRaw(
-                        "FIND_IN_SET(?, REPLACE(faculty_department_snapshot, ', ', ','))",
-                        [$department]
-                    );
-                }
-            });
+            $this->whereAnyDepartment($evaluationsQuery, $lockedDepartments->all(), 'faculty_department_snapshot');
         } elseif ($isDepartmentScoped && $lockedDepartments->isEmpty()) {
             $evaluationsQuery->whereRaw('0 = 1');
         }
 
         if ($selectedDepartment !== 'all') {
-            $evaluationsQuery->whereRaw(
-                "FIND_IN_SET(?, REPLACE(faculty_department_snapshot, ', ', ','))",
-                [$selectedDepartment]
-            );
+            $this->whereAnyDepartment($evaluationsQuery, [$selectedDepartment], 'faculty_department_snapshot');
         }
 
         // Apply academic year and semester filters
@@ -1608,9 +1615,132 @@ class ReportsController extends Controller
         } else {
             $items = preg_split('/\s*,\s*/', $departments);
         }
-        $normalized = array_map(static fn ($value) => trim((string) $value), $items);
+        $normalized = array_map(function ($value) {
+            $value = preg_replace('/\s+/', ' ', trim((string) $value));
+            return $this->normalizeDepartmentName($value) ?? $value;
+        }, $items);
         $filtered = array_filter($normalized, static fn ($value) => $value !== '');
         return array_values(array_unique($filtered));
+    }
+
+    private function normalizeDepartmentName(?string $department): ?string
+    {
+        $department = preg_replace('/\s+/', ' ', trim((string) ($department ?? '')));
+
+        if ($department === '') {
+            return null;
+        }
+
+        foreach (self::OFFICIAL_DEPARTMENTS as $officialDepartment) {
+            if (strcasecmp($department, $officialDepartment) === 0) {
+                return $officialDepartment;
+            }
+        }
+
+        $map = [
+            'nursing' => 'College of Nursing',
+            'con' => 'College of Nursing',
+            'bs nursing' => 'College of Nursing',
+            'bsn' => 'College of Nursing',
+            'bachelor of science in nursing' => 'College of Nursing',
+            'dentistry' => 'College of Dentistry',
+            'cod' => 'College of Dentistry',
+            'dmd' => 'College of Dentistry',
+            'dds' => 'College of Dentistry',
+            'msd' => 'College of Dentistry',
+            'msdo' => 'College of Dentistry',
+            'master of science in dentistry' => 'College of Dentistry',
+            'master of science in dentistry with specialization in orthodontics' => 'College of Dentistry',
+            'cas' => 'College of Arts and Sciences',
+            'arts and sciences' => 'College of Arts and Sciences',
+            'bachelor of arts in communication' => 'College of Arts and Sciences',
+            'communication' => 'College of Arts and Sciences',
+            'psychology' => 'College of Arts and Sciences',
+            'bs psych' => 'College of Arts and Sciences',
+            'bspsych' => 'College of Arts and Sciences',
+            'ab communication' => 'College of Arts and Sciences',
+            'bachelor of science in psychology' => 'College of Arts and Sciences',
+            'bsit' => 'College of Arts and Sciences',
+            'cas bs in information technology' => 'College of Arts and Sciences',
+            'information technology' => 'College of Arts and Sciences',
+            'cmt' => 'College of Medical Technology',
+            'bs mt' => 'College of Medical Technology',
+            'bsmt' => 'College of Medical Technology',
+            'medical technology' => 'College of Medical Technology',
+            'bachelor of science in medical technology' => 'College of Medical Technology',
+            'medicine' => 'College of Medicine',
+            'com' => 'College of Medicine',
+            'college of medicine' => 'College of Medicine',
+            'optometry' => 'College of Optometry',
+            'coo' => 'College of Optometry',
+            'pharmacy' => 'College of Pharmacy',
+            'cop' => 'College of Pharmacy',
+            'physical therapy' => 'College of Physical Therapy',
+            'pt' => 'College of Physical Therapy',
+            'cpt' => 'College of Physical Therapy',
+            'bed' => 'Basic Education',
+            'bedd' => 'Basic Education',
+            'bed d' => 'Basic Education',
+            'beded' => 'Basic Education',
+            'basic education department' => 'Basic Education',
+            'business' => 'School of Business and Management',
+            'business and management' => 'School of Business and Management',
+            'school of business' => 'School of Business and Management',
+            'sbm' => 'School of Business and Management',
+            'bsba' => 'School of Business and Management',
+        ];
+
+        return $map[$this->departmentKey($department)] ?? null;
+    }
+
+    private function departmentAliases(string $department): array
+    {
+        $officialDepartment = $this->normalizeDepartmentName($department) ?? $department;
+
+        $aliases = [
+            'College of Nursing' => ['College of Nursing', 'Nursing', 'CON', 'BS Nursing', 'BSN', 'BACHELOR OF SCIENCE IN NURSING'],
+            'College of Dentistry' => ['College of Dentistry', 'Dentistry', 'COD', 'DMD', 'DDS', 'MSD', 'MSDO', 'Master of Science in Dentistry', 'Master of Science in Dentistry with specialization in Orthodontics'],
+            'College of Arts and Sciences' => ['College of Arts and Sciences', 'CAS', 'Arts and Sciences', 'BACHELOR OF ARTS IN COMMUNICATION', 'Communication', 'Psychology', 'BS Psych', 'BSPSYCH', 'AB Communication', 'BACHELOR OF SCIENCE IN PSYCHOLOGY', 'BSIT', 'CAS-BS IN INFORMATION TECHNOLOGY', 'Information Technology'],
+            'College of Medical Technology' => ['College of Medical Technology', 'CMT', 'BS MT', 'BSMT', 'Medical Technology', 'CMT - BS IN MEDICAL TECHNOLOGY', 'BACHELOR OF SCIENCE IN MEDICAL TECHNOLOGY'],
+            'College of Medicine' => ['College of Medicine', 'Medicine', 'COM', 'COLLEGE OF MEDICINE'],
+            'College of Optometry' => ['College of Optometry', 'Optometry', 'COO'],
+            'College of Pharmacy' => ['College of Pharmacy', 'Pharmacy', 'COP'],
+            'College of Physical Therapy' => ['College of Physical Therapy', 'Physical Therapy', 'PT', 'CPT'],
+            'Basic Education' => ['Basic Education', 'BED', 'BEDD', 'BEdD', 'Bed D', 'BEDED', 'Basic Education Department', 'Institute of Education'],
+            'School of Business and Management' => ['School of Business and Management', 'Business', 'Business and Management', 'School of Business', 'SBM', 'BSBA'],
+        ];
+
+        return array_values(array_unique($aliases[$officialDepartment] ?? [$officialDepartment]));
+    }
+
+    private function departmentKey(string $department): string
+    {
+        $key = strtolower($department);
+        $key = preg_replace('/[^a-z0-9]+/', ' ', $key);
+        return trim(preg_replace('/\s+/', ' ', $key));
+    }
+
+    private function whereAnyDepartment($query, array $departments, string $column): void
+    {
+        $aliases = collect($departments)
+            ->flatMap(fn ($department) => $this->departmentAliases((string) $department))
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($aliases->isEmpty()) {
+            $query->whereRaw('0 = 1');
+            return;
+        }
+
+        $query->where(function ($builder) use ($aliases, $column) {
+            foreach ($aliases as $department) {
+                $builder->orWhereRaw(
+                    "FIND_IN_SET(?, REPLACE($column, ', ', ','))",
+                    [$department]
+                );
+            }
+        });
     }
 
     private function resolveDepartmentScope(?User $user): array
