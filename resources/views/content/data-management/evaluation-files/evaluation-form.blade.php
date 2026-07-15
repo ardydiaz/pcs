@@ -487,6 +487,22 @@
             box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.12);
         }
 
+        .form-select.is-invalid {
+            border-color: #dc3545;
+            box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.12);
+        }
+
+        .consent-section.is-invalid,
+        .rating-container.is-invalid {
+            border-color: #dc3545;
+            box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.1);
+        }
+
+        .rating-container.is-invalid .rating-option {
+            border-color: rgba(220, 53, 69, 0.45);
+            background: #fff8f8;
+        }
+
         .field-error-message {
             color: #dc3545;
             display: none;
@@ -755,6 +771,10 @@
                             value="decline">
                         <label class="form-check-label" for="consent_decline">Decline</label>
                     </div>
+
+                    <div class="field-error-message" id="privacyConsentError">
+                        Please accept the privacy consent before proceeding.
+                    </div>
                 </div>
 
                 <div class="text-end">
@@ -787,6 +807,9 @@
                             <option value="{{ $section }}">{{ $section }}</option>
                         @endforeach
                     </select>
+                    <div class="field-error-message" id="sectionError">
+                        Please select your section before proceeding.
+                    </div>
                 </div>
 
                 <div class="mb-4">
@@ -820,6 +843,9 @@
                         <span id="selectedCoursePreviewText"></span>
                     </div>
                     <div class="form-text">Class Code - Subject Code - Section - Schedule</div>
+                    <div class="field-error-message" id="scheduleError">
+                        Please select your course before proceeding.
+                    </div>
                 </div>
 
                 <div class="d-flex justify-content-between">
@@ -861,6 +887,9 @@
                                 required>
                             <label for="rating_4">Very Effective</label>
                         </div>
+                    </div>
+                    <div class="field-error-message" id="effectivenessRatingError">
+                        Please select an effectiveness rating before proceeding.
                     </div>
                 </div>
 
@@ -1041,12 +1070,13 @@
                     const radioGroup = currentCard.querySelectorAll(`[name="${field.name}"]`);
                     const isChecked = Array.from(radioGroup).some(radio => radio.checked);
                     if (!isChecked) {
-                        alert('Please complete all required fields before proceeding.');
+                        showFieldError(field);
                         return false;
+                    } else {
+                        clearFieldError(field);
                     }
                 } else if (!field.value.trim()) {
                     showFieldError(field);
-                    field.focus();
                     return false;
                 } else {
                     clearFieldError(field);
@@ -1056,7 +1086,7 @@
             if (currentSection === 1) {
                 const consentValue = document.querySelector('input[name="privacy_consent"]:checked')?.value;
                 if (consentValue === 'decline') {
-                    alert('You must accept the privacy consent to proceed with the evaluation.');
+                    showInlineError('privacy_consent');
                     return false;
                 }
             }
@@ -1065,24 +1095,117 @@
         }
 
         function showFieldError(field) {
-            field.classList.add('is-invalid');
+            const fieldName = field.name || field.id;
 
-            if (field.id === 'feedback_comments') {
-                document.getElementById('feedbackError')?.classList.add('is-visible');
-                document.getElementById('feedbackHelp')?.classList.add('d-none');
+            if (field.type === 'radio') {
+                showInlineError(fieldName);
+                return;
             }
+
+            field.classList.add('is-invalid');
+            showInlineError(fieldName);
+            field.focus({
+                preventScroll: true
+            });
+            field.scrollIntoView({
+                behavior: 'smooth',
+                block: 'center'
+            });
         }
 
         function clearFieldError(field) {
-            field.classList.remove('is-invalid');
+            const fieldName = field.name || field.id;
 
-            if (field.id === 'feedback_comments') {
-                document.getElementById('feedbackError')?.classList.remove('is-visible');
+            if (field.type === 'radio') {
+                clearInlineError(fieldName);
+                return;
+            }
+
+            field.classList.remove('is-invalid');
+            clearInlineError(fieldName);
+        }
+
+        function showInlineError(fieldName) {
+            const errorMap = {
+                privacy_consent: 'privacyConsentError',
+                section: 'sectionError',
+                schedule_id: 'scheduleError',
+                effectiveness_rating: 'effectivenessRatingError',
+                feedback_comments: 'feedbackError',
+            };
+
+            const groupMap = {
+                privacy_consent: '.consent-section',
+                effectiveness_rating: '.rating-container',
+            };
+
+            const errorEl = document.getElementById(errorMap[fieldName]);
+            errorEl?.classList.add('is-visible');
+
+            if (fieldName === 'feedback_comments') {
+                document.getElementById('feedbackHelp')?.classList.add('d-none');
+            }
+
+            const fieldEl = document.querySelector(`[name="${fieldName}"]`);
+            fieldEl?.classList.add('is-invalid');
+
+            const groupEl = groupMap[fieldName] ? document.querySelector(groupMap[fieldName]) : null;
+            groupEl?.classList.add('is-invalid');
+
+            (groupEl || fieldEl || errorEl)?.scrollIntoView({
+                behavior: 'smooth',
+                block: 'center'
+            });
+        }
+
+        function clearInlineError(fieldName) {
+            const errorMap = {
+                privacy_consent: 'privacyConsentError',
+                section: 'sectionError',
+                schedule_id: 'scheduleError',
+                effectiveness_rating: 'effectivenessRatingError',
+                feedback_comments: 'feedbackError',
+            };
+
+            const groupMap = {
+                privacy_consent: '.consent-section',
+                effectiveness_rating: '.rating-container',
+            };
+
+            document.getElementById(errorMap[fieldName])?.classList.remove('is-visible');
+            document.querySelectorAll(`[name="${fieldName}"]`).forEach((field) => {
+                field.classList.remove('is-invalid');
+            });
+            if (groupMap[fieldName]) {
+                document.querySelector(groupMap[fieldName])?.classList.remove('is-invalid');
+            }
+
+            if (fieldName === 'feedback_comments') {
                 document.getElementById('feedbackHelp')?.classList.remove('d-none');
             }
         }
 
         document.getElementById('feedback_comments')?.addEventListener('input', function() {
+            if (this.value.trim()) {
+                clearFieldError(this);
+            }
+        });
+
+        document.querySelectorAll('input[name="privacy_consent"]').forEach((field) => {
+            field.addEventListener('change', () => clearInlineError('privacy_consent'));
+        });
+
+        document.querySelectorAll('input[name="effectiveness_rating"]').forEach((field) => {
+            field.addEventListener('change', () => clearInlineError('effectiveness_rating'));
+        });
+
+        document.getElementById('section')?.addEventListener('change', function() {
+            if (this.value.trim()) {
+                clearFieldError(this);
+            }
+        });
+
+        document.getElementById('schedule_id')?.addEventListener('change', function() {
             if (this.value.trim()) {
                 clearFieldError(this);
             }
