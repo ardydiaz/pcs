@@ -397,15 +397,19 @@
         .responses-export-modal .modal-content {
             border: 0;
             border-radius: 1rem;
+            box-shadow: 0 1.5rem 3rem rgba(44, 0, 63, 0.24);
             overflow: hidden;
         }
 
         .responses-export-modal .modal-header {
+            align-items: center;
             background:
                 radial-gradient(circle at 100% 0%, rgba(255, 183, 54, 0.24), transparent 9rem),
                 linear-gradient(120deg, var(--mcu-purple-midnight), var(--mcu-purple));
             border-bottom: 0;
             color: #ffffff;
+            justify-content: space-between;
+            padding: 1.25rem 1.5rem;
         }
 
         .responses-export-modal .modal-title {
@@ -413,12 +417,88 @@
             font-weight: 900;
         }
 
+        .responses-export-close {
+            align-items: center;
+            background: rgba(255, 255, 255, 0.14);
+            border: 1px solid rgba(255, 255, 255, 0.24);
+            border-radius: 999px;
+            color: #ffffff;
+            display: inline-flex;
+            font-size: 1.2rem;
+            height: 2.15rem;
+            justify-content: center;
+            line-height: 1;
+            padding: 0;
+            transition: background-color 0.16s ease, transform 0.16s ease;
+            width: 2.15rem;
+        }
+
+        .responses-export-close:hover,
+        .responses-export-close:focus {
+            background: rgba(255, 183, 54, 0.22);
+            color: #ffffff;
+            transform: translateY(-1px);
+        }
+
         .responses-export-modal .modal-body {
             background: #fbf7ff;
+            padding: 1.5rem;
         }
 
         .responses-export-modal .modal-footer {
+            background: #ffffff;
             border-top: 1px solid var(--mcu-border);
+            gap: 0.75rem;
+            padding: 1rem 1.5rem;
+        }
+
+        .responses-export-modal .modal-footer .btn {
+            border-radius: 0.75rem;
+            font-weight: 800;
+            min-width: 7.5rem;
+            padding: 0.7rem 1.15rem;
+        }
+
+        .responses-export-modal .modal-footer .btn-outline-secondary {
+            background: #ffffff;
+            border-color: rgba(92, 41, 124, 0.28);
+            color: var(--mcu-purple);
+        }
+
+        .responses-export-modal .modal-footer .btn-outline-secondary:hover,
+        .responses-export-modal .modal-footer .btn-outline-secondary:focus {
+            background: var(--mcu-gold-soft);
+            border-color: var(--mcu-gold);
+            color: var(--mcu-purple-midnight);
+        }
+
+        .responses-export-modal .modal-footer .btn-primary {
+            background: linear-gradient(135deg, var(--mcu-purple-midnight), var(--mcu-purple)) !important;
+            border: 0;
+            box-shadow: 0 0.75rem 1.5rem rgba(92, 41, 124, 0.2);
+        }
+
+        .responses-export-modal .modal-footer .btn-primary:hover,
+        .responses-export-modal .modal-footer .btn-primary:focus {
+            background: linear-gradient(135deg, var(--mcu-purple), var(--mcu-purple-haze)) !important;
+        }
+
+        .responses-export-modal .form-label {
+            color: #34445e;
+            font-weight: 800;
+        }
+
+        .responses-export-modal .form-control,
+        .responses-export-modal .form-select {
+            border-color: rgba(92, 41, 124, 0.18);
+            border-radius: 0.75rem;
+            min-height: 2.7rem;
+        }
+
+        .responses-export-modal .form-control:focus,
+        .responses-export-modal .form-select:focus {
+            border-color: var(--mcu-purple);
+            box-shadow: 0 0 0 0.2rem rgba(92, 41, 124, 0.12);
         }
         .str-orange{
             background: #DB6F3C;
@@ -516,8 +596,8 @@
                     <form method="GET" action="{{ route('dm.evaluation.responses.export', $evaluation) }}">
                         <div class="modal-header">
                             <h5 class="modal-title" id="exportResponsesLabel">Export Responses</h5>
-                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
-                                aria-label="Close"></button>
+                            <button type="button" class="responses-export-close" data-bs-dismiss="modal"
+                                aria-label="Close">×</button>
                         </div>
                         <div class="modal-body">
                             <div class="mb-3">
