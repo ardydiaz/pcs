@@ -118,6 +118,304 @@
             vertical-align: middle;
         }
 
+        .department-export-modal {
+            --mcu-purple-midnight: #3a0050;
+            --mcu-purple: #5c297c;
+            --mcu-purple-haze: #6f2a8f;
+            --mcu-gold: #ffb736;
+            --mcu-gold-soft: #fff3d4;
+            --mcu-border: rgba(92, 41, 124, 0.12);
+        }
+
+        .department-export-modal .modal-content {
+            border: 0;
+            border-radius: 1rem;
+            box-shadow: 0 1.5rem 3rem rgba(44, 0, 63, 0.24);
+            overflow: hidden;
+        }
+
+        .department-export-modal .modal-header {
+            align-items: center;
+            background:
+                radial-gradient(circle at 100% 0%, rgba(255, 183, 54, 0.26), transparent 9rem),
+                linear-gradient(120deg, var(--mcu-purple-midnight), var(--mcu-purple), var(--mcu-purple-haze));
+            border-bottom: 0;
+            color: #ffffff;
+            justify-content: space-between;
+            padding: 1.25rem 1.5rem;
+        }
+
+        .department-export-modal .modal-title {
+            color: #ffffff;
+            font-weight: 900;
+        }
+
+        .department-export-close {
+            align-items: center;
+            background: rgba(255, 255, 255, 0.14);
+            border: 1px solid rgba(255, 255, 255, 0.24);
+            border-radius: 999px;
+            color: #ffffff;
+            display: inline-flex;
+            font-size: 1.2rem;
+            height: 2.15rem;
+            justify-content: center;
+            line-height: 1;
+            padding: 0;
+            width: 2.15rem;
+        }
+
+        .department-export-close:hover,
+        .department-export-close:focus {
+            background: rgba(255, 183, 54, 0.22);
+            color: #ffffff;
+        }
+
+        .department-export-modal .modal-body {
+            background:
+                radial-gradient(circle at 100% 0%, rgba(255, 183, 54, 0.08), transparent 12rem),
+                #fbf7ff;
+            padding: 1.5rem;
+        }
+
+        .department-export-modal .form-label {
+            color: #34445e;
+            font-weight: 800;
+        }
+
+        .department-export-modal .form-control,
+        .department-export-modal .form-select {
+            border-color: rgba(92, 41, 124, 0.18);
+            border-radius: 0.75rem;
+            min-height: 2.7rem;
+        }
+
+        .department-export-modal .form-control:focus,
+        .department-export-modal .form-select:focus {
+            border-color: var(--mcu-purple);
+            box-shadow: 0 0 0 0.2rem rgba(92, 41, 124, 0.12);
+        }
+
+        .department-export-filter-note {
+            background: #ffffff;
+            border: 1px solid var(--mcu-border);
+            border-radius: 0.85rem;
+            color: #52627a;
+            font-weight: 700;
+            padding: 0.85rem 1rem;
+        }
+
+        .department-export-filter-note .badge {
+            background: linear-gradient(135deg, var(--mcu-gold), #ffcf62) !important;
+            color: var(--mcu-purple-midnight) !important;
+            font-weight: 900;
+        }
+
+        .department-export-modal .modal-footer {
+            background: #ffffff;
+            border-top: 1px solid var(--mcu-border);
+            padding: 1rem 1.5rem;
+        }
+
+        .department-export-modal .modal-footer .btn {
+            border-radius: 0.75rem;
+            font-weight: 800;
+            min-width: 7.5rem;
+            padding: 0.7rem 1.15rem;
+        }
+
+        .department-export-modal .modal-footer .btn-outline-secondary {
+            background: #ffffff;
+            border-color: rgba(92, 41, 124, 0.28);
+            color: var(--mcu-purple);
+        }
+
+        .department-export-modal .modal-footer .btn-outline-secondary:hover,
+        .department-export-modal .modal-footer .btn-outline-secondary:focus {
+            background: var(--mcu-gold-soft);
+            border-color: var(--mcu-gold);
+            color: var(--mcu-purple-midnight);
+        }
+
+        .department-export-modal .modal-footer .btn-primary {
+            background: linear-gradient(135deg, var(--mcu-purple-midnight), var(--mcu-purple)) !important;
+            border: 0;
+            box-shadow: 0 0.75rem 1.5rem rgba(92, 41, 124, 0.2);
+        }
+
+        .reports-faculty-modal {
+            --mcu-purple-midnight: #3a0050;
+            --mcu-purple: #5c297c;
+            --mcu-purple-haze: #6f2a8f;
+            --mcu-gold: #ffb736;
+            --mcu-gold-soft: #fff3d4;
+            --mcu-border: rgba(92, 41, 124, 0.12);
+        }
+
+        .reports-faculty-modal .modal-content {
+            border: 0;
+            border-radius: 1rem;
+            box-shadow: 0 1.5rem 3rem rgba(44, 0, 63, 0.24);
+            overflow: hidden;
+        }
+
+        .reports-faculty-modal .modal-header {
+            align-items: center;
+            background:
+                radial-gradient(circle at 100% 0%, rgba(255, 183, 54, 0.26), transparent 12rem),
+                linear-gradient(120deg, var(--mcu-purple-midnight), var(--mcu-purple), var(--mcu-purple-haze));
+            border-bottom: 0;
+            color: #ffffff;
+            justify-content: space-between;
+            padding: 1.25rem 1.5rem;
+        }
+
+        .reports-faculty-modal .modal-title {
+            color: #ffffff;
+            font-weight: 900;
+        }
+
+        .reports-faculty-modal .modal-title .badge {
+            background: linear-gradient(135deg, var(--mcu-gold), #ffcf62) !important;
+            color: var(--mcu-purple-midnight) !important;
+            font-weight: 900;
+        }
+
+        .reports-faculty-close {
+            align-items: center;
+            background: rgba(255, 255, 255, 0.14);
+            border: 1px solid rgba(255, 255, 255, 0.24);
+            border-radius: 999px;
+            color: #ffffff;
+            display: inline-flex;
+            font-size: 1.2rem;
+            height: 2.15rem;
+            justify-content: center;
+            line-height: 1;
+            padding: 0;
+            width: 2.15rem;
+        }
+
+        .reports-faculty-close:hover,
+        .reports-faculty-close:focus {
+            background: rgba(255, 183, 54, 0.22);
+            color: #ffffff;
+        }
+
+        .reports-faculty-modal .modal-body {
+            background:
+                radial-gradient(circle at 100% 0%, rgba(255, 183, 54, 0.08), transparent 14rem),
+                #fbf7ff;
+            padding: 1.5rem;
+        }
+
+        .reports-faculty-filter-summary {
+            background: #ffffff;
+            border: 1px solid var(--mcu-border);
+            border-radius: 0.9rem;
+            box-shadow: 0 0.45rem 1rem rgba(44, 0, 63, 0.05);
+            color: #52627a;
+        }
+
+        .reports-faculty-filter-summary .badge,
+        .reports-faculty-modal .bg-label-primary,
+        .reports-faculty-modal .bg-label-secondary {
+            background: #f4e9fb !important;
+            color: var(--mcu-purple) !important;
+            font-weight: 900;
+        }
+
+        .reports-faculty-modal .btn-outline-primary {
+            border-color: rgba(92, 41, 124, 0.35);
+            border-radius: 0.75rem;
+            color: var(--mcu-purple);
+            font-weight: 800;
+        }
+
+        .reports-faculty-modal .btn-outline-primary:hover,
+        .reports-faculty-modal .btn-outline-primary:focus {
+            background: linear-gradient(135deg, var(--mcu-purple-midnight), var(--mcu-purple));
+            border-color: var(--mcu-purple);
+            color: #ffffff;
+        }
+
+        .reports-faculty-modal .form-label {
+            color: #34445e;
+            font-weight: 800;
+        }
+
+        .reports-faculty-modal .form-control,
+        .reports-faculty-modal .form-select {
+            border-color: rgba(92, 41, 124, 0.18);
+            border-radius: 0.75rem;
+            min-height: 2.55rem;
+        }
+
+        .reports-faculty-modal .form-control:focus,
+        .reports-faculty-modal .form-select:focus {
+            border-color: var(--mcu-purple);
+            box-shadow: 0 0 0 0.2rem rgba(92, 41, 124, 0.12);
+        }
+
+        .reports-faculty-modal .faculty-modal-table {
+            background: #ffffff;
+            border: 1px solid var(--mcu-border);
+            border-radius: 0.95rem;
+            margin-bottom: 0;
+            overflow: hidden;
+        }
+
+        .reports-faculty-modal .faculty-modal-table thead th {
+            background: #fbf7ff;
+            border-bottom: 1px solid rgba(92, 41, 124, 0.1);
+            color: #71809a;
+            font-size: 0.72rem;
+            font-weight: 900;
+            letter-spacing: 0.08em;
+            padding: 1rem;
+            text-transform: uppercase;
+        }
+
+        .reports-faculty-modal .faculty-modal-table tbody td {
+            border-color: rgba(92, 41, 124, 0.08);
+            color: #26364d;
+            padding: 1rem;
+            vertical-align: middle;
+        }
+
+        .reports-faculty-modal .faculty-modal-table tbody tr:hover {
+            background: #fbf7ff;
+        }
+
+        .reports-faculty-modal .avatar-initial {
+            background: linear-gradient(135deg, var(--mcu-purple), var(--mcu-purple-haze)) !important;
+            box-shadow: 0 0.45rem 1rem rgba(92, 41, 124, 0.18);
+            color: #ffffff !important;
+            font-weight: 900;
+        }
+
+        .reports-faculty-modal .faculty-modal-table .badge {
+            border-radius: 999px;
+            font-weight: 900;
+            padding: 0.42rem 0.65rem;
+        }
+
+        .reports-faculty-modal .faculty-modal-table .bg-info,
+        .reports-faculty-modal .faculty-modal-table .bg-success {
+            background: linear-gradient(135deg, #5c297c, #6f2a8f) !important;
+            color: #ffffff !important;
+        }
+
+        .reports-faculty-modal .faculty-modal-table .progress {
+            background: #f1e8f5;
+            border-radius: 999px;
+            overflow: hidden;
+        }
+
+        .reports-faculty-modal .faculty-modal-table .progress-bar {
+            background: linear-gradient(90deg, var(--mcu-purple), var(--mcu-gold)) !important;
+        }
+
         .rating-progress {
             height: 6px;
         }
@@ -935,7 +1233,7 @@
     </div>
 
     {{-- Faculty Modal --}}
-    <div class="modal fade" id="facultyModal" tabindex="-1" aria-hidden="true">
+    <div class="modal fade reports-faculty-modal" id="facultyModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-xl">
             <div class="modal-content">
                 <div class="modal-header">
@@ -947,11 +1245,11 @@
                             </span>
                         @endif
                     </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <button type="button" class="reports-faculty-close" data-bs-dismiss="modal" aria-label="Close">×</button>
                 </div>
                 <div class="modal-body">
                     {{-- Active filter summary --}}
-                    <div class="alert alert-light border d-flex flex-wrap align-items-center gap-2 py-2 mb-3" id="modalFilterSummary">
+                    <div class="reports-faculty-filter-summary d-flex flex-wrap align-items-center gap-2 py-2 px-3 mb-3" id="modalFilterSummary">
                         <small class="text-muted me-1"><i class="bx bx-filter-alt me-1"></i>Showing faculty with responses for:</small>
                         @if($selectedAcademicYear !== 'all')
                             <span class="badge bg-label-primary">{{ $selectedAcademicYear }}</span>
@@ -1031,15 +1329,15 @@
     </div>
 
     {{-- Department Export Modal --}}
-    <div class="modal fade" id="departmentExportModal" tabindex="-1" aria-labelledby="departmentExportModalLabel"
+    <div class="modal fade department-export-modal" id="departmentExportModal" tabindex="-1" aria-labelledby="departmentExportModalLabel"
         aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
                 <form method="GET" id="departmentExportForm" action="{{ route('reports.department.export') }}">
                     <div class="modal-header">
                         <h5 class="modal-title" id="departmentExportModalLabel">Export Responses</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal"
-                            aria-label="Close"></button>
+                        <button type="button" class="department-export-close" data-bs-dismiss="modal"
+                            aria-label="Close">×</button>
                     </div>
                     <div class="modal-body">
                         <input type="hidden" name="department" id="departmentExportDepartment">
@@ -1072,11 +1370,11 @@
                             </select>
                         </div>
                         @if($selectedSubjectType !== 'all')
-                            <div class="mt-3 alert alert-light border py-2">
-                                <small class="text-muted">
+                            <div class="mt-3 department-export-filter-note">
+                                <small>
                                     <i class="bx bx-filter-alt me-1"></i>
                                     Subject type filter active:
-                                    <span class="badge {{ $selectedSubjectType === 'major' ? 'bg-success' : 'bg-warning text-dark' }}">
+                                    <span class="badge">
                                         {{ $selectedSubjectType === 'major' ? 'Professional Course' : 'Minor Course' }} Only
                                     </span>
                                 </small>
