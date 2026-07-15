@@ -46,7 +46,7 @@
             margin: 0;
             background: #f4f1f7;
             color: var(--ink);
-            font-family: Arial, Helvetica, sans-serif;
+            font-family: 'Roboto', Arial, Helvetica, sans-serif;
         }
 
         .toolbar {

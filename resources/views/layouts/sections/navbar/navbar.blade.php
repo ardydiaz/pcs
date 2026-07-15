@@ -85,7 +85,7 @@
           <!-- User -->
           <li class="nav-item navbar-dropdown dropdown-user dropdown">
             <a class="nav-link dropdown-toggle hide-arrow p-0" href="javascript:void(0);" data-bs-toggle="dropdown">
-              <div class="avatar avatar-online">
+              <div class="avatar avatar-online navbar-profile-ring">
                 @if($avatarSrc)
                   <img src="{{ $avatarSrc }}" alt="{{ $displayName }} profile photo"
                     class="w-px-40 h-px-40 rounded-circle object-fit-cover">
@@ -102,7 +102,7 @@
                 <a class="dropdown-item" href="javascript:void(0);">
                   <div class="d-flex">
                     <div class="flex-shrink-0 me-3">
-                      <div class="avatar avatar-online">
+                      <div class="avatar avatar-online navbar-profile-ring">
                         @if($avatarSrc)
                           <img src="{{ $avatarSrc }}" alt="{{ $displayName }} profile photo"
                             class="w-px-40 h-px-40 rounded-circle object-fit-cover">

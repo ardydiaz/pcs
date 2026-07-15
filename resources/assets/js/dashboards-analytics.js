@@ -64,7 +64,7 @@
           offsetX: -5
         },
         fontSize: '13px',
-        fontFamily: 'Public Sans',
+        fontFamily: 'Roboto',
         fontWeight: 400,
         labels: {
           colors: legendColor,
@@ -92,7 +92,7 @@
         labels: {
           style: {
             fontSize: '13px',
-            fontFamily: 'Public Sans',
+            fontFamily: 'Roboto',
             colors: labelColor
           }
         },
@@ -107,7 +107,7 @@
         labels: {
           style: {
             fontSize: '13px',
-            fontFamily: 'Public Sans',
+            fontFamily: 'Roboto',
             colors: labelColor
           }
         }
@@ -282,14 +282,14 @@
               color: legendColor,
               fontSize: '15px',
               fontWeight: '500',
-              fontFamily: 'Public Sans'
+              fontFamily: 'Roboto'
             },
             value: {
               offsetY: -25,
               color: headingColor,
               fontSize: '22px',
               fontWeight: '500',
-              fontFamily: 'Public Sans'
+              fontFamily: 'Roboto'
             }
           }
         }
@@ -445,7 +445,7 @@
               show: true,
               value: {
                 fontSize: '18px',
-                fontFamily: 'Public Sans',
+                fontFamily: 'Roboto',
                 fontWeight: 500,
                 color: headingColor,
                 offsetY: -17,
@@ -455,7 +455,7 @@
               },
               name: {
                 offsetY: 17,
-                fontFamily: 'Public Sans'
+                fontFamily: 'Roboto'
               },
               total: {
                 show: true,
@@ -609,7 +609,7 @@
               offsetY: 5,
               color: legendColor,
               fontSize: '12px',
-              fontFamily: 'Public Sans',
+              fontFamily: 'Roboto',
               show: true
             }
           }

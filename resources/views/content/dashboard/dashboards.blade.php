@@ -6,15 +6,184 @@
   @vite('resources/assets/vendor/libs/apex-charts/apex-charts.scss')
 @endsection
 
+@section('page-style')
+  <style>
+    .dashboard-modern {
+      --dash-purple-dark: #3a0050;
+      --dash-purple: #5c297c;
+      --dash-purple-soft: #7a3f92;
+      --dash-gold: #ffb736;
+      --dash-flame: #f0184d;
+      --dash-orange: #ff8738;
+      --dash-blue: #12a8b5;
+      --dash-card-shadow: 0 1.15rem 2.5rem rgba(58, 0, 80, 0.12);
+    }
+
+    .dashboard-modern .dashboard-brand-card,
+    .dashboard-modern .dashboard-panel-card,
+    .dashboard-modern .dashboard-metric-card {
+      border: 1px solid rgba(92, 41, 124, 0.1);
+      border-radius: 1.15rem;
+      box-shadow: var(--dash-card-shadow);
+      overflow: hidden;
+    }
+
+    .dashboard-modern .dashboard-brand-card,
+    .dashboard-modern .dashboard-metric-card {
+      position: relative;
+      color: #ffffff;
+      background:
+        linear-gradient(90deg, rgba(58, 0, 80, 0.96) 0 58%, rgba(58, 0, 80, 0.18) 58% 100%),
+        radial-gradient(circle at 78% 24%, rgba(255, 183, 54, 0.3), transparent 0 9rem),
+        radial-gradient(circle at 95% 108%, rgba(18, 168, 181, 0.34), transparent 0 12rem),
+        linear-gradient(120deg, var(--dash-purple-dark) 0 42%, var(--dash-flame) 42% 53%, var(--dash-orange) 53% 76%, var(--dash-purple-soft) 76% 100%);
+    }
+
+    .dashboard-modern .dashboard-metric-card {
+      background:
+        linear-gradient(90deg, rgba(58, 0, 80, 0.98) 0 68%, rgba(58, 0, 80, 0.38) 68% 100%),
+        radial-gradient(circle at 94% 96%, rgba(255, 183, 54, 0.2), transparent 0 7rem),
+        linear-gradient(120deg, var(--dash-purple-dark) 0 50%, var(--dash-flame) 50% 60%, var(--dash-orange) 60% 82%, var(--dash-purple-soft) 82% 100%);
+    }
+
+    .dashboard-modern .dashboard-brand-card::before,
+    .dashboard-modern .dashboard-metric-card::before {
+      content: "";
+      position: absolute;
+      inset: -35% -26% auto auto;
+      width: 22rem;
+      height: 22rem;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.12);
+      pointer-events: none;
+    }
+
+    .dashboard-modern .dashboard-brand-card::after,
+    .dashboard-modern .dashboard-metric-card::after {
+      content: "";
+      position: absolute;
+      right: -2rem;
+      bottom: -5rem;
+      width: 14rem;
+      height: 14rem;
+      border: 1px solid rgba(255, 183, 54, 0.32);
+      border-radius: 50%;
+      pointer-events: none;
+    }
+
+    .dashboard-modern .dashboard-metric-card::before {
+      right: -9rem;
+      top: -8rem;
+      width: 16rem;
+      height: 16rem;
+    }
+
+    .dashboard-modern .dashboard-metric-card::after {
+      right: -4.5rem;
+      bottom: -4rem;
+      width: 10rem;
+      height: 10rem;
+    }
+
+    .dashboard-modern .dashboard-brand-card .card-body,
+    .dashboard-modern .dashboard-metric-card .card-body {
+      position: relative;
+      z-index: 1;
+    }
+
+    .dashboard-modern .dashboard-brand-card .card-title,
+    .dashboard-modern .dashboard-brand-card p,
+    .dashboard-modern .dashboard-metric-card p,
+    .dashboard-modern .dashboard-metric-card h4,
+    .dashboard-modern .dashboard-metric-card h5,
+    .dashboard-modern .dashboard-metric-card span,
+    .dashboard-modern .dashboard-metric-card small,
+    .dashboard-modern .dashboard-metric-card .text-muted,
+    .dashboard-modern .dashboard-metric-card i {
+      color: #ffffff !important;
+    }
+
+    .dashboard-modern .dashboard-metric-card .badge {
+      background: rgba(255, 255, 255, 0.18) !important;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      color: #ffffff !important;
+    }
+
+    .dashboard-modern .dashboard-brand-card .btn {
+      border-color: rgba(255, 255, 255, 0.42);
+      color: #ffffff;
+      background: rgba(255, 255, 255, 0.12);
+      backdrop-filter: blur(8px);
+    }
+
+    .dashboard-modern .dashboard-brand-card .btn:hover {
+      background: var(--dash-gold);
+      border-color: var(--dash-gold);
+      color: var(--dash-purple-dark);
+    }
+
+    .dashboard-modern .dashboard-brand-card img {
+      filter: drop-shadow(0 1.2rem 1.4rem rgba(58, 0, 80, 0.22));
+    }
+
+    .dashboard-modern .dashboard-metric-card .avatar-initial {
+      background: rgba(255, 255, 255, 0.18) !important;
+      border: 1px solid rgba(255, 255, 255, 0.28);
+      color: #ffffff !important;
+      backdrop-filter: blur(8px);
+    }
+
+    .dashboard-modern .dashboard-panel-card {
+      position: relative;
+      background:
+        radial-gradient(circle at 100% 0%, rgba(255, 183, 54, 0.1), transparent 13rem),
+        linear-gradient(180deg, #ffffff, #fbf7ff);
+    }
+
+    .dashboard-modern .dashboard-panel-card .card-header {
+      background:
+        radial-gradient(circle at 85% 15%, rgba(255, 183, 54, 0.22), transparent 0 7rem),
+        linear-gradient(120deg, var(--dash-purple-dark), var(--dash-purple), rgba(240, 24, 77, 0.76));
+      border-bottom: 0;
+      color: #ffffff;
+    }
+
+    .dashboard-modern .dashboard-panel-card .card-title,
+    .dashboard-modern .dashboard-panel-card h5 {
+      color: inherit;
+      font-weight: 800;
+    }
+
+    .dashboard-modern .dashboard-panel-card .card-header h5,
+    .dashboard-modern .dashboard-panel-card .card-header p,
+    .dashboard-modern .dashboard-panel-card .card-header small,
+    .dashboard-modern .dashboard-panel-card .card-header .card-subtitle,
+    .dashboard-modern .dashboard-panel-card .card-header .text-muted {
+      color: #ffffff !important;
+    }
+
+    .dashboard-modern .dashboard-panel-card .avatar-initial {
+      background: rgba(92, 41, 124, 0.1) !important;
+      color: var(--dash-purple) !important;
+    }
+
+    .dashboard-modern .dashboard-panel-card .badge.bg-label-secondary {
+      background: rgba(255, 183, 54, 0.18) !important;
+      color: var(--dash-purple-dark) !important;
+    }
+  </style>
+@endsection
+
 @section('vendor-script')
   @vite('resources/assets/vendor/libs/apex-charts/apexcharts.js')
 @endsection
 
 @section('content')
+  <div class="dashboard-modern">
   <div class="row">
     <!-- Welcome Card -->
     <div class="col-xxl-8 mb-6 order-0">
-      <div class="card">
+      <div class="card dashboard-brand-card">
         <div class="d-flex align-items-start row">
           <div class="col-sm-7">
             <div class="card-body">
@@ -40,7 +209,7 @@
     <div class="col-lg-4 col-md-4 order-1">
       <div class="row">
         <div class="col-lg-6 col-md-12 col-6 mb-6">
-          <div class="card h-100">
+          <div class="card h-100 dashboard-metric-card">
             <div class="card-body">
               <div class="d-flex align-items-center gap-2 mb-1">
                 <div class="avatar flex-shrink-0">
@@ -58,7 +227,7 @@
           </div>
         </div>
         <div class="col-lg-6 col-md-12 col-6 mb-6">
-          <div class="card h-100">
+          <div class="card h-100 dashboard-metric-card">
             <div class="card-body">
               <div class="d-flex align-items-center gap-2 mb-1">
                 <div class="avatar flex-shrink-0">
@@ -82,7 +251,7 @@
   <div class="row">
     <!-- Response Trends -->
     <div class="col-12 col-xxl-8 order-2 order-md-3 order-xxl-2 mb-6">
-      <div class="card">
+      <div class="card dashboard-panel-card">
         <div class="row row-bordered g-0">
           <div class="col-lg-8">
             <div class="card-header d-flex align-items-center justify-content-between">
@@ -146,7 +315,7 @@
     <div class="col-12 col-md-8 col-lg-12 col-xxl-4 order-3 order-md-2">
       <div class="row">
         <div class="col-6 mb-6">
-          <div class="card h-100">
+          <div class="card h-100 dashboard-metric-card">
             <div class="card-body">
               <div class="d-flex align-items-center gap-2 mb-1">
                 <div class="avatar flex-shrink-0">
@@ -162,7 +331,7 @@
           </div>
         </div>
         <div class="col-6 mb-6">
-          <div class="card h-100">
+          <div class="card h-100 dashboard-metric-card">
             <div class="card-body">
               <div class="d-flex align-items-center gap-2 mb-1">
                 <div class="avatar flex-shrink-0">
@@ -178,7 +347,7 @@
           </div>
         </div>
         <div class="col-12 mb-6">
-          <div class="card">
+          <div class="card dashboard-metric-card">
             <div class="card-body">
               <div class="d-flex justify-content-between align-items-center flex-sm-row flex-column gap-10">
                 <div class="d-flex flex-sm-column flex-row align-items-start justify-content-between">
@@ -202,7 +371,7 @@
   <div class="row">
     <!-- Top Rated Faculties -->
     <div class="col-12 col-lg-6 order-0 mb-6">
-      <div class="card h-100">
+      <div class="card h-100 dashboard-panel-card">
         <div class="card-header d-flex justify-content-between">
           <div class="card-title mb-0">
             <h5 class="mb-1 me-2">Top Rated Faculties</h5>
@@ -257,7 +426,7 @@
 
     <!-- Low Rated Faculties -->
     <div class="col-12 col-lg-6 order-1 mb-6">
-      <div class="card h-100">
+      <div class="card h-100 dashboard-panel-card">
         <div class="card-header d-flex justify-content-between">
           <div class="card-title mb-0">
             <h5 class="mb-1 me-2">Low Rated Faculties</h5>
@@ -312,7 +481,7 @@
 
     <!-- Department Statistics -->
     <div class="col-12 col-lg-6 order-2 mb-6">
-      <div class="card h-100">
+      <div class="card h-100 dashboard-panel-card">
         <div class="card-header">
           <h5 class="card-title m-0 me-2">Department Performance</h5>
         </div>
@@ -348,7 +517,7 @@
 
     <!-- Recent Feedback -->
     <div class="col-12 col-lg-6 order-3 mb-6">
-      <div class="card h-100">
+      <div class="card h-100 dashboard-panel-card">
         <div class="card-header d-flex align-items-center justify-content-between">
           <h5 class="card-title m-0 me-2">Recent Feedback</h5>
         </div>
@@ -390,7 +559,7 @@
   @if($coursePerformance->count() > 0)
     <div class="row">
       <div class="col-12 mb-6">
-        <div class="card">
+        <div class="card dashboard-panel-card">
           <div class="card-header d-flex justify-content-between align-items-center">
             <h5 class="mb-0">Course Performance Overview</h5>
             <small class="text-muted">Top performing courses</small>
@@ -439,6 +608,7 @@
     </div>
   @endif
 
+  </div>
 @endsection
 
 @section('page-script')

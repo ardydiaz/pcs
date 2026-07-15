@@ -710,15 +710,18 @@
 
         .faculty-profile-metric,
         .faculty-profile-panel {
-            background: #ffffff;
-            border: 1px solid #e7edf5;
-            border-radius: 10px;
+            background:
+                radial-gradient(circle at 100% 0%, rgba(255, 183, 54, 0.08), transparent 10rem),
+                linear-gradient(180deg, #ffffff, #fbf7ff);
+            border: 1px solid rgba(92, 41, 124, 0.1);
+            border-radius: 1rem;
+            box-shadow: 0 0.85rem 1.85rem rgba(44, 0, 63, 0.08);
             padding: 1rem;
         }
 
         .faculty-profile-metric small,
         .faculty-profile-panel-label {
-            color: #8a9bb3;
+            color: #5c297c;
             display: block;
             font-size: 0.72rem;
             font-weight: 800;
@@ -727,10 +730,52 @@
         }
 
         .faculty-profile-metric strong {
-            color: #2f4056;
+            color: #2c003f;
             display: block;
-            font-size: 1.25rem;
+            font-size: 1.4rem;
             margin-top: 0.35rem;
+        }
+
+        .faculty-profile-metric {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .faculty-profile-metric::after {
+            content: "";
+            position: absolute;
+            right: -2.2rem;
+            bottom: -2.8rem;
+            width: 5rem;
+            height: 5rem;
+            border: 1px solid rgba(255, 183, 54, 0.35);
+            border-radius: 50%;
+        }
+
+        .faculty-profile-hero {
+            border: 1px solid rgba(255, 183, 54, 0.24);
+            border-radius: 1rem;
+            background:
+                radial-gradient(circle at 100% 0%, rgba(255, 183, 54, 0.24), transparent 12rem),
+                linear-gradient(120deg, #3a0050, #5c297c, rgba(236, 15, 90, 0.8));
+            color: #ffffff;
+            padding: 1rem 1.15rem;
+            box-shadow: 0 0.95rem 2rem rgba(44, 0, 63, 0.16);
+        }
+
+        .faculty-profile-hero-label {
+            color: #ffdc7a;
+            display: block;
+            font-size: 0.72rem;
+            font-weight: 900;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+        }
+
+        .faculty-profile-hero-title {
+            color: #ffffff;
+            font-weight: 800;
+            margin: 0.2rem 0 0;
         }
 
         .faculty-profile-list {
@@ -739,9 +784,11 @@
         }
 
         .faculty-profile-list-item {
-            border: 1px solid #e7edf5;
-            border-radius: 10px;
+            background: #ffffff;
+            border: 1px solid rgba(92, 41, 124, 0.1);
+            border-radius: 0.9rem;
             padding: 0.85rem;
+            box-shadow: 0 0.45rem 1rem rgba(44, 0, 63, 0.05);
         }
 
         .faculty-profile-link-row {
@@ -1015,12 +1062,64 @@
         }
 
         .evaluation-modal-header {
-            background-color: #f5f7fb;
-            border-bottom: 1px solid #e2e8f0;
+            background:
+                radial-gradient(circle at 100% 0%, rgba(255, 183, 54, 0.24), transparent 12rem),
+                linear-gradient(120deg, #3a0050, #5c297c, rgba(236, 15, 90, 0.76));
+            border-bottom: 0;
+            color: #ffffff;
             padding: 1rem 1.5rem;
         }
 
+        .evaluation-modal-header .modal-title {
+            color: #ffffff;
+            font-size: 1.25rem;
+            font-weight: 900;
+            letter-spacing: 0.01em;
+            line-height: 1.25;
+            text-shadow: 0 0.2rem 0.75rem rgba(44, 0, 63, 0.45);
+        }
+
+        .evaluation-modal-header small:first-child {
+            color: #ffdc7a !important;
+            display: inline-block;
+            font-size: 0.75rem;
+            font-weight: 900;
+            letter-spacing: 0.08em;
+            margin-bottom: 0.35rem;
+        }
+
+        .evaluation-modal-header #facultyProfileSubtitle {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.45rem;
+            margin-top: 0.35rem;
+            max-width: 58rem;
+        }
+
+        .faculty-profile-subtitle-chip {
+            align-items: center;
+            background: rgba(255, 255, 255, 0.14);
+            border: 1px solid rgba(255, 255, 255, 0.24);
+            border-radius: 999px;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16);
+            color: #ffffff;
+            display: inline-flex;
+            font-size: 0.82rem;
+            font-weight: 800;
+            line-height: 1.25;
+            padding: 0.35rem 0.7rem;
+        }
+
+        .faculty-profile-subtitle-chip.is-term {
+            background: rgba(255, 183, 54, 0.2);
+            border-color: rgba(255, 220, 122, 0.42);
+            color: #fff4cf;
+        }
+
         .evaluation-modal-body {
+            background:
+                radial-gradient(circle at 100% 0%, rgba(255, 183, 54, 0.08), transparent 16rem),
+                #fbf7ff;
             padding: 1.5rem;
         }
 
@@ -1031,7 +1130,7 @@
             transform: translateY(-50%);
             background: none;
             border: none;
-            color: #475569;
+            color: #ffffff;
             font-size: 1.35rem;
             line-height: 1;
             padding: 0;
@@ -1043,7 +1142,8 @@
         }
 
         .evaluation-modal-footer {
-            border-top: none;
+            background: #ffffff;
+            border-top: 1px solid rgba(92, 41, 124, 0.08);
             justify-content: flex-end;
             gap: 1rem;
             padding: 1rem 1.5rem;
@@ -3007,7 +3107,7 @@
             const qrBtn = document.getElementById('facultyProfileQrBtn');
 
             if (titleEl) titleEl.textContent = 'Loading profile...';
-            if (subtitleEl) subtitleEl.textContent = '';
+            if (subtitleEl) subtitleEl.innerHTML = '';
             if (responsesBtn) responsesBtn.classList.add('disabled');
             if (qrBtn) qrBtn.classList.add('disabled');
             if (bodyEl) {
@@ -3068,7 +3168,17 @@
 
             if (titleEl) titleEl.textContent = faculty.name || 'Unknown Faculty';
             if (subtitleEl) {
-                subtitleEl.textContent = `${faculty.department || 'N/A'} • ${faculty.academic_year || ''} ${faculty.semester || ''}`;
+                const subtitleChips = [
+                    faculty.department || 'N/A',
+                    faculty.academic_year || '',
+                    faculty.semester || '',
+                ].filter(Boolean);
+
+                subtitleEl.innerHTML = subtitleChips.map((value, index) => `
+                    <span class="faculty-profile-subtitle-chip ${index > 0 ? 'is-term' : ''}">
+                        ${escapeEvaluationHtml(value)}
+                    </span>
+                `).join('');
             }
             if (responsesBtn) {
                 responsesBtn.href = actions.responses_url || '#';
@@ -3083,7 +3193,12 @@
 
             bodyEl.innerHTML = `
                 <div class="mb-4">
-                    ${faculty.program ? `<div class="alert alert-primary py-2 mb-3">${escapeEvaluationHtml(faculty.program)}</div>` : ''}
+                    ${faculty.program ? `
+                        <div class="faculty-profile-hero mb-3">
+                            <span class="faculty-profile-hero-label">Program</span>
+                            <div class="faculty-profile-hero-title">${escapeEvaluationHtml(faculty.program)}</div>
+                        </div>
+                    ` : ''}
                     <div class="faculty-profile-metrics">
                         ${renderFacultyMetric('Active Links', metrics.active_links)}
                         ${renderFacultyMetric('Term Responses', metrics.total_responses)}

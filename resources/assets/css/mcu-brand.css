@@ -39,13 +39,16 @@
 }
 
 body {
+  font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   color: var(--mcu-ink);
   background:
     radial-gradient(circle at top left, rgba(255, 194, 14, 0.12), transparent 28rem),
     radial-gradient(circle at top right, rgba(92, 41, 124, 0.12), transparent 32rem),
     var(--mcu-page);
 }
-
+.card-body {
+    padding-top: 20px !important;
+}
   .modal-header.course-handlers-modal-header {
       background:
           radial-gradient(circle at 100% 0%, rgba(255, 183, 54, 0.28), transparent 34%),
@@ -61,6 +64,10 @@ a {
 
 a:hover {
   color: var(--mcu-purple-panther);
+}
+
+.text-muted {
+  color: #4f5f76 !important;
 }
 
 .layout-page,
@@ -112,11 +119,74 @@ a:hover {
 
 .layout-navbar,
 .navbar-detached {
-  border: 1px solid rgba(232, 237, 245, 0.85);
-  border-radius: 0.9rem;
-  background: rgba(255, 255, 255, 0.9) !important;
-  box-shadow: 0 0.75rem 1.75rem rgba(44, 0, 63, 0.08);
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(255, 183, 54, 0.22);
+  border-radius: 1rem;
+  background:
+    radial-gradient(circle at 88% 50%, rgba(255, 183, 54, 0.2), transparent 0 10rem),
+    linear-gradient(120deg, rgba(58, 0, 80, 0.96), rgba(92, 41, 124, 0.9) 58%, rgba(122, 49, 138, 0.86)) !important;
+  box-shadow: 0 1rem 2.35rem rgba(44, 0, 63, 0.16);
   backdrop-filter: blur(14px);
+}
+
+.layout-navbar::before,
+.navbar-detached::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 28%;
+  width: 18rem;
+  background: linear-gradient(115deg, transparent 0 22%, rgba(236, 15, 90, 0.34) 22% 42%, rgba(255, 183, 54, 0.36) 42% 68%, transparent 68%);
+  pointer-events: none;
+}
+
+.layout-navbar::after,
+.navbar-detached::after {
+  content: "";
+  position: absolute;
+  right: -3.5rem;
+  bottom: -7rem;
+  width: 13rem;
+  height: 13rem;
+  border: 1px solid rgba(255, 183, 54, 0.32);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.layout-navbar .navbar-nav-right,
+.navbar-detached .navbar-nav-right,
+.layout-navbar .layout-menu-toggle,
+.navbar-detached .layout-menu-toggle {
+  position: relative;
+  z-index: 1;
+}
+
+.layout-navbar .nav-link,
+.navbar-detached .nav-link,
+.layout-navbar .bx-menu,
+.navbar-detached .bx-menu {
+  color: #ffffff !important;
+}
+
+.navbar-profile-ring {
+  border-radius: 50%;
+  padding: 0.08rem;
+  background: #ffffff;
+  border: 1px solid var(--mcu-heritage-gold);
+  box-shadow: 0 0.35rem 0.7rem rgba(44, 0, 63, 0.18);
+}
+
+.navbar-profile-ring img,
+.navbar-profile-ring .avatar-initials {
+  display: inline-flex;
+  border: 2px solid #ffffff;
+  box-shadow: none;
+}
+
+.dropdown-user .dropdown-menu {
+  border: 1px solid rgba(92, 41, 124, 0.12);
+  border-radius: 1rem;
+  box-shadow: 0 1rem 2.5rem rgba(44, 0, 63, 0.14);
 }
 
 .card,

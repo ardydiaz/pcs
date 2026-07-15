@@ -5,11 +5,46 @@
 @section('vendor-style')
     <style>
         .metric-card {
-            transition: transform 0.2s;
+            position: relative;
+            overflow: hidden;
+            border: 1px solid rgba(92, 41, 124, 0.12);
+            border-radius: 1.15rem;
+            background:
+                linear-gradient(90deg, rgba(58, 0, 80, 0.98) 0 66%, rgba(58, 0, 80, 0.42) 66% 100%),
+                radial-gradient(circle at 94% 98%, rgba(255, 183, 54, 0.18), transparent 0 7rem),
+                linear-gradient(120deg, #3a0050 0 50%, #f0184d 50% 60%, #ff8738 60% 82%, #7a3f92 82% 100%);
+            color: #ffffff;
+            box-shadow: 0 1.1rem 2.4rem rgba(58, 0, 80, 0.14);
+            transition: transform 0.2s, box-shadow 0.2s;
         }
 
         .metric-card:hover {
             transform: translateY(-2px);
+            box-shadow: 0 1.35rem 2.8rem rgba(58, 0, 80, 0.18);
+        }
+
+        .metric-card::before {
+            content: "";
+            position: absolute;
+            right: -8rem;
+            top: -8rem;
+            width: 16rem;
+            height: 16rem;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.12);
+            pointer-events: none;
+        }
+
+        .metric-card::after {
+            content: "";
+            position: absolute;
+            right: -4.5rem;
+            bottom: -4rem;
+            width: 10rem;
+            height: 10rem;
+            border: 1px solid rgba(255, 183, 54, 0.34);
+            border-radius: 50%;
+            pointer-events: none;
         }
 
         .metric-card-clickable {
@@ -22,10 +57,30 @@
         }
 
         .metric-card .card-body {
+            position: relative;
+            z-index: 1;
             display: flex;
             flex-direction: column;
             justify-content: center;
             min-height: 158px;
+        }
+
+        .metric-card h3,
+        .metric-card p,
+        .metric-card small,
+        .metric-card span,
+        .metric-card i,
+        .metric-card .text-muted,
+        .metric-card .text-success,
+        .metric-card .text-info {
+            color: #ffffff !important;
+        }
+
+        .metric-card .avatar-initial {
+            background: rgba(255, 255, 255, 0.16) !important;
+            border: 1px solid rgba(255, 255, 255, 0.28);
+            color: #ffffff !important;
+            backdrop-filter: blur(8px);
         }
 
         .metric-card-footer {
@@ -42,7 +97,7 @@
             display: inline-flex;
             align-items: center;
             gap: 0.25rem;
-            color: #5c297c;
+            color: #ffffff;
             font-size: 0.78rem;
             font-weight: 700;
         }
@@ -71,14 +126,43 @@
             border-left: 4px solid #696cff;
         }
 
+        .report-card {
+            border: 1px solid rgba(92, 41, 124, 0.1);
+            border-radius: 1.15rem;
+            overflow: hidden;
+            background:
+                radial-gradient(circle at 100% 0%, rgba(255, 183, 54, 0.1), transparent 13rem),
+                linear-gradient(180deg, #ffffff, #fbf7ff);
+            box-shadow: 0 1rem 2.25rem rgba(58, 0, 80, 0.1);
+        }
+
+        .report-card .card-header {
+            background:
+                radial-gradient(circle at 85% 15%, rgba(255, 183, 54, 0.22), transparent 0 7rem),
+                linear-gradient(120deg, #3a0050, #5c297c, rgba(240, 24, 77, 0.76));
+            border-bottom: 0;
+            color: #ffffff;
+        }
+
+        .report-card .card-header h5,
+        .report-card .card-header small,
+        .report-card .card-header .card-title,
+        .report-card .card-header .text-muted {
+            color: #ffffff !important;
+        }
+
         .recent-activity {
             max-height: 400px;
             overflow-y: auto;
         }
 
         .filter-section {
-            background: #f8f9fa;
-            border-radius: 8px;
+            border: 1px solid rgba(92, 41, 124, 0.1);
+            border-radius: 1.15rem;
+            background:
+                radial-gradient(circle at 100% 0%, rgba(255, 183, 54, 0.12), transparent 12rem),
+                linear-gradient(180deg, #ffffff, #fbf7ff);
+            box-shadow: 0 1rem 2.25rem rgba(58, 0, 80, 0.08);
         }
     </style>
 @endsection
@@ -451,7 +535,7 @@
         <div class="row">
             {{-- Rating Distribution --}}
             <div class="col-lg-8 mb-4">
-                <div class="card h-100">
+                <div class="card h-100 report-card">
                     <div class="card-header d-flex justify-content-between align-items-center">
                         <h5 class="card-title mb-0">Overall Rating Distribution</h5>
                         <small class="text-muted">{{ $metrics['total_responses'] }} total responses</small>
@@ -506,7 +590,7 @@
 
             {{-- Recent Activity --}}
             <div class="col-lg-4 mb-4">
-                <div class="card h-100">
+                <div class="card h-100 report-card">
                     <div class="card-header">
                         <h5 class="card-title mb-0">Recent Evaluations</h5>
                     </div>
@@ -548,7 +632,7 @@
         {{-- Department Breakdown --}}
         <div class="row">
             <div class="col-12 mb-4">
-                <div class="card">
+                <div class="card report-card">
                     <div class="card-header">
                         <h5 class="card-title mb-0">
                             @if($selectedDepartment !== 'all')
@@ -687,7 +771,7 @@
 
             {{-- Top Rated Faculties --}}
             <div class="col-lg-6 mb-4 d-flex">
-                <div class="card w-100 h-100">
+                <div class="card w-100 h-100 report-card">
                     <div class="card-header">
                         <h5 class="card-title mb-0">Top Rated Faculties</h5>
                     </div>
@@ -729,7 +813,7 @@
 
             {{-- Low Rated Faculties --}}
             <div class="col-lg-6 mb-4 d-flex">
-                <div class="card w-100 h-100">
+                <div class="card w-100 h-100 report-card">
                     <div class="card-header">
                         <h5 class="card-title mb-0">Low Rated Faculties</h5>
                     </div>
@@ -773,7 +857,7 @@
         <div class="row">
             {{-- Most Evaluated Faculties --}}
             <div class="col-lg-12 mb-4">
-                <div class="card">
+                <div class="card report-card">
                     <div class="card-header">
                         <h5 class="card-title mb-0">Most Evaluated Faculties</h5>
                     </div>

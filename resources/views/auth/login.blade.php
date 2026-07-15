@@ -42,7 +42,7 @@
             align-items: center;
             padding: 32px 20px;
             color: var(--mcu-ink);
-            font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            font-family: 'Roboto', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
         }
 
         .login-backdrop {
