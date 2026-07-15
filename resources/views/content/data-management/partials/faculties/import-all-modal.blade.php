@@ -16,8 +16,12 @@
                             <label class="form-label" for="facultyConvertImportFile">Source Excel File</label>
                             <input type="file" name="file" id="facultyConvertImportFile" class="form-control"
                                 accept=".csv,.xlsx,.xls" required>
-                            <small class="text-muted d-block mt-2">Accepted source headers: CLASS CODE, SUBJECT CODE,
-                                SECTION, INFORMATION, EMP. NO., FACULTY.</small>
+                            <small class="text-muted d-block mt-2">Accepted source formats: CLASS CODE / SUBJECT CODE /
+                                SECTION / INFORMATION / EMP. NO. / FACULTY, or FACULTY NAME / SECTION / SUBJECT CODE /
+                                DESCRIPTION / DAYS / HRS FROM / HRS TO.</small>
+                            <small class="text-muted d-block mt-1">For block-style faculty load files without employee
+                                numbers, the converter will auto-match employee numbers when possible and leave unmatched
+                                rows blank for review.</small>
                         </div>
 
                         <div class="row g-3">

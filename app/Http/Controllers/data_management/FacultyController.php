@@ -12,6 +12,7 @@ use App\Models\User; // Eloquent model representing the User entity, used for ma
 use App\Imports\FacultyUserImport; // Import class for handling the import of faculty and user data from Excel files, utilizing the Maatwebsite Excel package for parsing and processing the data
 use App\Imports\ImportAll; // Import class for handling the import of faculty, course, and schedule data from Excel files, utilizing the Maatwebsite Excel package for parsing and processing the data
 use App\Exports\FacultyLoadTemplateExport;
+use App\Imports\FacultyLoadBlockSourceConverter;
 use App\Imports\FacultyLoadSourceConverter;
 use Maatwebsite\Excel\Facades\Excel; // Facade for the Maatwebsite Excel package, providing methods for importing and exporting Excel files, used in the import function to process uploaded faculty and user data from Excel files
 use Illuminate\Support\Facades\DB; // Facade for database operations, used for handling transactions when creating, updating, and deleting faculty records along with their related user accounts and assignments to ensure data integrity during complex operations that involve multiple database interactions
@@ -349,16 +350,31 @@ class FacultyController extends Controller // Controller class for managing facu
             'status' => 'required|string|in:scheduled,completed,cancelled',
         ]);
 
-        $converter = new FacultyLoadSourceConverter([
+        $defaults = [
             'academic_year' => $validated['academic_year'],
             'semester' => $validated['semester'],
             'subject_type' => $validated['subject_type'],
             'status' => $validated['status'],
-        ]);
+            'department' => 'College of Arts and Sciences',
+            'job_title' => 'Faculty',
+        ];
 
-        Excel::import($converter, $request->file('file'));
+        $blockConverter = new FacultyLoadBlockSourceConverter($defaults);
+        $convertedRows = $blockConverter->convert($request->file('file')->getRealPath());
 
-        if (count($converter->rows()) === 0) {
+        if (count($convertedRows) === 0) {
+            $converter = new FacultyLoadSourceConverter([
+                'academic_year' => $validated['academic_year'],
+                'semester' => $validated['semester'],
+                'subject_type' => $validated['subject_type'],
+                'status' => $validated['status'],
+            ]);
+
+            Excel::import($converter, $request->file('file'));
+            $convertedRows = $converter->rows();
+        }
+
+        if (count($convertedRows) === 0) {
             return back()->withErrors([
                 'file' => 'No rows were found to convert.',
             ]);
@@ -366,7 +382,7 @@ class FacultyController extends Controller // Controller class for managing facu
 
         $filename = 'converted-import-all-template-' . now()->format('Ymd-His') . '.xlsx';
 
-        return Excel::download(new FacultyLoadTemplateExport($converter->rows()), $filename);
+        return Excel::download(new FacultyLoadTemplateExport($convertedRows), $filename);
     }
 
     public function store(Request $request): JsonResponse

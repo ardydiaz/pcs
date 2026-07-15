@@ -528,6 +528,13 @@
             overflow-wrap: anywhere;
         }
 
+        .course-preview-text {
+            display: block;
+            max-width: 100%;
+            overflow-wrap: anywhere;
+            word-break: break-word;
+        }
+
         .course-preview.is-visible {
             display: block;
         }
@@ -630,6 +637,17 @@
             .section-card {
                 padding: 26px 20px;
                 border-radius: 20px;
+            }
+
+            #schedule_id {
+                font-size: 0.9rem;
+                min-width: 0;
+                text-overflow: ellipsis;
+            }
+
+            .course-preview {
+                font-size: 0.86rem;
+                padding: 0.75rem 0.85rem;
             }
 
             .rating-option {
@@ -826,7 +844,9 @@
                                 $displayCourseLabel = $isAlreadyEvaluated
                                     ? 'Already evaluated - ' . $fullCourseLabel
                                     : $fullCourseLabel;
-                                $shortCourseLabel = \Illuminate\Support\Str::limit($fullCourseLabel, 92);
+                                $compactCourseLabel = trim(($course->class_code ?? '') . ' - ' . ($schedule->facultyCourse->section ?? '') . ' - ' . $scheduleLabel);
+                                $shortCourseLabel = \Illuminate\Support\Str::limit($compactCourseLabel, 58);
+                                $shortEvaluatedLabel = \Illuminate\Support\Str::limit('Already evaluated - ' . $compactCourseLabel, 74);
                             @endphp
                             <option value="{{ $schedule->id }}"
                                 data-section="{{ optional($schedule->facultyCourse)->section }}"
@@ -834,13 +854,13 @@
                                 data-already-evaluated="{{ $isAlreadyEvaluated ? '1' : '0' }}"
                                 title="{{ $displayCourseLabel }}"
                                 @disabled($isAlreadyEvaluated)>
-                                {{ $isAlreadyEvaluated ? \Illuminate\Support\Str::limit($displayCourseLabel, 118) : $shortCourseLabel }}
+                                {{ $isAlreadyEvaluated ? $shortEvaluatedLabel : $shortCourseLabel }}
                             </option>
                         @endforeach
                     </select>
                     <div class="course-preview" id="selectedCoursePreview" aria-live="polite">
                         <span class="course-preview-label">Selected course</span>
-                        <span id="selectedCoursePreviewText"></span>
+                        <span class="course-preview-text" id="selectedCoursePreviewText"></span>
                     </div>
                     <div class="form-text">Class Code - Subject Code - Section - Schedule</div>
                     <div class="field-error-message" id="scheduleError">
