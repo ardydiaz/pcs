@@ -245,6 +245,24 @@
             border-top: 2px dashed rgba(92, 41, 124, 0.2);
             padding-top: 1.35rem;
             margin-top: 0.25rem;
+            position: relative;
+            gap: 2.4rem 1rem;
+        }
+
+        .org-faculty-row .org-node {
+            overflow: visible;
+        }
+
+        .org-faculty-row .org-node::after {
+            content: "";
+            position: absolute;
+            left: 50%;
+            top: -1.35rem;
+            width: 2px;
+            height: 1.35rem;
+            background: linear-gradient(180deg, rgba(92, 41, 124, 0.42), rgba(255, 183, 54, 0.72));
+            transform: translateX(-50%);
+            z-index: 0;
         }
 
         .org-node {
@@ -265,6 +283,7 @@
             position: absolute;
             inset: 0 0 auto;
             height: 5rem;
+            border-radius: 1.05rem 1.05rem 0 0;
             background:
                 radial-gradient(circle at 100% 0%, rgba(255, 183, 54, 0.22), transparent 7rem),
                 linear-gradient(135deg, var(--org-purple-dark), var(--org-purple));
