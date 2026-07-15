@@ -460,7 +460,7 @@
 @endsection
 
 @section('content')
-    <div class="container-fluid org-page">
+    <div class="org-page">
         @if (session('success'))
             <div class="alert org-alert org-no-print mb-4" role="alert">
                 <i class="bx bx-check-circle me-1"></i> {{ session('success') }}
