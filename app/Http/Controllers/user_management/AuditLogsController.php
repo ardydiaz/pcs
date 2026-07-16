@@ -87,6 +87,30 @@ class AuditLogsController extends Controller // Define the controller class
         $actions = AuditLogs::whereNotNull('action')->distinct()->orderBy('action')->pluck('action');
         $modules = AuditLogs::whereNotNull('module')->distinct()->orderBy('module')->pluck('module');
         $severities = AuditLogs::whereNotNull('severity')->distinct()->orderBy('severity')->pluck('severity');
+        $securityStats = [
+            'successful_logins_today' => AuditLogs::where('module', 'Security')
+                ->where('action', 'login_success')
+                ->whereDate('created_at', now()->toDateString())
+                ->count(),
+            'failed_or_denied_today' => AuditLogs::where('module', 'Security')
+                ->whereIn('action', ['login_failed', 'login_denied'])
+                ->whereDate('created_at', now()->toDateString())
+                ->count(),
+            'unique_ips_today' => AuditLogs::where('module', 'Security')
+                ->whereDate('created_at', now()->toDateString())
+                ->whereNotNull('ipAddress')
+                ->distinct('ipAddress')
+                ->count('ipAddress'),
+            'outsider_attempts_7_days' => AuditLogs::where('module', 'Security')
+                ->where('action', 'login_denied')
+                ->where('created_at', '>=', now()->subDays(7))
+                ->count(),
+        ];
+        $recentSecurityAlerts = AuditLogs::where('module', 'Security')
+            ->whereIn('action', ['login_failed', 'login_denied'])
+            ->latest()
+            ->limit(5)
+            ->get();
  
         // Render the view with logs data
         return view('content.audit-logs.audit-logs', [
@@ -103,6 +127,8 @@ class AuditLogsController extends Controller // Define the controller class
             'actions' => $actions,
             'modules' => $modules,
             'severities' => $severities,
+            'securityStats' => $securityStats,
+            'recentSecurityAlerts' => $recentSecurityAlerts,
         ]);
     }
 }

@@ -34,6 +34,67 @@
     .severity-warning { background: #fff4db; color: #8a5a00; }
     .severity-danger { background: #fde7e9; color: #9f1239; }
     .severity-critical { background: #f3e8ff; color: #581c87; }
+
+    .security-hero {
+        background:
+            radial-gradient(circle at 86% 10%, rgba(255, 183, 54, 0.22), transparent 28%),
+            linear-gradient(135deg, #3a0050, #6f2a8f 58%, #a8327d);
+        border-radius: 1rem;
+        color: #fff;
+        padding: 1.25rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 1rem 2rem rgba(58, 0, 80, 0.18);
+    }
+
+    .security-hero h4,
+    .security-hero p {
+        color: #fff;
+    }
+
+    .security-stat-card {
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 0.9rem;
+        background: rgba(255, 255, 255, 0.12);
+        padding: 0.85rem;
+        min-height: 100%;
+    }
+
+    .security-stat-card span {
+        display: block;
+        color: rgba(255, 255, 255, 0.76);
+        font-size: 0.75rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+    }
+
+    .security-stat-card strong {
+        display: block;
+        color: #fff;
+        font-size: 1.55rem;
+        line-height: 1;
+        margin-top: 0.35rem;
+    }
+
+    .security-alert-list {
+        border-radius: 0.85rem;
+        background: rgba(255, 255, 255, 0.1);
+        padding: 0.75rem;
+    }
+
+    .security-alert-item {
+        display: flex;
+        justify-content: space-between;
+        gap: 0.75rem;
+        padding: 0.45rem 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+        color: rgba(255, 255, 255, 0.86);
+        font-size: 0.82rem;
+    }
+
+    .security-alert-item:last-child {
+        border-bottom: 0;
+    }
 </style>
 @endsection
 
@@ -47,6 +108,62 @@
         <button class="btn btn-outline-primary" onclick="window.print()">
             <i class="bx bx-printer me-1"></i>Print Logs
         </button>
+    </div>
+
+    <div class="security-hero">
+        <div class="row g-3 align-items-stretch">
+            <div class="col-lg-7">
+                <h4 class="mb-1">Access Monitoring</h4>
+                <p class="mb-3">Trace successful logins, failed attempts, denied outsider domains, IP addresses, and device information.</p>
+                <div class="row g-3">
+                    <div class="col-sm-6 col-xl-3">
+                        <div class="security-stat-card">
+                            <span>Logins Today</span>
+                            <strong>{{ number_format($securityStats['successful_logins_today'] ?? 0) }}</strong>
+                        </div>
+                    </div>
+                    <div class="col-sm-6 col-xl-3">
+                        <div class="security-stat-card">
+                            <span>Failed/Denied</span>
+                            <strong>{{ number_format($securityStats['failed_or_denied_today'] ?? 0) }}</strong>
+                        </div>
+                    </div>
+                    <div class="col-sm-6 col-xl-3">
+                        <div class="security-stat-card">
+                            <span>Unique IPs</span>
+                            <strong>{{ number_format($securityStats['unique_ips_today'] ?? 0) }}</strong>
+                        </div>
+                    </div>
+                    <div class="col-sm-6 col-xl-3">
+                        <div class="security-stat-card">
+                            <span>Outsiders 7d</span>
+                            <strong>{{ number_format($securityStats['outsider_attempts_7_days'] ?? 0) }}</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-5">
+                <div class="security-alert-list h-100">
+                    <div class="fw-bold mb-2">Recent Security Alerts</div>
+                    @forelse(($recentSecurityAlerts ?? collect()) as $alert)
+                        <div class="security-alert-item">
+                            <div>
+                                <strong>{{ ucwords(str_replace('_', ' ', $alert->action ?? 'Alert')) }}</strong>
+                                <div>{{ $alert->email ?: $alert->name ?: 'Unknown account' }}</div>
+                            </div>
+                            <div class="text-end">
+                                <div>{{ $alert->ipAddress ?: '-' }}</div>
+                                <small>{{ optional($alert->created_at)->format('M d h:i A') }}</small>
+                            </div>
+                        </div>
+                    @empty
+                        <div class="security-alert-item">
+                            <div>No failed or denied login attempts recorded.</div>
+                        </div>
+                    @endforelse
+                </div>
+            </div>
+        </div>
     </div>
 
     <div class="filter-card">
@@ -181,6 +298,11 @@
                                 </td>
                                 <td>
                                     <code class="text-body">{{ $log->ipAddress ?: '-' }}</code>
+                                    <div>
+                                        <small class="text-muted" title="{{ $log->userAgent }}">
+                                            {{ \Illuminate\Support\Str::limit($log->userAgent ?: 'Unknown device', 42) }}
+                                        </small>
+                                    </div>
                                 </td>
                                 <td>
                                     @if($hasChanges)

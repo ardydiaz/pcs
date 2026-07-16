@@ -12,6 +12,7 @@ use App\Http\Controllers\pages\AccountSettingsAccount;
 use App\Http\Controllers\user_management\UserController as UserManagementController;
 use App\Http\Controllers\user_management\AuditLogsController;
 use App\Http\Controllers\organization\DepartmentOrgChartController;
+use App\Support\AuditLogger;
 
 /*
 |--------------------------------------------------------------------------
@@ -150,6 +151,12 @@ Route::middleware(['auth'])->group(function () {
 
     // Logout
     Route::post('/logout', function () {
+        AuditLogger::log('logout', [
+            'module' => 'Security',
+            'description' => 'User logged out.',
+            'severity' => 'info',
+        ]);
+
         Auth::logout();
         session()->invalidate();
         session()->regenerateToken();

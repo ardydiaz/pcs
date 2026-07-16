@@ -5,6 +5,7 @@ namespace App\Http\Controllers\msauth;
 use App\Http\Controllers\Controller;
 use App\Models\Faculty;
 use App\Models\User;
+use App\Support\AuditLogger;
 use Illuminate\Support\Facades\Auth;
 use Laravel\Socialite\Facades\Socialite;
 use Illuminate\Support\Facades\Log;
@@ -30,6 +31,16 @@ class MicrosoftOAuthController extends Controller
             $email = $microsoftUser->getEmail();
             $normalizedEmail = strtolower($email ?? '');
             if ($normalizedEmail === '') {
+                AuditLogger::log('login_denied', [
+                    'module' => 'Security',
+                    'description' => 'Microsoft login denied because the account did not provide an email address.',
+                    'severity' => 'warning',
+                    'after_values' => [
+                        'reason' => 'missing_email',
+                        'provider' => 'microsoft',
+                    ],
+                ]);
+
                 return redirect()->route('login')
                     ->withErrors(['msg' => 'Microsoft account is missing an email address. Please contact administrator.']);
             }
@@ -55,6 +66,22 @@ class MicrosoftOAuthController extends Controller
                 $role = 'Faculty';
             } elseif (str_ends_with($normalizedEmail, '@student.mcu.edu.ph')) {
                 $role = 'Student';
+            } else {
+                AuditLogger::log('login_denied', [
+                    'module' => 'Security',
+                    'name' => $microsoftUser->getName() ?: 'Unknown Microsoft user',
+                    'email' => $normalizedEmail,
+                    'description' => 'Microsoft login denied for a non-MCU email domain.',
+                    'severity' => 'danger',
+                    'after_values' => [
+                        'reason' => 'outside_domain',
+                        'provider' => 'microsoft',
+                        'allowed_domains' => ['mcu.edu.ph', 'faculty.mcu.edu.ph', 'student.mcu.edu.ph'],
+                    ],
+                ]);
+
+                return redirect()->route('login')
+                    ->withErrors(['msg' => 'Only MCU Microsoft accounts are allowed to access this system.']);
             }
 
             $allAccessLevels = [
@@ -90,6 +117,7 @@ class MicrosoftOAuthController extends Controller
                     if ($facultyUser && $facultyUser->id !== $existingUser->id) {
                         $this->moveMicrosoftIdentityToFacultyUser($existingUser, $facultyUser, $normalizedEmail, $microsoftUser->getId(), $avatar);
 
+                        $this->logSuccessfulLogin($facultyUser->fresh(), 'Merged Microsoft login duplicate into imported faculty profile.');
                         Auth::login($facultyUser->fresh());
                         return redirect()->intended('/dashboard');
                     }
@@ -99,6 +127,7 @@ class MicrosoftOAuthController extends Controller
                     $existingUser->forceFill(['avatar' => $avatar])->save();
                 }
 
+                $this->logSuccessfulLogin($existingUser, 'Microsoft login successful.');
                 Auth::login($existingUser);
                 return redirect()->intended('/dashboard');
             }
@@ -114,6 +143,7 @@ class MicrosoftOAuthController extends Controller
                         'status' => 'Active',
                     ])->save();
 
+                    $this->logSuccessfulLogin($facultyUser, 'Microsoft login linked to existing imported faculty profile.');
                     Auth::login($facultyUser);
                     return redirect()->intended('/dashboard');
                 }
@@ -132,34 +162,87 @@ class MicrosoftOAuthController extends Controller
                 'avatar' => $avatar,
             ]);
 
+            $this->logSuccessfulLogin($user, 'Microsoft login created a new user account.');
             Auth::login($user);
 
             return redirect()->intended('/dashboard');
 
         } catch (\Laravel\Socialite\Two\InvalidStateException $e) {
             Log::error('Microsoft OAuth Invalid State Exception', ['error' => $e->getMessage()]);
+            $this->logFailedLogin('invalid_state', 'Microsoft login session expired or invalid.');
             session()->flush();
             return redirect()->route('login')
                 ->withErrors(['msg' => 'Session expired. Please try logging in again.']);
 
         } catch (\GuzzleHttp\Exception\ClientException $e) {
             Log::error('Microsoft OAuth Client Exception', ['error' => $e->getMessage()]);
+            $this->logFailedLogin('client_exception', 'Microsoft login client error.');
             session()->flush();
             return redirect()->route('login')
                 ->withErrors(['msg' => 'Authentication expired. Please try logging in again.']);
 
         } catch (\Illuminate\Database\QueryException $e) {
             Log::error('Microsoft OAuth Database Exception', ['error' => $e->getMessage()]);
+            $this->logFailedLogin('database_exception', 'Microsoft login database error.');
             session()->flush();
             return redirect()->route('login')
                 ->withErrors(['msg' => 'Database error. Please contact administrator.']);
 
         } catch (\Throwable $e) {
             Log::error('Microsoft OAuth General Exception', ['error' => $e->getMessage()]);
+            $this->logFailedLogin('general_exception', 'Microsoft login failed unexpectedly.');
             session()->flush();
             return redirect()->route('login')
                 ->withErrors(['msg' => 'Microsoft login failed. Please try again.']);
         }
+    }
+
+    private function logSuccessfulLogin(User $user, string $description): void
+    {
+        AuditLogger::log('login_success', [
+            'module' => 'Security',
+            'description' => $description,
+            'severity' => 'info',
+            'after_values' => [
+                'email' => $user->email,
+                'role' => $user->role,
+                'provider' => 'microsoft',
+                'device' => $this->summarizeUserAgent(request()?->userAgent()),
+            ],
+        ], $user);
+    }
+
+    private function logFailedLogin(string $reason, string $description): void
+    {
+        AuditLogger::log('login_failed', [
+            'module' => 'Security',
+            'description' => $description,
+            'severity' => 'warning',
+            'after_values' => [
+                'reason' => $reason,
+                'provider' => 'microsoft',
+                'device' => $this->summarizeUserAgent(request()?->userAgent()),
+            ],
+        ]);
+    }
+
+    private function summarizeUserAgent(?string $userAgent): string
+    {
+        $userAgent = (string) $userAgent;
+        if ($userAgent === '') {
+            return 'Unknown device';
+        }
+
+        $browser = str_contains($userAgent, 'Edg/') ? 'Edge'
+            : (str_contains($userAgent, 'Chrome/') ? 'Chrome'
+                : (str_contains($userAgent, 'Firefox/') ? 'Firefox'
+                    : (str_contains($userAgent, 'Safari/') ? 'Safari' : 'Browser')));
+        $platform = str_contains($userAgent, 'Windows') ? 'Windows'
+            : (str_contains($userAgent, 'Mac OS') ? 'macOS'
+                : (str_contains($userAgent, 'Android') ? 'Android'
+                    : (str_contains($userAgent, 'iPhone') || str_contains($userAgent, 'iPad') ? 'iOS' : 'Unknown OS')));
+
+        return $browser . ' on ' . $platform;
     }
 
     private function fetchMicrosoftAvatar(?string $accessToken): ?string
