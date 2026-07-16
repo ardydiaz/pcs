@@ -41,7 +41,7 @@ class EvaluationController extends Controller
             ));
         }
 
-        $evaluationsQuery = Evaluation::with('faculty')->latest();
+        $evaluationsQuery = Evaluation::with(['faculty.faculty', 'responses'])->latest();
         $facultiesQuery = $this->getEligibleFacultyProfiles($shouldFilter ? $departmentFilters : null);
 
         if ($shouldFilter) {
@@ -57,7 +57,7 @@ class EvaluationController extends Controller
             });
         }
 
-        $evaluations = $evaluationsQuery->get();
+        $evaluations = $this->deduplicateEvaluationsByEmployeeTerm($evaluationsQuery->get());
         $faculties = $facultiesQuery
             ->map(function ($faculty) {
                 if (!$faculty->user) {
@@ -125,8 +125,9 @@ class EvaluationController extends Controller
             return back()->with('error', 'Selected faculty does not have an assigned course with a schedule for the specified academic year and semester.');
         }
 
+        $facultyUserIds = $this->facultyUserIdsForSameEmployee($facultyProfile);
         $existingEvaluation = $this->findExistingEvaluation(
-            $request->faculty_id,
+            $facultyUserIds,
             $normalizedAcademicYear,
             $normalizedSemester
         );
@@ -136,7 +137,7 @@ class EvaluationController extends Controller
         }
 
         // Extra safety: direct DB check with normalized semester value
-        $directDuplicate = Evaluation::where('faculty_id', $request->faculty_id)
+        $directDuplicate = Evaluation::whereIn('faculty_id', $facultyUserIds)
             ->where('academic_year', $normalizedAcademicYear)
             ->where('semester', $normalizedSemester)
             ->exists();
@@ -182,6 +183,7 @@ class EvaluationController extends Controller
         }
 
         $faculties = $this->getEligibleFacultyProfiles($shouldFilter ? $departmentFilters : null);
+        $processedEmployeeKeys = [];
         $generated = 0;
         $skipped = 0;
         $skippedFaculties = []; // Array to store skipped faculty names
@@ -203,15 +205,23 @@ class EvaluationController extends Controller
                 continue;
             }
 
+            $employeeKey = $this->facultyEmployeeKey($facultyProfile);
+            if (isset($processedEmployeeKeys[$employeeKey])) {
+                $skipped++;
+                $skippedFaculties[] = $user->name . ' (Duplicate employee number)';
+                continue;
+            }
+            $processedEmployeeKeys[$employeeKey] = true;
+
             // Skip if evaluation already exists (check with findExistingEvaluation + direct DB check)
             $exists = $this->findExistingEvaluation(
-                $user->id,
+                $this->facultyUserIdsForSameEmployee($facultyProfile),
                 $request->academic_year,
                 $normalizedSemester
             );
 
             if (!$exists) {
-                $exists = Evaluation::where('faculty_id', $user->id)
+                $exists = Evaluation::whereIn('faculty_id', $this->facultyUserIdsForSameEmployee($facultyProfile))
                     ->where('academic_year', $request->academic_year)
                     ->where('semester', $normalizedSemester)
                     ->exists();
@@ -278,7 +288,74 @@ class EvaluationController extends Controller
             $query->forDepartments($departments);
         }
 
-        return $query->get();
+        return $query->get()
+            ->sortBy(fn (Faculty $faculty) => strtolower($faculty->user->name ?? ''))
+            ->unique(fn (Faculty $faculty) => $this->facultyEmployeeKey($faculty))
+            ->values();
+    }
+
+    protected function facultyEmployeeKey(Faculty $facultyProfile): string
+    {
+        $employeeNo = $this->normalizeEmployeeNumber($facultyProfile->employee_no);
+
+        return $employeeNo !== ''
+            ? 'employee:' . $employeeNo
+            : 'faculty:' . $facultyProfile->id;
+    }
+
+    protected function normalizeEmployeeNumber(?string $employeeNo): string
+    {
+        return strtolower(preg_replace('/[^a-z0-9]+/', '', trim((string) $employeeNo)));
+    }
+
+    protected function facultyUserIdsForSameEmployee(Faculty $facultyProfile): array
+    {
+        $employeeNo = $this->normalizeEmployeeNumber($facultyProfile->employee_no);
+        if ($employeeNo === '') {
+            return array_filter([(int) $facultyProfile->user_id]);
+        }
+
+        return Faculty::withTrashed()
+            ->whereRaw("LOWER(REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(employee_no, ''), ' ', ''), '-', ''), '.', ''), ',', '')) = ?", [$employeeNo])
+            ->whereNotNull('user_id')
+            ->pluck('user_id')
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    protected function evaluationEmployeeTermKey(Evaluation $evaluation): string
+    {
+        $employeeNo = $this->normalizeEmployeeNumber(optional(optional($evaluation->faculty)->faculty)->employee_no);
+        $facultyKey = $employeeNo !== ''
+            ? 'employee:' . $employeeNo
+            : 'faculty:' . $evaluation->faculty_id;
+
+        return implode('|', [
+            $facultyKey,
+            $this->normalizeAcademicYear($evaluation->academic_year ?? ''),
+            $this->normalizeSemesterValue($evaluation->semester) ?? strtolower((string) $evaluation->semester),
+        ]);
+    }
+
+    protected function deduplicateEvaluationsByEmployeeTerm($evaluations)
+    {
+        return $evaluations
+            ->groupBy(fn (Evaluation $evaluation) => $this->evaluationEmployeeTermKey($evaluation))
+            ->map(function ($duplicates) {
+                return $duplicates
+                    ->sortByDesc(fn (Evaluation $evaluation) => sprintf(
+                        '%08d-%d-%s-%08d',
+                        $evaluation->responses->count(),
+                        $evaluation->is_active ? 1 : 0,
+                        optional($evaluation->created_at)->format('YmdHis') ?? '00000000000000',
+                        $evaluation->id
+                    ))
+                    ->first();
+            })
+            ->sortByDesc(fn (Evaluation $evaluation) => $evaluation->created_at ?? $evaluation->id)
+            ->values();
     }
 
     protected function facultyHasScheduleForTerm(Faculty $facultyProfile, string $academicYear, string $semester): bool
@@ -371,7 +448,7 @@ class EvaluationController extends Controller
         return $mapping[$normalized] ?? null;
     }
 
-    protected function findExistingEvaluation(int $facultyId, string $academicYear, string $semester): ?Evaluation
+    protected function findExistingEvaluation(int|array $facultyIds, string $academicYear, string $semester): ?Evaluation
     {
         $normalizedSemester = $this->normalizeSemesterValue($semester);
         if (!$normalizedSemester) {
@@ -387,7 +464,18 @@ class EvaluationController extends Controller
             return $this->normalizeSemesterValue($v) === $normalizedSemester;
         })->values()->all();
 
-        return Evaluation::where('faculty_id', $facultyId)
+        $facultyIds = collect((array) $facultyIds)
+            ->map(fn ($id) => (int) $id)
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        if (empty($facultyIds)) {
+            return null;
+        }
+
+        return Evaluation::whereIn('faculty_id', $facultyIds)
             ->where('academic_year', $academicYear)
             ->whereIn('semester', $semesterVariants)
             ->first();

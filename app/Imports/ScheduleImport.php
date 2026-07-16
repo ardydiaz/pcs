@@ -22,7 +22,7 @@ class ScheduleImport implements ToModel, WithHeadingRow
         }
 
         // 1. Find faculty by employeeno
-        $faculty = Faculty::withTrashed()->where('employee_no', $employeeNo)->first();
+        $faculty = Faculty::findByEmployeeNoIncludingTrashed($employeeNo);
 
         if (!$faculty) {
            $this->logError($row, 'Faculty not found');

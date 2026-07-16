@@ -83,10 +83,14 @@ class CourseImport implements ToModel, WithHeadingRow // Class to handle the imp
         // 4. Faculty check
         // =========================
         // 2. Find faculty by employee_no
-        $faculty = Faculty::where('employee_no', $employeeNo)->first();
+        $faculty = Faculty::findByEmployeeNoIncludingTrashed($employeeNo);
         if (!$faculty) {
             $this->errors[] =  "Row {$rowNumber}: Employee not found: {$employeeNo}";
             return null;
+        }
+
+        if ($faculty->trashed()) {
+            $faculty->restore();
         }
 
         // 3. Only assign if faculty exists

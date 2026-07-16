@@ -48,29 +48,33 @@ class FacultyUserImport implements ToModel, WithHeadingRow
         );
 
         // Restore soft-deleted faculty records instead of creating duplicate employee numbers.
-        $existingFaculty = Faculty::withTrashed()->where('employee_no', $employeeNo)->first();
+        $existingFaculty = Faculty::findByEmployeeNoIncludingTrashed($employeeNo);
         if ($existingFaculty) {
             if ($existingFaculty->trashed()) {
                 $existingFaculty->restore();
-                $existingFaculty->update([
+            }
+
+            $existingFaculty->update([
+                'department' => $normalizedDepartment,
+                'job_title' => $jobTitle,
+            ]);
+
+            if ($existingFaculty->user) {
+                $userUpdates = [
                     'department' => $normalizedDepartment,
                     'job_title' => $jobTitle,
-                ]);
+                    'status' => 'Active',
+                ];
 
-                if ($existingFaculty->user) {
-                    $existingFaculty->user->update([
-                        'department' => $normalizedDepartment,
-                        'job_title' => $jobTitle,
-                        'status' => 'Active',
-                    ]);
+                if (trim((string) $existingFaculty->user->name) === '') {
+                    $userUpdates['name'] = $name;
                 }
 
-                $this->importedCount++;
-                return $existingFaculty;
+                $existingFaculty->user->update($userUpdates);
             }
 
             $this->skippedRecords[] = $employeeNo;
-            return null;
+            return $existingFaculty;
         }
 
         // Create linked user

@@ -119,18 +119,16 @@ class ImportAll implements ToModel, WithHeadingRow // Class to handle the import
             }
 
             // 2. Find existing Faculty or create new one if optional fields provided
-            $faculty = Faculty::withTrashed()->where('employee_no', $employeeNo)->first();
+            $faculty = Faculty::findByEmployeeNoIncludingTrashed($employeeNo);
+            $name = $this->cell($row, 'name') ?: $this->cell($row, 'fullname');
+            $department = $this->cell($row, 'department');
+            $jobTitle = $this->cell($row, 'jobtitle');
+            $normalizedDepartment = $department === ''
+                ? null
+                : Faculty::serializeDepartmentList(Faculty::normalizeDepartmentList($department));
 
             if (!$faculty) {
                 // Create faculty even when optional profile details are missing.
-                $name = $this->cell($row, 'name') ?: $this->cell($row, 'fullname');
-                $department = $this->cell($row, 'department');
-                $jobTitle = $this->cell($row, 'jobtitle');
-
-                $normalizedDepartment = $department === ''
-                    ? null
-                    : Faculty::serializeDepartmentList(Faculty::normalizeDepartmentList($department));
-
                 $user = null;
                 if ($name !== '') {
                     $user = User::create([
@@ -148,16 +146,12 @@ class ImportAll implements ToModel, WithHeadingRow // Class to handle the import
                     'department' => $normalizedDepartment,
                     'job_title' => $jobTitle === '' ? null : $jobTitle,
                 ]);
-            } elseif ($faculty->trashed()) {
-                $faculty->restore();
+            } else {
+                if ($faculty->trashed()) {
+                    $faculty->restore();
+                }
 
-                $name = $this->cell($row, 'name') ?: $this->cell($row, 'fullname');
-                $department = $this->cell($row, 'department');
-                $jobTitle = $this->cell($row, 'jobtitle');
-                $normalizedDepartment = $department === ''
-                    ? $faculty->department
-                    : Faculty::serializeDepartmentList(Faculty::normalizeDepartmentList($department));
-
+                $normalizedDepartment = $normalizedDepartment ?? $faculty->department;
                 if (!$faculty->user && $name !== '') {
                     $user = User::create([
                         'name' => $name,
@@ -170,18 +164,33 @@ class ImportAll implements ToModel, WithHeadingRow // Class to handle the import
                     $faculty->user_id = $user->id;
                 }
 
-                $faculty->department = $normalizedDepartment;
+                if ($normalizedDepartment !== null) {
+                    $faculty->department = $normalizedDepartment;
+                }
                 if ($jobTitle !== '') {
                     $faculty->job_title = $jobTitle;
                 }
                 $faculty->save();
 
                 if ($faculty->user) {
-                    $faculty->user->update([
-                        'department' => $normalizedDepartment,
-                        'job_title' => $jobTitle === '' ? $faculty->job_title : $jobTitle,
-                        'status' => 'Active',
-                    ]);
+                    $userUpdates = ['status' => 'Active'];
+                    if ($normalizedDepartment !== null) {
+                        $userUpdates['department'] = $normalizedDepartment;
+                    }
+                    if ($jobTitle !== '') {
+                        $userUpdates['job_title'] = $jobTitle;
+                    }
+                    if (trim((string) $faculty->user->name) === '' && $name !== '') {
+                        $userUpdates['name'] = $name;
+                    } elseif ($name !== '' && strcasecmp($faculty->user->name, $name) !== 0) {
+                        $this->debugLog[] = [
+                            'action' => 'Faculty name mismatch ignored',
+                            'employee_no' => $employeeNo,
+                            'existing_name' => $faculty->user->name,
+                            'incoming_name' => $name,
+                        ];
+                    }
+                    $faculty->user->update($userUpdates);
                 }
             }
             

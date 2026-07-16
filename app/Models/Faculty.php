@@ -72,6 +72,30 @@ class Faculty extends Model
         return self::serializeDepartmentList($departments);
     }
 
+    public static function normalizeEmployeeNo(?string $employeeNo): string
+    {
+        return strtolower(preg_replace('/[^a-z0-9]+/', '', trim((string) $employeeNo)));
+    }
+
+    public static function findByEmployeeNoIncludingTrashed(?string $employeeNo): ?self
+    {
+        $normalized = self::normalizeEmployeeNo($employeeNo);
+        if ($normalized === '') {
+            return null;
+        }
+
+        return self::withTrashed()
+            ->with('user')
+            ->whereRaw(
+                "LOWER(REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(employee_no, ''), ' ', ''), '-', ''), '.', ''), ',', '')) = ?",
+                [$normalized]
+            )
+            ->orderByRaw('deleted_at IS NOT NULL')
+            ->orderByRaw('user_id IS NULL')
+            ->orderBy('id')
+            ->first();
+    }
+
     public function scopeForDepartment(Builder $query, string $department): Builder
     {
         return $query->forDepartments([$department]);
