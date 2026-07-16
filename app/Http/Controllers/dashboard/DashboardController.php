@@ -19,6 +19,10 @@ class DashboardController extends Controller
   public function index(Request $request)
   {
     $user = $request->user();
+    if (strtolower((string) $user?->role) === 'student') {
+      return redirect()->route('student.evaluation-access');
+    }
+
     $isAdmin = $user && $user->role === 'Admin';
     $accessLevels = collect($user?->access_level ?? []);
     $canViewAllReports = $isAdmin;

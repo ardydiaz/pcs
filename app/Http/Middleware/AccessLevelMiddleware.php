@@ -21,6 +21,11 @@ class AccessLevelMiddleware
 
         $role = strtolower((string) $user->role);
         $isStudent = $role === 'student';
+
+        if ($isStudent && in_array($require, ['dashboard', 'settings'], true)) {
+            return redirect()->route('student.evaluation-access');
+        }
+
         $accessLevels = collect($user->access_level ?? []);
         $hasNonFormAccess = $accessLevels
             ->reject(function ($level) {

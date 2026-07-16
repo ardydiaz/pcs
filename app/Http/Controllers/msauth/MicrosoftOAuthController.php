@@ -119,7 +119,7 @@ class MicrosoftOAuthController extends Controller
 
                         $this->logSuccessfulLogin($facultyUser->fresh(), 'Merged Microsoft login duplicate into imported faculty profile.');
                         Auth::login($facultyUser->fresh());
-                        return redirect()->intended('/dashboard');
+                        return redirect()->intended($this->defaultRedirectFor($facultyUser->fresh()));
                     }
                 }
 
@@ -129,7 +129,7 @@ class MicrosoftOAuthController extends Controller
 
                 $this->logSuccessfulLogin($existingUser, 'Microsoft login successful.');
                 Auth::login($existingUser);
-                return redirect()->intended('/dashboard');
+                return redirect()->intended($this->defaultRedirectFor($existingUser));
             }
 
             if ($role === 'Faculty') {
@@ -145,7 +145,7 @@ class MicrosoftOAuthController extends Controller
 
                     $this->logSuccessfulLogin($facultyUser, 'Microsoft login linked to existing imported faculty profile.');
                     Auth::login($facultyUser);
-                    return redirect()->intended('/dashboard');
+                    return redirect()->intended($this->defaultRedirectFor($facultyUser));
                 }
             }
             $user = User::create([
@@ -165,7 +165,7 @@ class MicrosoftOAuthController extends Controller
             $this->logSuccessfulLogin($user, 'Microsoft login created a new user account.');
             Auth::login($user);
 
-            return redirect()->intended('/dashboard');
+            return redirect()->intended($this->defaultRedirectFor($user));
 
         } catch (\Laravel\Socialite\Two\InvalidStateException $e) {
             Log::error('Microsoft OAuth Invalid State Exception', ['error' => $e->getMessage()]);
@@ -210,6 +210,13 @@ class MicrosoftOAuthController extends Controller
                 'device' => $this->summarizeUserAgent(request()?->userAgent()),
             ],
         ], $user);
+    }
+
+    private function defaultRedirectFor(User $user): string
+    {
+        return strtolower((string) $user->role) === 'student'
+            ? route('student.evaluation-access')
+            : route('dashboard');
     }
 
     private function logFailedLogin(string $reason, string $description): void

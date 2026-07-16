@@ -13,6 +13,7 @@ use App\Http\Controllers\user_management\UserController as UserManagementControl
 use App\Http\Controllers\user_management\AuditLogsController;
 use App\Http\Controllers\organization\DepartmentOrgChartController;
 use App\Support\AuditLogger;
+use Illuminate\Support\Facades\Auth;
 
 /*
 |--------------------------------------------------------------------------
@@ -23,7 +24,9 @@ use App\Support\AuditLogger;
 // Landing Page
 Route::get('/', function () {
     if (Auth::check()) {
-        return redirect()->route('dashboard');
+        return strtolower((string) Auth::user()?->role) === 'student'
+            ? redirect()->route('student.evaluation-access')
+            : redirect()->route('dashboard');
     }
     return view('auth.login');
 })->name('login');
@@ -41,6 +44,10 @@ Route::middleware(['auth', 'access.level:forms'])->group(function () {
 });
 
 Route::middleware(['auth'])->group(function () {
+    Route::get('/student/evaluation-access', function () {
+        return view('content.student.evaluation-access');
+    })->name('student.evaluation-access')->middleware('access.level:forms');
+
     // Dashboard Routes
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard')->middleware('access.level:dashboard');
     
