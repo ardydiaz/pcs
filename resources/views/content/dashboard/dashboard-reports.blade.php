@@ -118,6 +118,105 @@
             vertical-align: middle;
         }
 
+        .filtered-result-toggle-card {
+            border: 1px solid rgba(92, 41, 124, 0.12);
+            border-radius: 1.15rem 1.15rem 0 0;
+            background:
+                radial-gradient(circle at 100% 0%, rgba(255, 183, 54, 0.2), transparent 10rem),
+                linear-gradient(135deg, #3a0050, #6f2a8f);
+            box-shadow: 0 1rem 2.2rem rgba(58, 0, 80, 0.12);
+            color: #ffffff;
+            overflow: hidden;
+        }
+
+        .filtered-result-toggle-card .card-body {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            padding: 1.35rem 1.5rem 1.55rem;
+        }
+
+        .filtered-result-title {
+            color: #ffffff;
+            font-size: 1.05rem;
+            font-weight: 900;
+            margin: 0;
+        }
+
+        .filtered-result-subtitle {
+            color: rgba(255, 255, 255, 0.86);
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.45rem;
+            margin: 0.25rem 0 0;
+        }
+
+        .filtered-result-chip {
+            align-items: center;
+            background: rgba(255, 255, 255, 0.13);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 999px;
+            color: #ffffff;
+            display: inline-flex;
+            font-size: 0.78rem;
+            font-weight: 800;
+            gap: 0.3rem;
+            padding: 0.35rem 0.7rem;
+        }
+
+        .filtered-result-toggle-btn {
+            align-items: center;
+            background: #ffb736;
+            border: 0;
+            border-radius: 999px;
+            box-shadow: 0 0.75rem 1.7rem rgba(255, 183, 54, 0.24);
+            color: #3a0050;
+            display: inline-flex;
+            font-weight: 900;
+            gap: 0.45rem;
+            padding: 0.75rem 1.15rem;
+            white-space: nowrap;
+        }
+
+        .filtered-result-toggle-btn:hover,
+        .filtered-result-toggle-btn:focus {
+            background: #ffcc1b;
+            color: #3a0050;
+        }
+
+        .filtered-result-toggle-btn .bx-chevron-down {
+            font-size: 1.25rem;
+            transition: transform 0.2s ease;
+        }
+
+        .filtered-result-toggle-btn[aria-expanded="true"] .bx-chevron-down {
+            transform: rotate(180deg);
+        }
+
+        .filtered-result-panel {
+            border-top: 0;
+            border-radius: 0 0 1.15rem 1.15rem;
+            margin-top: 0;
+            padding-top: 0.4rem;
+        }
+
+        .filtered-result-panel .card-body {
+            padding-top: 1.35rem;
+        }
+
+        @media (max-width: 767.98px) {
+            .filtered-result-toggle-card .card-body {
+                align-items: stretch;
+                flex-direction: column;
+            }
+
+            .filtered-result-toggle-btn {
+                justify-content: center;
+                width: 100%;
+            }
+        }
+
         .department-export-modal {
             --mcu-purple-midnight: #3a0050;
             --mcu-purple: #5c297c;
@@ -426,7 +525,6 @@
 
         .report-card {
             border: 1px solid rgba(92, 41, 124, 0.1);
-            border-radius: 1.15rem;
             overflow: hidden;
             background:
                 radial-gradient(circle at 100% 0%, rgba(255, 183, 54, 0.1), transparent 13rem),
@@ -719,6 +817,183 @@
             </div>
         </div>
 
+        {{-- Filtered Department Result --}}
+        <div class="mb-4">
+            <div class="card filtered-result-toggle-card">
+                <div class="card-body">
+                    <div>
+                        <h5 class="filtered-result-title">
+                            @if($selectedDepartment !== 'all')
+                                {{ $selectedDepartment }} Department Performance
+                            @else
+                                Department Performance Breakdown
+                            @endif
+                        </h5>
+                        <div class="filtered-result-subtitle">
+                            <span class="filtered-result-chip">
+                                <i class="bx bx-buildings"></i>
+                                {{ $selectedDepartment !== 'all' ? $selectedDepartment : 'All Departments' }}
+                            </span>
+                            <span class="filtered-result-chip">
+                                <i class="bx bx-calendar"></i>
+                                {{ $selectedAcademicYear !== 'all' ? $selectedAcademicYear : 'All Years' }}
+                            </span>
+                            <span class="filtered-result-chip">
+                                <i class="bx bx-bookmark"></i>
+                                @if($selectedSemester === '1st')
+                                    1st Semester
+                                @elseif($selectedSemester === '2nd')
+                                    2nd Semester
+                                @elseif(strtolower((string) $selectedSemester) === 'summer')
+                                    Summer
+                                @else
+                                    {{ $selectedSemester !== 'all' ? $selectedSemester : 'All Semesters' }}
+                                @endif
+                            </span>
+                            <span class="filtered-result-chip">
+                                <i class="bx bx-book-open"></i>
+                                @if($selectedSubjectType === 'major')
+                                    Professional Course
+                                @elseif($selectedSubjectType === 'minor')
+                                    GenEd Course
+                                @else
+                                    All Types
+                                @endif
+                            </span>
+                        </div>
+                    </div>
+                    <button class="filtered-result-toggle-btn" type="button" data-bs-toggle="collapse"
+                        data-bs-target="#filteredDepartmentResult" aria-expanded="true"
+                        aria-controls="filteredDepartmentResult" id="filteredResultToggle">
+                        <i class="bx bx-table"></i>
+                        <span data-toggle-label>Hide Filtered Result</span>
+                        <i class="bx bx-chevron-down"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="collapse show" id="filteredDepartmentResult">
+                <div class="card report-card filtered-result-panel">
+                    <div class="card-body">
+                        {{-- Table Controls --}}
+                        <div class="row mb-3 g-3 align-items-end">
+                            <div class="col-md-3">
+                                <label class="form-label">Show entries</label>
+                                <select class="form-select form-select-sm" id="departmentPerPage"
+                                    onchange="updatePerPage(this.value)">
+                                    <option value="10" {{ $perPage == 10 ? 'selected' : '' }}>10</option>
+                                    <option value="25" {{ $perPage == 25 ? 'selected' : '' }}>25</option>
+                                    <option value="50" {{ $perPage == 50 ? 'selected' : '' }}>50</option>
+                                    <option value="100" {{ $perPage == 100 ? 'selected' : '' }}>100</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6"></div>
+                            <div class="col-md-3">
+                                <label class="form-label">Search</label>
+                                <input type="text" class="form-control form-control-sm" id="departmentSearch"
+                                    placeholder="Search departments..." onkeyup="filterDepartments(this.value)">
+                            </div>
+                        </div>
+
+                        <div class="table-responsive" id="departmentTableContainer">
+                            <table class="table table-hover" id="departmentTable">
+                                <thead>
+                                    <tr>
+                                        <th>Department</th>
+                                        <th class="text-center">Faculties</th>
+                                        <th class="text-center">Evaluations</th>
+                                        <th class="text-center">Responses</th>
+                                        <th class="text-center">Subject Type Split</th>
+                                        <th class="text-center">Avg Rating</th>
+                                        <th class="text-center">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @forelse($departmentBreakdown as $dept)
+                                        <tr class="department-row" data-department="{{ $dept['department'] }}">
+                                            <td>
+                                                <div class="d-flex align-items-center">
+                                                    <div class="avatar flex-shrink-0 me-3">
+                                                        <span class="avatar-initial bg-primary rounded">
+                                                            {{ substr($dept['department'], 0, 2) }}
+                                                        </span>
+                                                    </div>
+                                                    <div>
+                                                        <h6 class="mb-0">{{ $dept['department'] }}</h6>
+                                                        <small class="text-muted">{{ $dept['active_evaluations'] }}
+                                                            active</small>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td class="text-center">
+                                                <span class="badge bg-light text-dark">{{ $dept['faculty_count'] }}</span>
+                                            </td>
+                                            <td class="text-center">
+                                                <span class="badge bg-info">{{ $dept['total_evaluations'] }}</span>
+                                            </td>
+                                            <td class="text-center">
+                                                <span class="badge bg-success">{{ $dept['total_responses'] }}</span>
+                                            </td>
+                                            <td class="text-center">
+                                                @php
+                                                    $majorR = $dept['major_responses'] ?? 0;
+                                                    $minorR = $dept['minor_responses'] ?? 0;
+                                                @endphp
+                                                <div class="d-flex flex-column gap-1 align-items-center">
+                                                    <div class="d-flex align-items-center gap-1"
+                                                        title="Professional Course: {{ $majorR }} responses">
+                                                        <span class="badge bg-label-success">
+                                                            <i class="bx bx-book-open me-1"></i>Professional
+                                                        </span>
+                                                        <span class="fw-medium small">{{ $majorR }} resp.</span>
+                                                    </div>
+                                                    <div class="d-flex align-items-center gap-1"
+                                                        title="Minor Course: {{ $minorR }} responses">
+                                                        <span class="badge bg-label-warning">
+                                                            <i class="bx bx-book me-1"></i>GenEd
+                                                        </span>
+                                                        <span class="fw-medium small">{{ $minorR }} resp.</span>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td class="text-center">
+                                                <span class="fw-medium">{{ $dept['average_rating'] }}</span>
+                                                <div class="progress rating-progress mt-1">
+                                                    <div class="progress-bar bg-{{ $dept['average_rating'] >= 3 ? 'success' : ($dept['average_rating'] >= 2 ? 'warning' : 'danger') }}"
+                                                        style="width: {{ ($dept['average_rating'] / 4) * 100 }}%"></div>
+                                                </div>
+                                            </td>
+                                            <td class="text-center">
+                                                <button type="button" class="btn btn-sm btn-outline-primary"
+                                                    onclick="showFacultyModal('{{ $dept['department'] }}')">
+                                                    <i class="bx bx-group me-1"></i>View Faculty
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    @empty
+                                        <tr>
+                                            <td colspan="7" class="text-center py-4">
+                                                <i class="bx bx-buildings text-muted mb-2" style="font-size: 2rem;"></i>
+                                                <p class="text-muted mb-0">No department data available</p>
+                                            </td>
+                                        </tr>
+                                    @endforelse
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="d-flex justify-content-between align-items-center mt-3" id="departmentPagination">
+                            <div>
+                                <small class="text-muted">Showing <span
+                                        id="departmentShowing">{{ count($departmentBreakdown) }}</span> of
+                                    {{ count($departmentBreakdown) }} entries</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         {{-- Key Metrics Cards --}}
         <div class="row mb-4">
             <div class="col-xl-3 col-md-6 mb-3">
@@ -921,143 +1196,6 @@
                                     <p class="text-muted mb-0">No recent activity</p>
                                 </div>
                             @endforelse
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        {{-- Department Breakdown --}}
-        <div class="row">
-            <div class="col-12 mb-4">
-                <div class="card report-card">
-                    <div class="card-header">
-                        <h5 class="card-title mb-0">
-                            @if($selectedDepartment !== 'all')
-                                {{ $selectedDepartment }} Department Performance
-                            @else
-                                Department Performance Breakdown
-                            @endif
-                        </h5>
-                        @if($selectedDepartment !== 'all')
-                            <small class="text-muted">Showing data for {{ $selectedDepartment }} department only</small>
-                        @endif
-                    </div>
-                    <div class="card-body">
-                        {{-- Table Controls --}}
-                        <div class="row mb-3">
-                            <div class="col-md-3">
-                                <label class="form-label">Show entries</label>
-                                <select class="form-select form-select-sm" id="departmentPerPage"
-                                    onchange="updatePerPage(this.value)">
-                                    <option value="10" {{ $perPage == 10 ? 'selected' : '' }}>10</option>
-                                    <option value="25" {{ $perPage == 25 ? 'selected' : '' }}>25</option>
-                                    <option value="50" {{ $perPage == 50 ? 'selected' : '' }}>50</option>
-                                    <option value="100" {{ $perPage == 100 ? 'selected' : '' }}>100</option>
-                                </select>
-                            </div>
-                            <div class="col-md-6"></div>
-                            <div class="col-md-3">
-                                <label class="form-label">Search</label>
-                                <input type="text" class="form-control form-control-sm" id="departmentSearch"
-                                    placeholder="Search departments..." onkeyup="filterDepartments(this.value)">
-                            </div>
-                        </div>
-
-                        <div class="table-responsive" id="departmentTableContainer">
-                            <table class="table table-hover" id="departmentTable">
-                                <thead>
-                                    <tr>
-                                        <th>Department</th>
-                                        <th class="text-center">Faculties</th>
-                                        <th class="text-center">Evaluations</th>
-                                        <th class="text-center">Responses</th>
-                                        <th class="text-center">Subject Type Split</th>
-                                        <th class="text-center">Avg Rating</th>
-                                        <th class="text-center">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @forelse($departmentBreakdown as $dept)
-                                        <tr class="department-row" data-department="{{ $dept['department'] }}">
-                                            <td>
-                                                <div class="d-flex align-items-center">
-                                                    <div class="avatar flex-shrink-0 me-3">
-                                                        <span class="avatar-initial bg-primary rounded">
-                                                            {{ substr($dept['department'], 0, 2) }}
-                                                        </span>
-                                                    </div>
-                                                    <div>
-                                                        <h6 class="mb-0">{{ $dept['department'] }}</h6>
-                                                        <small class="text-muted">{{ $dept['active_evaluations'] }}
-                                                            active</small>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td class="text-center">
-                                                <span class="badge bg-light text-dark">{{ $dept['faculty_count'] }}</span>
-                                            </td>
-                                            <td class="text-center">
-                                                <span class="badge bg-info">{{ $dept['total_evaluations'] }}</span>
-                                            </td>
-                                            <td class="text-center">
-                                                <span class="badge bg-success">{{ $dept['total_responses'] }}</span>
-                                            </td>
-                                            <td class="text-center">
-                                                @php
-                                                    $majorR = $dept['major_responses'] ?? 0;
-                                                    $minorR = $dept['minor_responses'] ?? 0;
-                                                @endphp
-                                                <div class="d-flex flex-column gap-1 align-items-center">
-                                                    <div class="d-flex align-items-center gap-1"
-                                                        title="Professional Course: {{ $majorR }} responses">
-                                                        <span class="badge bg-label-success">
-                                                            <i class="bx bx-book-open me-1"></i>Professional
-                                                        </span>
-                                                        <span class="fw-medium small">{{ $majorR }} resp.</span>
-                                                    </div>
-                                                    <div class="d-flex align-items-center gap-1"
-                                                        title="Minor Course: {{ $minorR }} responses">
-                                                        <span class="badge bg-label-warning">
-                                                            <i class="bx bx-book me-1"></i>GenEd
-                                                        </span>
-                                                        <span class="fw-medium small">{{ $minorR }} resp.</span>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td class="text-center">
-                                                <span class="fw-medium">{{ $dept['average_rating'] }}</span>
-                                                <div class="progress rating-progress mt-1">
-                                                    <div class="progress-bar bg-{{ $dept['average_rating'] >= 3 ? 'success' : ($dept['average_rating'] >= 2 ? 'warning' : 'danger') }}"
-                                                        style="width: {{ ($dept['average_rating'] / 4) * 100 }}%"></div>
-                                                </div>
-                                            </td>
-                                            <td class="text-center">
-                                                <button type="button" class="btn btn-sm btn-outline-primary"
-                                                    onclick="showFacultyModal('{{ $dept['department'] }}')">
-                                                    <i class="bx bx-group me-1"></i>View Faculty
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    @empty
-                                        <tr>
-                                            <td colspan="7" class="text-center py-4">
-                                                <i class="bx bx-buildings text-muted mb-2" style="font-size: 2rem;"></i>
-                                                <p class="text-muted mb-0">No department data available</p>
-                                            </td>
-                                        </tr>
-                                    @endforelse
-                                </tbody>
-                            </table>
-                        </div>
-
-                        {{-- Department Table Pagination (Simple client-side for now) --}}
-                        <div class="d-flex justify-content-between align-items-center mt-3" id="departmentPagination">
-                            <div>
-                                <small class="text-muted">Showing <span
-                                        id="departmentShowing">{{ count($departmentBreakdown) }}</span> of
-                                    {{ count($departmentBreakdown) }} entries</small>
-                            </div>
                         </div>
                     </div>
                 </div>
@@ -1451,6 +1589,24 @@
             });
 
             document.getElementById('departmentShowing').textContent = visibleCount;
+        }
+
+        function bindFilteredResultToggle() {
+            const panel = document.getElementById('filteredDepartmentResult');
+            const toggle = document.getElementById('filteredResultToggle');
+            const label = toggle?.querySelector('[data-toggle-label]');
+
+            if (!panel || !toggle || !label) {
+                return;
+            }
+
+            panel.addEventListener('shown.bs.collapse', () => {
+                label.textContent = 'Hide Filtered Result';
+            });
+
+            panel.addEventListener('hidden.bs.collapse', () => {
+                label.textContent = 'Show Filtered Result';
+            });
         }
 
         function bindMetricCards() {
@@ -1937,6 +2093,7 @@
                 }, 500);
             });
             bindDepartmentExportButton();
+            bindFilteredResultToggle();
             bindMetricCards();
         });
 

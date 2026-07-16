@@ -48,6 +48,8 @@ Route::middleware(['auth'])->group(function () {
         return view('content.student.evaluation-access');
     })->name('student.evaluation-access')->middleware('access.level:forms');
 
+    Route::get('/profile', [AccountSettingsAccount::class, 'profile'])->name('profile');
+
     // Dashboard Routes
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard')->middleware('access.level:dashboard');
     

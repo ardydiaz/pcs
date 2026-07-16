@@ -58,18 +58,7 @@
       pointer-events: none;
     }
 
-    .dashboard-modern .dashboard-brand-card::after,
-    .dashboard-modern .dashboard-metric-card::after {
-      content: "";
-      position: absolute;
-      right: -2rem;
-      bottom: -5rem;
-      width: 14rem;
-      height: 14rem;
-      border: 1px solid rgba(255, 183, 54, 0.32);
-      border-radius: 50%;
-      pointer-events: none;
-    }
+
 
     .dashboard-modern .dashboard-metric-card::before {
       right: -9rem;

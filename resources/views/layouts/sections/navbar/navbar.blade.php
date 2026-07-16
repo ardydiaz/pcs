@@ -34,6 +34,133 @@
       line-height: 1;
       text-transform: uppercase;
     }
+
+    #layout-navbar,
+    #layout-navbar.navbar-detached {
+      overflow: visible;
+      z-index: 1080;
+    }
+
+    #layout-navbar .navbar-nav-right,
+    #layout-navbar .navbar-nav,
+    #layout-navbar .dropdown-user {
+      overflow: visible;
+      position: relative;
+      z-index: 1081;
+    }
+
+    .navbar-user-toggle {
+      align-items: center;
+      background: rgba(255, 255, 255, 0.13);
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      border-radius: 999px;
+      box-shadow: inset 0 0 0 1px rgba(255, 183, 54, 0.12);
+      display: inline-flex;
+      gap: 0.45rem;
+      padding: 0.28rem 0.42rem 0.28rem 0.3rem !important;
+      transition: background 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+    }
+
+    .navbar-user-toggle:hover,
+    .navbar-user-toggle.show {
+      background: rgba(255, 183, 54, 0.22);
+      box-shadow: 0 0.75rem 1.8rem rgba(58, 0, 80, 0.22);
+      transform: translateY(-1px);
+    }
+
+    .navbar-user-toggle .avatar {
+      width: 2.45rem;
+      height: 2.45rem;
+    }
+
+    .navbar-user-toggle-chevron {
+      align-items: center;
+      background: rgba(58, 0, 80, 0.42);
+      border: 1px solid rgba(255, 255, 255, 0.24);
+      border-radius: 999px;
+      color: #ffffff;
+      display: inline-flex;
+      height: 1.45rem;
+      justify-content: center;
+      width: 1.45rem;
+    }
+
+    .navbar-user-toggle[aria-expanded="true"] .navbar-user-toggle-chevron i {
+      transform: rotate(180deg);
+    }
+
+    .navbar-user-toggle-chevron i {
+      font-size: 1rem;
+      transition: transform 0.18s ease;
+    }
+
+    .navbar-user-menu {
+      border: 0;
+      border-radius: 1rem;
+      box-shadow: 0 1.25rem 3rem rgba(38, 0, 56, 0.24);
+      margin-top: 0rem !important;
+      min-width: 18rem;
+      overflow: hidden;
+      padding: 0;
+      z-index: 1082;
+      top: 4rem !important;
+    }
+
+    .navbar-user-menu-header {
+      background:
+        radial-gradient(circle at 100% 0%, rgba(255, 183, 54, 0.28), transparent 6rem),
+        linear-gradient(135deg, #3a0050, #6f2a8f);
+      color: #ffffff;
+      padding: 1rem;
+    }
+
+    .navbar-user-menu-header h6,
+    .navbar-user-menu-header small {
+      color: #ffffff !important;
+    }
+
+    .navbar-user-menu-body {
+      padding: 0.55rem;
+    }
+
+    .navbar-user-menu .dropdown-item {
+      align-items: center;
+      border-radius: 0.75rem;
+      color: #243246;
+      display: flex;
+      font-weight: 700;
+      padding: 0.75rem 0.85rem;
+    }
+
+    .navbar-user-menu .dropdown-item:hover {
+      background: #fbf7ff;
+      color: #4b0062;
+    }
+
+    .navbar-user-menu .dropdown-item.logout-action {
+      background: #fff4d8;
+      color: #3a0050;
+    }
+
+    .navbar-user-menu .dropdown-item.logout-action:hover {
+      background: #ffb736;
+      color: #3a0050;
+    }
+
+    @media (max-width: 575.98px) {
+      .navbar-user-toggle {
+        gap: 0.25rem;
+      }
+
+      .navbar-user-toggle-chevron {
+        height: 1.3rem;
+        width: 1.3rem;
+      }
+
+      .navbar-user-menu {
+        min-width: min(18rem, calc(100vw - 2rem));
+      }
+    }
   </style>
 @endonce
 
@@ -84,7 +211,8 @@
 
           <!-- User -->
           <li class="nav-item navbar-dropdown dropdown-user dropdown">
-            <a class="nav-link dropdown-toggle hide-arrow p-0" href="javascript:void(0);" data-bs-toggle="dropdown">
+            <a class="nav-link dropdown-toggle hide-arrow navbar-user-toggle" href="javascript:void(0);"
+              data-bs-toggle="dropdown" aria-expanded="false" aria-label="Open account menu">
               <div class="avatar avatar-online navbar-profile-ring">
                 @if($avatarSrc)
                   <img src="{{ $avatarSrc }}" alt="{{ $displayName }} profile photo"
@@ -96,10 +224,12 @@
                   </span>
                 @endif
               </div>
+              <span class="navbar-user-toggle-chevron" aria-hidden="true">
+                <i class="bx bx-chevron-down"></i>
+              </span>
             </a>
-            <ul class="dropdown-menu dropdown-menu-end">
-              <li>
-                <a class="dropdown-item" href="javascript:void(0);">
+            <ul class="dropdown-menu dropdown-menu-end navbar-user-menu">
+              <li class="navbar-user-menu-header">
                   <div class="d-flex">
                     <div class="flex-shrink-0 me-3">
                       <div class="avatar avatar-online navbar-profile-ring">
@@ -116,32 +246,24 @@
                     </div>
                     <div class="flex-grow-1">
                       <h6 class="mb-0">{{ ucwords($displayName) }}</h6>
-                      <small class="text-muted">{{ ucwords($authUser?->role ?? '') }}</small>
+                      <small>{{ ucwords($authUser?->role ?? '') }}</small>
                     </div>
                   </div>
-                </a>
               </li>
-              <li>
-                <div class="dropdown-divider my-1"></div>
-              </li>
-              <li>
-                <a class="dropdown-item" href="javascript:void(0);">
+              <li class="navbar-user-menu-body">
+                <a class="dropdown-item" href="{{ route('profile') }}">
                   <i class="bx bx-user bx-md me-3"></i><span>My Profile</span>
                 </a>
-              </li>
-              <li>
                 <a class="dropdown-item" href="{{ route('settings') }}">
                   <i class="bx bx-cog bx-md me-3"></i><span>Settings</span>
                 </a>
-              </li>
-              <li>
-                <div class="dropdown-divider my-1"></div>
+                <div class="dropdown-divider my-2"></div>
               </li>
               <form id="logout-form" action="{{ route('logout') }}" method="POST" class="d-none">
                 @csrf
               </form>
-              <li>
-                <a class="dropdown-item" href="#"
+              <li class="navbar-user-menu-body pt-0">
+                <a class="dropdown-item logout-action" href="#"
                   onclick="event.preventDefault(); document.getElementById('logout-form').submit();">
                   <i class="bx bx-power-off bx-md me-3"></i><span>Log Out</span>
                 </a>
