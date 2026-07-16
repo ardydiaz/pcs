@@ -99,7 +99,7 @@
 @endsection
 
 @section('content')
-<div class="container-fluid">
+<div>
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
             <h4 class="mb-1">System Activity Logs</h4>
