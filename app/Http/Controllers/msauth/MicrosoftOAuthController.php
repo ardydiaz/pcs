@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\msauth;
 
 use App\Http\Controllers\Controller;
+use App\Models\Faculty;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 use Laravel\Socialite\Facades\Socialite;
@@ -35,16 +36,6 @@ class MicrosoftOAuthController extends Controller
 
             $avatar = $this->fetchMicrosoftAvatar($microsoftUser->token ?? null)
                 ?? ($microsoftUser->attributes['avatar'] ?? null);
-
-            $existingUser = User::whereRaw('LOWER(email) = ?', [$normalizedEmail])->first();
-            if ($existingUser) {
-                if ($avatar && $existingUser->avatar !== $avatar) {
-                    $existingUser->forceFill(['avatar' => $avatar])->save();
-                }
-
-                Auth::login($existingUser);
-                return redirect()->intended('/dashboard');
-            }
 
             $role = 'Faculty'; // default role
 
@@ -89,6 +80,42 @@ class MicrosoftOAuthController extends Controller
                     $accessLevel = array_values(array_filter($accessLevel, function ($level) {
                         return $level !== 'Manage Evaluation QR/Link';
                     }));
+                }
+            }
+
+            $existingUser = User::whereRaw('LOWER(email) = ?', [$normalizedEmail])->first();
+            if ($existingUser) {
+                if ($role === 'Faculty' && !$existingUser->faculty) {
+                    $facultyUser = $this->findFacultyUserByMicrosoftName($microsoftUser->getName());
+                    if ($facultyUser && $facultyUser->id !== $existingUser->id) {
+                        $this->moveMicrosoftIdentityToFacultyUser($existingUser, $facultyUser, $normalizedEmail, $microsoftUser->getId(), $avatar);
+
+                        Auth::login($facultyUser->fresh());
+                        return redirect()->intended('/dashboard');
+                    }
+                }
+
+                if ($avatar && $existingUser->avatar !== $avatar) {
+                    $existingUser->forceFill(['avatar' => $avatar])->save();
+                }
+
+                Auth::login($existingUser);
+                return redirect()->intended('/dashboard');
+            }
+
+            if ($role === 'Faculty') {
+                $facultyUser = $this->findFacultyUserByMicrosoftName($microsoftUser->getName());
+                if ($facultyUser) {
+                    $facultyUser->forceFill([
+                        'email' => $normalizedEmail,
+                        'provider_id' => $microsoftUser->getId(),
+                        'provider' => 'microsoft',
+                        'avatar' => $avatar,
+                        'status' => 'Active',
+                    ])->save();
+
+                    Auth::login($facultyUser);
+                    return redirect()->intended('/dashboard');
                 }
             }
             $user = User::create([
@@ -159,6 +186,88 @@ class MicrosoftOAuthController extends Controller
 
             return null;
         }
+    }
+
+    private function moveMicrosoftIdentityToFacultyUser(
+        User $orphanUser,
+        User $facultyUser,
+        string $email,
+        ?string $providerId,
+        ?string $avatar
+    ): void {
+        $orphanUser->forceFill([
+            'email' => null,
+            'provider_id' => null,
+            'provider' => null,
+            'status' => 'Inactive',
+        ])->save();
+
+        $facultyUser->forceFill([
+            'email' => $email,
+            'provider_id' => $providerId,
+            'provider' => 'microsoft',
+            'avatar' => $avatar,
+            'status' => 'Active',
+        ])->save();
+
+        $orphanUser->delete();
+
+        Log::info('Merged Microsoft faculty login into imported faculty user', [
+            'orphan_user_id' => $orphanUser->id,
+            'faculty_user_id' => $facultyUser->id,
+            'email' => $email,
+        ]);
+    }
+
+    private function findFacultyUserByMicrosoftName(?string $name): ?User
+    {
+        $tokens = $this->nameTokens((string) $name);
+        if (count($tokens) < 2) {
+            return null;
+        }
+
+        $matches = Faculty::with('user')
+            ->whereHas('user', function ($query) {
+                $query->whereRaw('LOWER(COALESCE(role, "")) = ?', ['faculty']);
+            })
+            ->get()
+            ->map(function (Faculty $faculty) use ($tokens) {
+                $facultyTokens = $this->nameTokens($faculty->user?->name ?? '');
+                $score = count(array_intersect($tokens, $facultyTokens));
+
+                return [
+                    'user' => $faculty->user,
+                    'score' => $score,
+                ];
+            })
+            ->filter(function (array $match) use ($tokens) {
+                $requiredScore = count($tokens) >= 3 ? 3 : count($tokens);
+
+                return $match['user'] && $match['score'] >= $requiredScore;
+            })
+            ->sortByDesc('score')
+            ->values();
+
+        if ($matches->isEmpty()) {
+            return null;
+        }
+
+        $topScore = $matches->first()['score'];
+        $topMatches = $matches->filter(fn (array $match) => $match['score'] === $topScore);
+
+        return $topMatches->count() === 1 ? $topMatches->first()['user'] : null;
+    }
+
+    private function nameTokens(string $name): array
+    {
+        $name = strtolower(trim($name));
+        $name = preg_replace('/[^a-z0-9 ]+/', ' ', $name);
+
+        return collect(preg_split('/\s+/', $name, -1, PREG_SPLIT_NO_EMPTY))
+            ->reject(fn ($token) => strlen($token) <= 1 || in_array($token, ['dr', 'dra', 'jr', 'sr', 'ii', 'iii', 'iv'], true))
+            ->unique()
+            ->values()
+            ->all();
     }
 
 }

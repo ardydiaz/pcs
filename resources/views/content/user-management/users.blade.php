@@ -556,6 +556,44 @@
             min-width: 2rem;
         }
 
+        .user-identity-stack {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.35rem;
+            margin-top: 0.35rem;
+        }
+
+        .user-identity-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            max-width: 100%;
+            padding: 0.2rem 0.5rem;
+            border-radius: 999px;
+            font-size: 0.72rem;
+            font-weight: 800;
+            line-height: 1.15;
+            white-space: nowrap;
+        }
+
+        .user-identity-badge--linked {
+            background: rgba(34, 197, 94, 0.14);
+            color: #047857;
+            border: 1px solid rgba(34, 197, 94, 0.28);
+        }
+
+        .user-identity-badge--login-only {
+            background: rgba(255, 183, 54, 0.2);
+            color: #6b3b00;
+            border: 1px solid rgba(255, 183, 54, 0.42);
+        }
+
+        .user-identity-badge--duplicate {
+            background: rgba(239, 68, 68, 0.12);
+            color: #b91c1c;
+            border: 1px solid rgba(239, 68, 68, 0.28);
+        }
+
         .evaluation-col-selection {
             width: 48px;
             text-align: center;
@@ -2829,9 +2867,23 @@
                 const statusSlug = String(user.status_slug || '').toLowerCase() || 'inactive';
                 const statusClass = user.status_class || (statusSlug === 'active' ? 'active' : 'inactive');
                 const statusToggleLabel = statusSlug === 'active' ? 'Deactivate' : 'Activate';
+                const identityStatus = String(user.identity_status || '').toLowerCase();
+                const identityLabel = user.identity_label || (user.employee_no ? `Employee No. ${user.employee_no}` : '');
+                const possibleDuplicate = user.possible_duplicate || null;
+                const identityBadgeClass = identityStatus === 'linked'
+                    ? 'user-identity-badge--linked'
+                    : 'user-identity-badge--login-only';
+                const identityIcon = identityStatus === 'linked' ? 'bx-id-card' : 'bx-error-circle';
+                const duplicateTitle = possibleDuplicate
+                    ? `Possible duplicate of ${possibleDuplicate.name || 'faculty profile'} (${possibleDuplicate.employee_no || 'no employee number'})`
+                    : '';
                 const searchTerms = [
                     name,
                     emailRaw,
+                    user.employee_no || '',
+                    identityLabel,
+                    possibleDuplicate?.name || '',
+                    possibleDuplicate?.employee_no || '',
                     user.department_label || '',
                     jobTitle,
                     roleValue,
@@ -2863,6 +2915,21 @@
                         <td>
                             <div class="table-cell-stack is-wide" title="${this.escapeAttribute(name)}">
                                 <span class="table-text-truncate text-dark">${this.escapeHtml(name)}</span>
+                                <div class="user-identity-stack">
+                                    ${identityLabel ? `
+                                        <span class="user-identity-badge ${identityBadgeClass}">
+                                            <i class="bx ${identityIcon}"></i>
+                                            ${this.escapeHtml(identityLabel)}
+                                        </span>
+                                    ` : ''}
+                                    ${possibleDuplicate ? `
+                                        <span class="user-identity-badge user-identity-badge--duplicate"
+                                              title="${this.escapeAttribute(duplicateTitle)}">
+                                            <i class="bx bx-git-merge"></i>
+                                            Possible duplicate: Emp. ${this.escapeHtml(possibleDuplicate.employee_no || 'N/A')}
+                                        </span>
+                                    ` : ''}
+                                </div>
                             </div>
                         </td>
                         <td>

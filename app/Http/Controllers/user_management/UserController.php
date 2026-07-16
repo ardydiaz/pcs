@@ -73,7 +73,7 @@ class UserController extends Controller
                 'users.access_level',
                 'users.status',
             ])
-            ->with('faculty:id,user_id,department,job_title')
+            ->with('faculty:id,user_id,employee_no,department,job_title')
             ->leftJoin('faculties as faculty_profiles', 'faculty_profiles.user_id', '=', 'users.id');
 
         if ($search !== '') {
@@ -288,7 +288,7 @@ class UserController extends Controller
     public function deletedList(): JsonResponse
     {
         $users = User::onlyTrashed()
-            ->with('faculty:id,user_id,department,job_title')
+            ->with('faculty:id,user_id,employee_no,department,job_title')
             ->latest('deleted_at')
             ->limit(100)
             ->get()
@@ -325,7 +325,7 @@ class UserController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'User restored successfully.',
-            'data' => $this->serializeUserForList($user->load('faculty:id,user_id,department,job_title')),
+            'data' => $this->serializeUserForList($user->load('faculty:id,user_id,employee_no,department,job_title')),
         ]);
     }
 
@@ -445,11 +445,26 @@ class UserController extends Controller
         $accessLevels = collect($user->access_level ?? [])
             ->filter(fn ($level) => trim($level ?? '') !== '')
             ->values();
+        $employeeNo = trim((string) optional($user->faculty)->employee_no);
+        $isFacultyRole = strtolower((string) $roleValue) === 'faculty';
+        $possibleFacultyDuplicate = $isFacultyRole && $employeeNo === ''
+            ? $this->findLikelyFacultyDuplicate($user)
+            : null;
+        $identityStatus = $employeeNo !== ''
+            ? 'linked'
+            : ($isFacultyRole ? 'faculty_login_only' : 'account_only');
+        $identityLabel = $employeeNo !== ''
+            ? 'Employee No. ' . $employeeNo
+            : ($isFacultyRole ? 'No faculty profile' : 'Account only');
 
         return [
             'id' => $user->id,
             'name' => $user->name ?? 'Unnamed User',
             'email' => $user->email ?? '',
+            'employee_no' => $employeeNo,
+            'identity_status' => $identityStatus,
+            'identity_label' => $identityLabel,
+            'possible_duplicate' => $possibleFacultyDuplicate,
             'department_raw' => $departmentRaw,
             'departments' => $departmentList->values(),
             'department_label' => $resolvedDepartmentLabel,
@@ -463,6 +478,65 @@ class UserController extends Controller
             'status_class' => $statusClass,
             'is_current_user' => auth()->check() && auth()->id() === $user->id,
         ];
+    }
+
+    private function findLikelyFacultyDuplicate(User $user): ?array
+    {
+        $tokens = $this->nameTokens((string) $user->name);
+        if (count($tokens) < 2) {
+            return null;
+        }
+
+        $matches = Faculty::with('user:id,name')
+            ->whereNotNull('employee_no')
+            ->whereHas('user')
+            ->get()
+            ->map(function (Faculty $faculty) use ($tokens) {
+                $facultyTokens = $this->nameTokens($faculty->user?->name ?? '');
+                $score = count(array_intersect($tokens, $facultyTokens));
+
+                return [
+                    'user_id' => $faculty->user_id,
+                    'name' => $faculty->user?->name,
+                    'employee_no' => $faculty->employee_no,
+                    'score' => $score,
+                ];
+            })
+            ->filter(function (array $match) use ($tokens, $user) {
+                $requiredScore = count($tokens) >= 3 ? 3 : count($tokens);
+
+                return (int) $match['user_id'] !== (int) $user->id
+                    && $match['score'] >= $requiredScore;
+            })
+            ->sortByDesc('score')
+            ->values();
+
+        if ($matches->isEmpty()) {
+            return null;
+        }
+
+        $topScore = $matches->first()['score'];
+        $topMatches = $matches->filter(fn (array $match) => $match['score'] === $topScore);
+
+        if ($topMatches->count() !== 1) {
+            return null;
+        }
+
+        return collect($topMatches->first())
+            ->only(['user_id', 'name', 'employee_no'])
+            ->all();
+    }
+
+    private function nameTokens(string $name): array
+    {
+        $name = strtolower(trim($name));
+        $name = preg_replace('/[^a-z0-9 ]+/', ' ', $name);
+
+        return collect(preg_split('/\s+/', $name, -1, PREG_SPLIT_NO_EMPTY))
+            ->reject(fn ($token) => strlen($token) <= 1 || in_array($token, ['dr', 'dra', 'jr', 'sr', 'ii', 'iii', 'iv'], true))
+            ->unique()
+            ->values()
+            ->all();
     }
 
     private function normaliseAccessLevels(string $role, array $accessLevels): array
