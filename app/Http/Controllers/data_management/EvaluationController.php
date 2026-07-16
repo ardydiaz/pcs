@@ -1125,7 +1125,10 @@ class EvaluationController extends Controller
         $request->validate([
             'schedule_id' => 'required|exists:schedules,id',
             'effectiveness_rating' => 'required|in:1,2,3,4',
-            'feedback_comments' => 'required|string|max:1000',
+            'feedback_comments' => 'required|string|min:20|max:500',
+        ], [
+            'feedback_comments.min' => 'Feedback must be at least 20 characters.',
+            'feedback_comments.max' => 'Feedback must not exceed 500 characters.',
         ]);
 
         $studentUserId = $request->user()?->id;

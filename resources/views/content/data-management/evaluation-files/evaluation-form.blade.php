@@ -934,11 +934,16 @@
                     </p>
 
                     <textarea name="feedback_comments" id="feedback_comments" class="form-control" rows="6"
-                        placeholder="Enter your feedback" required></textarea>
+                        placeholder="Enter your feedback" minlength="20" maxlength="500" required>{{ old('feedback_comments') }}</textarea>
                     <div class="field-error-message" id="feedbackError">
-                        Please enter your feedback before proceeding.
+                        Feedback must be 20 to 500 characters.
                     </div>
-                    <small class="text-muted d-block mt-2" id="feedbackHelp">Feedback is required before proceeding.</small>
+                    <small class="text-muted d-block mt-2" id="feedbackHelp">
+                        Please write 20 to 500 characters. One-word answers like "good" or "bad" are too short.
+                    </small>
+                    <small class="d-block mt-1" id="feedbackCounter">
+                        20 more characters needed.
+                    </small>
                 </div>
 
                 <div class="d-flex justify-content-between">
@@ -1010,6 +1015,8 @@
         const scheduleSelect = document.getElementById('schedule_id');
         const selectedCoursePreview = document.getElementById('selectedCoursePreview');
         const selectedCoursePreviewText = document.getElementById('selectedCoursePreviewText');
+        const feedbackMinLength = 20;
+        const feedbackMaxLength = 500;
 
         function updateProgressBar() {
             const progress = (currentSection / totalSections) * 100;
@@ -1095,6 +1102,9 @@
                     } else {
                         clearFieldError(field);
                     }
+                } else if (field.name === 'feedback_comments' && !isFeedbackValid(field.value)) {
+                    showFieldError(field);
+                    return false;
                 } else if (!field.value.trim()) {
                     showFieldError(field);
                     return false;
@@ -1160,6 +1170,9 @@
             };
 
             const errorEl = document.getElementById(errorMap[fieldName]);
+            if (fieldName === 'feedback_comments') {
+                updateFeedbackCounter(true);
+            }
             errorEl?.classList.add('is-visible');
 
             if (fieldName === 'feedback_comments') {
@@ -1202,11 +1215,60 @@
 
             if (fieldName === 'feedback_comments') {
                 document.getElementById('feedbackHelp')?.classList.remove('d-none');
+                updateFeedbackCounter();
             }
         }
 
+        function feedbackLength(value) {
+            return (value || '').trim().length;
+        }
+
+        function isFeedbackValid(value) {
+            const length = feedbackLength(value);
+            return length >= feedbackMinLength && length <= feedbackMaxLength;
+        }
+
+        function updateFeedbackCounter(forceError = false) {
+            const field = document.getElementById('feedback_comments');
+            const counter = document.getElementById('feedbackCounter');
+            const error = document.getElementById('feedbackError');
+            if (!field || !counter) {
+                return;
+            }
+
+            const length = feedbackLength(field.value);
+            const remainingMin = Math.max(feedbackMinLength - length, 0);
+            const remainingMax = Math.max(feedbackMaxLength - length, 0);
+            const isTooShort = length < feedbackMinLength;
+            const isTooLong = length > feedbackMaxLength;
+
+            if (isTooShort) {
+                counter.textContent = `${remainingMin} more character${remainingMin === 1 ? '' : 's'} needed.`;
+                counter.className = 'd-block mt-1 text-danger';
+                if (error) {
+                    error.textContent = `Please enter at least ${feedbackMinLength} characters. ${remainingMin} more needed.`;
+                }
+            } else if (isTooLong) {
+                counter.textContent = `Too long by ${length - feedbackMaxLength} character${length - feedbackMaxLength === 1 ? '' : 's'}.`;
+                counter.className = 'd-block mt-1 text-danger';
+                if (error) {
+                    error.textContent = `Feedback must not exceed ${feedbackMaxLength} characters.`;
+                }
+            } else {
+                counter.textContent = `${length}/${feedbackMaxLength} characters. ${remainingMax} remaining.`;
+                counter.className = 'd-block mt-1 text-success';
+                if (error) {
+                    error.textContent = 'Feedback must be 20 to 500 characters.';
+                }
+            }
+
+            const shouldShowError = forceError || isTooShort || isTooLong;
+            field.classList.toggle('is-invalid', shouldShowError && length > 0);
+        }
+
         document.getElementById('feedback_comments')?.addEventListener('input', function() {
-            if (this.value.trim()) {
+            updateFeedbackCounter();
+            if (isFeedbackValid(this.value)) {
                 clearFieldError(this);
             }
         });
@@ -1341,6 +1403,7 @@
             currentSection = 1;
             showSection(currentSection);
             filterSchedulesBySection();
+            updateFeedbackCounter();
         }
 
         function backToForm() {
@@ -1434,6 +1497,7 @@
             updateSelectedCoursePreview();
         }
 
+        updateFeedbackCounter();
         updateProgressBar();
     </script>
 </body>
