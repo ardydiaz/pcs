@@ -1007,9 +1007,11 @@ class EvaluationController extends Controller
 
         $studentUserId = auth()->id();
         $canSubmitEvaluation = strtolower((string) auth()->user()?->role) === 'student';
+        $today = now()->toDateString();
         $evaluatedScheduleIds = $canSubmitEvaluation
             ? EvaluationResponse::where('evaluation_id', $evaluation->id)
                 ->where('student_user_id', $studentUserId)
+                ->where('submitted_date', $today)
                 ->pluck('schedule_id')
                 ->filter()
                 ->map(fn ($id) => (int) $id)
@@ -1044,15 +1046,17 @@ class EvaluationController extends Controller
 
         $ipAddress = $request->ip();
         $scheduleId = $request->schedule_id;
+        $submittedDate = now()->toDateString();
 
         $alreadyEvaluated = EvaluationResponse::where('evaluation_id', $evaluation->id)
             ->where('schedule_id', $scheduleId)
             ->where('student_user_id', $studentUserId)
+            ->where('submitted_date', $submittedDate)
             ->exists();
 
         if ($alreadyEvaluated) {
             return back()
-                ->with('error', 'Already evaluated')
+                ->with('error', 'Already evaluated today')
                 ->withInput();
         }
 
@@ -1072,6 +1076,7 @@ class EvaluationController extends Controller
                 'evaluation_id' => $evaluation->id,
                 'schedule_id' => $request->schedule_id,
                 'student_user_id' => $studentUserId,
+                'submitted_date' => $submittedDate,
                 'ip_address' => $ipAddress,
                 'effectiveness_rating' => $request->effectiveness_rating,
                 'feedback_comments' => $request->feedback_comments,
@@ -1083,7 +1088,7 @@ class EvaluationController extends Controller
         } catch (QueryException $exception) {
             if ((string) $exception->getCode() === '23000') {
                 return back()
-                    ->with('error', 'Already evaluated')
+                    ->with('error', 'Already evaluated today')
                     ->withInput();
             }
 

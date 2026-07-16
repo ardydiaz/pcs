@@ -842,11 +842,11 @@
                                 $fullCourseLabel = trim(($course->class_code ?? '') . ' - ' . ($course->subject_code ?? '') . ' - ' . ($schedule->facultyCourse->section ?? '') . ' - ' . $scheduleLabel);
                                 $isAlreadyEvaluated = in_array((int) $schedule->id, $evaluatedScheduleIds, true);
                                 $displayCourseLabel = $isAlreadyEvaluated
-                                    ? 'Already evaluated - ' . $fullCourseLabel
+                                    ? 'Already evaluated today - ' . $fullCourseLabel
                                     : $fullCourseLabel;
                                 $compactCourseLabel = trim(($course->class_code ?? '') . ' - ' . ($schedule->facultyCourse->section ?? '') . ' - ' . $scheduleLabel);
                                 $shortCourseLabel = \Illuminate\Support\Str::limit($compactCourseLabel, 58);
-                                $shortEvaluatedLabel = \Illuminate\Support\Str::limit('Already evaluated - ' . $compactCourseLabel, 74);
+                                $shortEvaluatedLabel = \Illuminate\Support\Str::limit('Already evaluated today - ' . $compactCourseLabel, 74);
                             @endphp
                             <option value="{{ $schedule->id }}"
                                 data-section="{{ optional($schedule->facultyCourse)->section }}"

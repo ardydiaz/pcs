@@ -11,6 +11,7 @@ class EvaluationResponse extends Model
         'evaluation_id',
         'schedule_id',
         'student_user_id',
+        'submitted_date',
         'ip_address',
         'effectiveness_rating',
         'feedback_comments',
