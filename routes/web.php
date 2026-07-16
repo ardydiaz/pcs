@@ -150,7 +150,9 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/audit-logs/audit-logs', [AuditLogsController::class, 'index'])->name('um.audit-logs')->middleware('admin');
 
     // Settings
-    Route::get('/settings', [AccountSettingsAccount::class, 'index'])->name('settings')->middleware('access.level:settings');
+    Route::get('/settings', [AccountSettingsAccount::class, 'index'])->name('settings');
+    Route::post('/settings/avatar', [AccountSettingsAccount::class, 'updateAvatar'])->name('settings.avatar.update');
+    Route::delete('/settings/avatar', [AccountSettingsAccount::class, 'removeAvatar'])->name('settings.avatar.remove');
     Route::post('/settings/maintenance', [AccountSettingsAccount::class, 'updateMaintenance'])->name('settings.maintenance')->middleware('admin');
 
     // Session keep-alive for users actively working on long forms

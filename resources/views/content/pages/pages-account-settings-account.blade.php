@@ -1,209 +1,366 @@
 @extends('layouts/contentNavbarLayout')
 
-@section('title', 'Account settings - Account')
+@section('title', 'Settings')
 
-@section('page-script')
-  @vite(['resources/assets/js/pages-account-settings-account.js'])
-@endsection
+@php
+  $displayName = trim((string) ($user->name ?? 'User'));
+  $avatarSrc = $user->avatar;
+  $nameParts = preg_split('/\s+/', preg_replace('/[^A-Za-z0-9\s]/', '', $displayName), -1, PREG_SPLIT_NO_EMPTY);
+  $avatarInitials = collect($nameParts)->take(3)->map(fn ($part) => strtoupper(substr($part, 0, 1)))->implode('') ?: 'U';
+  $roleLabel = ucwords((string) ($user->role ?? 'User'));
+@endphp
 
 @section('content')
-  <div class="row">
-    <div class="col-md-12">
-      <div class="nav-align-top">
-        <ul class="nav nav-pills flex-column flex-md-row mb-6">
-          <li class="nav-item"><a class="nav-link active" href="javascript:void(0);"><i
-                class="bx bx-sm bx-user me-1_5"></i> Account</a></li>
-          <li class="nav-item"><a class="nav-link" href="{{url('pages/account-settings-notifications')}}"><i
-                class="bx bx-sm bx-bell me-1_5"></i> Notifications</a></li>
-          <li class="nav-item"><a class="nav-link" href="{{url('pages/account-settings-connections')}}"><i
-                class="bx bx-sm bx-link-alt me-1_5"></i> Connections</a></li>
-        </ul>
-      </div>
-      <div class="card mb-6">
-        <!-- Account -->
-        <div class="card-body">
-          <div class="d-flex align-items-start align-items-sm-center gap-6 pb-4 border-bottom">
-            <img src="{{ asset('storage/images/default-avatar.png') }}" alt="user-avatar"
-              class="d-block w-px-100 h-px-100 rounded" id="uploadedAvatar" />
-            <div class="button-wrapper">
-              <label for="upload" class="btn btn-primary me-3 mb-4" tabindex="0">
-                <span class="d-none d-sm-block">Upload new photo</span>
-                <i class="bx bx-upload d-block d-sm-none"></i>
-                <input type="file" id="upload" class="account-file-input" hidden accept="image/png, image/jpeg" />
-              </label>
-              <button type="button" class="btn btn-outline-secondary account-image-reset mb-4">
-                <i class="bx bx-reset d-block d-sm-none"></i>
-                <span class="d-none d-sm-block">Reset</span>
-              </button>
+<style>
+  .settings-page {
+    --mcu-purple-midnight: #3a0050;
+    --mcu-purple: #5b1b76;
+    --mcu-purple-haze: #6f2a8f;
+    --mcu-gold: #ffb736;
+    --mcu-pink: #ef175c;
+    color: #243246;
+  }
 
-              <div>Allowed JPG, GIF or PNG. Max size of 800K</div>
-            </div>
-          </div>
-        </div>
-        <div class="card-body pt-4">
-          <form id="formAccountSettings" method="POST" onsubmit="return false">
-            <div class="row g-6">
-              <div class="col-md-6">
-                <label for="firstName" class="form-label">First Name</label>
-                <input class="form-control" type="text" id="firstName" name="firstName" value="John" autofocus />
-              </div>
-              <div class="col-md-6">
-                <label for="lastName" class="form-label">Last Name</label>
-                <input class="form-control" type="text" name="lastName" id="lastName" value="Doe" />
-              </div>
-              <div class="col-md-6">
-                <label for="email" class="form-label">E-mail</label>
-                <input class="form-control" type="text" id="email" name="email" value="john.doe@example.com"
-                  placeholder="john.doe@example.com" />
-              </div>
-              <div class="col-md-6">
-                <label for="organization" class="form-label">Organization</label>
-                <input type="text" class="form-control" id="organization" name="organization"
-                  value="{{config('variables.creatorName')}}" />
-              </div>
-              <div class="col-md-6">
-                <label class="form-label" for="phoneNumber">Phone Number</label>
-                <div class="input-group input-group-merge">
-                  <span class="input-group-text">US (+1)</span>
-                  <input type="text" id="phoneNumber" name="phoneNumber" class="form-control"
-                    placeholder="202 555 0111" />
-                </div>
-              </div>
-              <div class="col-md-6">
-                <label for="address" class="form-label">Address</label>
-                <input type="text" class="form-control" id="address" name="address" placeholder="Address" />
-              </div>
-              <div class="col-md-6">
-                <label for="state" class="form-label">State</label>
-                <input class="form-control" type="text" id="state" name="state" placeholder="California" />
-              </div>
-              <div class="col-md-6">
-                <label for="zipCode" class="form-label">Zip Code</label>
-                <input type="text" class="form-control" id="zipCode" name="zipCode" placeholder="231465" maxlength="6" />
-              </div>
-              <div class="col-md-6">
-                <label class="form-label" for="country">Country</label>
-                <select id="country" class="select2 form-select">
-                  <option value="">Select</option>
-                  <option value="Australia">Australia</option>
-                  <option value="Bangladesh">Bangladesh</option>
-                  <option value="Belarus">Belarus</option>
-                  <option value="Brazil">Brazil</option>
-                  <option value="Canada">Canada</option>
-                  <option value="China">China</option>
-                  <option value="France">France</option>
-                  <option value="Germany">Germany</option>
-                  <option value="India">India</option>
-                  <option value="Indonesia">Indonesia</option>
-                  <option value="Israel">Israel</option>
-                  <option value="Italy">Italy</option>
-                  <option value="Japan">Japan</option>
-                  <option value="Korea">Korea, Republic of</option>
-                  <option value="Mexico">Mexico</option>
-                  <option value="Philippines">Philippines</option>
-                  <option value="Russia">Russian Federation</option>
-                  <option value="South Africa">South Africa</option>
-                  <option value="Thailand">Thailand</option>
-                  <option value="Turkey">Turkey</option>
-                  <option value="Ukraine">Ukraine</option>
-                  <option value="United Arab Emirates">United Arab Emirates</option>
-                  <option value="United Kingdom">United Kingdom</option>
-                  <option value="United States">United States</option>
-                </select>
-              </div>
-              <div class="col-md-6">
-                <label for="language" class="form-label">Language</label>
-                <select id="language" class="select2 form-select">
-                  <option value="">Select Language</option>
-                  <option value="en">English</option>
-                  <option value="fr">French</option>
-                  <option value="de">German</option>
-                  <option value="pt">Portuguese</option>
-                </select>
-              </div>
-              <div class="col-md-6">
-                <label for="timeZones" class="form-label">Timezone</label>
-                <select id="timeZones" class="select2 form-select">
-                  <option value="">Select Timezone</option>
-                  <option value="-12">(GMT-12:00) International Date Line West</option>
-                  <option value="-11">(GMT-11:00) Midway Island, Samoa</option>
-                  <option value="-10">(GMT-10:00) Hawaii</option>
-                  <option value="-9">(GMT-09:00) Alaska</option>
-                  <option value="-8">(GMT-08:00) Pacific Time (US & Canada)</option>
-                  <option value="-8">(GMT-08:00) Tijuana, Baja California</option>
-                  <option value="-7">(GMT-07:00) Arizona</option>
-                  <option value="-7">(GMT-07:00) Chihuahua, La Paz, Mazatlan</option>
-                  <option value="-7">(GMT-07:00) Mountain Time (US & Canada)</option>
-                  <option value="-6">(GMT-06:00) Central America</option>
-                  <option value="-6">(GMT-06:00) Central Time (US & Canada)</option>
-                  <option value="-6">(GMT-06:00) Guadalajara, Mexico City, Monterrey</option>
-                  <option value="-6">(GMT-06:00) Saskatchewan</option>
-                  <option value="-5">(GMT-05:00) Bogota, Lima, Quito, Rio Branco</option>
-                  <option value="-5">(GMT-05:00) Eastern Time (US & Canada)</option>
-                  <option value="-5">(GMT-05:00) Indiana (East)</option>
-                  <option value="-4">(GMT-04:00) Atlantic Time (Canada)</option>
-                  <option value="-4">(GMT-04:00) Caracas, La Paz</option>
-                </select>
-              </div>
-              <div class="col-md-6">
-                <label for="currency" class="form-label">Currency</label>
-                <select id="currency" class="select2 form-select">
-                  <option value="">Select Currency</option>
-                  <option value="usd">USD</option>
-                  <option value="euro">Euro</option>
-                  <option value="pound">Pound</option>
-                  <option value="bitcoin">Bitcoin</option>
-                </select>
-              </div>
-            </div>
-            <div class="mt-6">
-              <button type="submit" class="btn btn-primary me-3">Save changes</button>
-              <button type="reset" class="btn btn-outline-secondary">Cancel</button>
-            </div>
-          </form>
-        </div>
-        <!-- /Account -->
-      </div>
-      @if(auth()->user()?->role === 'Admin')
-        <div class="card mb-6">
-          <h5 class="card-header">Maintenance Mode</h5>
-          <div class="card-body">
-            <form method="POST" action="{{ route('settings.maintenance') }}">
-              @csrf
-              <input type="hidden" name="maintenance_mode" value="0" />
-              <div class="form-check form-switch">
-                <input class="form-check-input" type="checkbox" id="maintenanceModeToggle" name="maintenance_mode"
-                  value="1" onchange="this.form.submit()" {{ $maintenanceEnabled ? 'checked' : '' }} />
-                <label class="form-check-label" for="maintenanceModeToggle">Show 404 page to non-admin users</label>
-              </div>
-              <small class="text-muted d-block mt-2">Admins can access the site even when maintenance is enabled.</small>
-              <div class="mt-3">
-                <span class="badge {{ $maintenanceEnabled ? 'bg-label-danger' : 'bg-label-success' }}">
-                  {{ $maintenanceEnabled ? 'Maintenance on' : 'Maintenance off' }}
-                </span>
-              </div>
-            </form>
-          </div>
-        </div>
+  .settings-hero {
+    position: relative;
+    overflow: hidden;
+    border-radius: 1.25rem;
+    background:
+      radial-gradient(circle at 92% 8%, rgba(255, 183, 54, 0.25), transparent 10rem),
+      linear-gradient(90deg, rgba(58, 0, 80, 0.98) 0 60%, rgba(58, 0, 80, 0.42) 60% 100%),
+      linear-gradient(120deg, #3a0050 0 50%, #ef175c 50% 60%, #ff8738 60% 80%, #7a3f92 80% 100%);
+    box-shadow: 0 1.1rem 2.4rem rgba(58, 0, 80, 0.14);
+    color: #ffffff;
+    padding: 1.75rem;
+  }
+
+  .settings-kicker {
+    margin: 0 0 0.35rem;
+    color: #ffcc1b;
+    font-size: 0.76rem;
+    font-weight: 900;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  .settings-title {
+    margin: 0;
+    color: #ffffff;
+    font-size: clamp(1.9rem, 4vw, 2.7rem);
+    font-weight: 900;
+  }
+
+  .settings-subtitle {
+    margin: 0.5rem 0 0;
+    color: rgba(255, 255, 255, 0.9);
+    font-weight: 700;
+  }
+
+  .settings-card {
+    border: 1px solid rgba(92, 41, 124, 0.1);
+    border-radius: 1.1rem;
+    background:
+      radial-gradient(circle at 100% 0%, rgba(255, 183, 54, 0.08), transparent 9rem),
+      #ffffff;
+    box-shadow: 0 0.75rem 1.8rem rgba(58, 0, 80, 0.08);
+  }
+
+  .settings-card-header {
+    align-items: center;
+    border-bottom: 1px solid rgba(92, 41, 124, 0.09);
+    display: flex;
+    gap: 0.7rem;
+    padding: 1.25rem 1.35rem;
+  }
+
+  .settings-card-icon {
+    display: grid;
+    place-items: center;
+    width: 2.55rem;
+    height: 2.55rem;
+    border-radius: 0.85rem;
+    background: #fbf0ff;
+    color: #5b1b76;
+    font-size: 1.35rem;
+  }
+
+  .settings-card-title {
+    margin: 0;
+    color: #243246;
+    font-size: 1.05rem;
+    font-weight: 900;
+  }
+
+  .settings-card-body {
+    padding: 1.35rem;
+  }
+
+  .settings-avatar {
+    display: grid;
+    place-items: center;
+    width: 7rem;
+    height: 7rem;
+    flex: 0 0 auto;
+    overflow: hidden;
+    border: 4px solid #ffb736;
+    border-radius: 999px;
+    background: #ffffff;
+    color: #5b1b76;
+    font-size: 1.75rem;
+    font-weight: 900;
+    box-shadow: 0 1rem 1.8rem rgba(58, 0, 80, 0.16);
+  }
+
+  .settings-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .settings-info-grid {
+    display: grid;
+    gap: 0.85rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .settings-info-box {
+    border: 1px solid rgba(92, 41, 124, 0.1);
+    border-radius: 0.9rem;
+    background: #fbf9ff;
+    padding: 0.85rem 0.95rem;
+  }
+
+  .settings-info-box span {
+    display: block;
+    color: #6b7a90;
+    font-size: 0.72rem;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .settings-info-box strong {
+    display: block;
+    color: #243246;
+    font-size: 0.98rem;
+    font-weight: 800;
+    margin-top: 0.2rem;
+    overflow-wrap: anywhere;
+  }
+
+  .settings-access-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+  }
+
+  .settings-access-badge {
+    border-radius: 999px;
+    background: #fff4d8;
+    color: #3a0050;
+    font-weight: 800;
+    padding: 0.48rem 0.75rem;
+  }
+
+  .settings-admin-panel {
+    border: 1px solid rgba(239, 23, 92, 0.16);
+    border-radius: 1rem;
+    background:
+      radial-gradient(circle at 100% 0%, rgba(239, 23, 92, 0.08), transparent 9rem),
+      #fffafd;
+    padding: 1rem;
+  }
+
+  .settings-button-primary {
+    background: linear-gradient(135deg, #4b0062, #6f2a8f);
+    border: 0;
+    color: #ffffff;
+    font-weight: 900;
+  }
+
+  .settings-button-primary:hover {
+    color: #ffffff;
+    box-shadow: 0 0.75rem 1.7rem rgba(91, 27, 118, 0.24);
+  }
+
+  @media (max-width: 767.98px) {
+    .settings-info-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .settings-avatar-row {
+      align-items: flex-start !important;
+      flex-direction: column;
+    }
+
+    .settings-avatar {
+      width: 5.8rem;
+      height: 5.8rem;
+      font-size: 1.4rem;
+    }
+  }
+</style>
+
+<div class="settings-page">
+  <div class="settings-hero mb-4">
+    <p class="settings-kicker">Account Settings</p>
+    <h1 class="settings-title">Settings</h1>
+    <p class="settings-subtitle">
+      Manage your profile photo and review your account details.
+      @if($user->role === 'Admin')
+        Admin system options are available below.
       @endif
-      <div class="card">
-        <h5 class="card-header">Delete Account</h5>
-        <div class="card-body">
-          <div class="mb-6 col-12 mb-0">
-            <div class="alert alert-warning">
-              <h5 class="alert-heading mb-1">Are you sure you want to delete your account?</h5>
-              <p class="mb-0">Once you delete your account, there is no going back. Please be certain.</p>
+    </p>
+  </div>
+
+  @if(session('success'))
+    <div class="alert alert-success">{{ session('success') }}</div>
+  @endif
+
+  @if($errors->any())
+    <div class="alert alert-danger">
+      {{ $errors->first() }}
+    </div>
+  @endif
+
+  <div class="row g-4">
+    <div class="col-lg-5">
+      <div class="settings-card">
+        <div class="settings-card-header">
+          <span class="settings-card-icon"><i class="bx bx-image-add"></i></span>
+          <h5 class="settings-card-title">Profile Photo</h5>
+        </div>
+        <div class="settings-card-body">
+          <div class="settings-avatar-row d-flex align-items-center gap-4">
+            <div class="settings-avatar">
+              @if($avatarSrc)
+                <img src="{{ $avatarSrc }}" alt="{{ $displayName }} profile photo">
+              @else
+                {{ $avatarInitials }}
+              @endif
+            </div>
+            <div class="flex-grow-1">
+              <h5 class="mb-1">{{ $displayName }}</h5>
+              <p class="mb-3 text-muted">{{ $roleLabel }}</p>
+              <form method="POST" action="{{ route('settings.avatar.update') }}" enctype="multipart/form-data" class="mb-2">
+                @csrf
+                <input class="form-control mb-3" type="file" name="avatar" accept="image/png,image/jpeg,image/gif,image/webp" required>
+                <button type="submit" class="btn settings-button-primary">
+                  <i class="bx bx-upload me-1"></i>Upload Photo
+                </button>
+              </form>
+              @if($avatarSrc)
+                <form method="POST" action="{{ route('settings.avatar.remove') }}">
+                  @csrf
+                  @method('DELETE')
+                  <button type="submit" class="btn btn-outline-secondary">
+                    <i class="bx bx-reset me-1"></i>Remove Photo
+                  </button>
+                </form>
+              @endif
+              <small class="d-block mt-3 text-muted">Allowed JPG, PNG, GIF, or WEBP. Maximum size 2MB.</small>
             </div>
           </div>
-          <form id="formAccountDeactivation" onsubmit="return false">
-            <div class="form-check my-8 ms-2">
-              <input class="form-check-input" type="checkbox" name="accountActivation" id="accountActivation" />
-              <label class="form-check-label" for="accountActivation">I confirm my account deactivation</label>
-            </div>
-            <button type="submit" class="btn btn-danger deactivate-account" disabled>Deactivate Account</button>
-          </form>
         </div>
       </div>
     </div>
+
+    <div class="col-lg-7">
+      <div class="settings-card h-100">
+        <div class="settings-card-header">
+          <span class="settings-card-icon"><i class="bx bx-id-card"></i></span>
+          <h5 class="settings-card-title">Account Information</h5>
+        </div>
+        <div class="settings-card-body">
+          <div class="settings-info-grid">
+            <div class="settings-info-box">
+              <span>Name</span>
+              <strong>{{ $displayName }}</strong>
+            </div>
+            <div class="settings-info-box">
+              <span>Email</span>
+              <strong>{{ $user->email ?: 'No email listed' }}</strong>
+            </div>
+            <div class="settings-info-box">
+              <span>Role</span>
+              <strong>{{ $roleLabel }}</strong>
+            </div>
+            <div class="settings-info-box">
+              <span>Status</span>
+              <strong>{{ $user->status ?: 'Active' }}</strong>
+            </div>
+            <div class="settings-info-box">
+              <span>Department</span>
+              <strong>{{ !empty($departments) ? implode(', ', $departments) : 'No department listed' }}</strong>
+            </div>
+            <div class="settings-info-box">
+              <span>Job Title</span>
+              <strong>{{ $jobTitle ?: 'No job title listed' }}</strong>
+            </div>
+            <div class="settings-info-box">
+              <span>Employee No.</span>
+              <strong>{{ $employeeNo ?: 'No employee number linked' }}</strong>
+            </div>
+            <div class="settings-info-box">
+              <span>Provider</span>
+              <strong>{{ $user->provider ? ucwords($user->provider) : 'Local Account' }}</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-7">
+      <div class="settings-card h-100">
+        <div class="settings-card-header">
+          <span class="settings-card-icon"><i class="bx bx-shield-quarter"></i></span>
+          <h5 class="settings-card-title">Access Level</h5>
+        </div>
+        <div class="settings-card-body">
+          <div class="settings-access-list">
+            @forelse($accessLevels as $level)
+              <span class="settings-access-badge">{{ $level }}</span>
+            @empty
+              <span class="settings-access-badge">No access level assigned</span>
+            @endforelse
+          </div>
+        </div>
+      </div>
+    </div>
+
+    @if($user->role === 'Admin')
+      <div class="col-lg-5">
+        <div class="settings-card h-100">
+          <div class="settings-card-header">
+            <span class="settings-card-icon"><i class="bx bx-cog"></i></span>
+            <h5 class="settings-card-title">Admin System Options</h5>
+          </div>
+          <div class="settings-card-body">
+            <div class="settings-admin-panel">
+              <form method="POST" action="{{ route('settings.maintenance') }}">
+                @csrf
+                <input type="hidden" name="maintenance_mode" value="0">
+                <div class="d-flex justify-content-between gap-3 align-items-start">
+                  <div>
+                    <h6 class="mb-1 fw-bold">Maintenance Mode</h6>
+                    <p class="mb-0 text-muted">Show the access page to non-admin users while maintenance is active.</p>
+                  </div>
+                  <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="maintenanceModeToggle" name="maintenance_mode"
+                      value="1" onchange="this.form.submit()" {{ $maintenanceEnabled ? 'checked' : '' }}>
+                  </div>
+                </div>
+                <div class="mt-3">
+                  <span class="badge {{ $maintenanceEnabled ? 'bg-label-danger' : 'bg-label-success' }}">
+                    {{ $maintenanceEnabled ? 'Maintenance on' : 'Maintenance off' }}
+                  </span>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    @endif
   </div>
+</div>
 @endsection

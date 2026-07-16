@@ -162,9 +162,7 @@ a:hover {
 
 .navbar-profile-ring {
   border-radius: 50%;
-  padding: 0.08rem;
   background: #ffffff;
-  border: 1px solid var(--mcu-heritage-gold);
   box-shadow: 0 0.35rem 0.7rem rgba(44, 0, 63, 0.18);
 }
 
