@@ -343,7 +343,7 @@
                 <div class="d-flex justify-content-between gap-3 align-items-start">
                   <div>
                     <h6 class="mb-1 fw-bold">Maintenance Mode</h6>
-                    <p class="mb-0 text-muted">Show the access page to non-admin users while maintenance is active.</p>
+                    <p class="mb-0 text-muted">Show the maintenance page to non-admin users while maintenance is active.</p>
                   </div>
                   <div class="form-check form-switch">
                     <input class="form-check-input" type="checkbox" id="maintenanceModeToggle" name="maintenance_mode"

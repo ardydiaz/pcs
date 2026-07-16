@@ -16,7 +16,14 @@ class MaintenanceModeMiddleware
         }
 
         $routeName = $request->route()?->getName();
-        $allowedRoutes = ['login', 'logout', 'microsoft.redirect', 'microsoft.callback'];
+        $allowedRoutes = [
+            'login',
+            'logout',
+            'maintenance.page',
+            'maintenance.status',
+            'microsoft.redirect',
+            'microsoft.callback',
+        ];
 
         if ($routeName && in_array($routeName, $allowedRoutes, true)) {
             return $next($request);
@@ -28,6 +35,6 @@ class MaintenanceModeMiddleware
         }
 
         return response()
-            ->view('content.pages.pages-misc-error', [], 404);
+            ->view('content.pages.pages-misc-under-maintenance', [], 503);
     }
 }

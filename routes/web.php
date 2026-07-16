@@ -14,6 +14,7 @@ use App\Http\Controllers\user_management\AuditLogsController;
 use App\Http\Controllers\organization\DepartmentOrgChartController;
 use App\Support\AuditLogger;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 
 /*
 |--------------------------------------------------------------------------
@@ -36,6 +37,26 @@ Route::get('/auth/microsoft/redirect', [MicrosoftOAuthController::class, 'redire
     ->name('microsoft.redirect');
 Route::get('/auth/microsoft/callback', [MicrosoftOAuthController::class, 'callback'])
     ->name('microsoft.callback');
+
+Route::get('/maintenance', function () {
+    if (!Cache::get('maintenance.enabled', false)) {
+        return Auth::check()
+            ? redirect()->route(strtolower((string) Auth::user()?->role) === 'student' ? 'student.evaluation-access' : 'dashboard')
+            : redirect()->route('login');
+    }
+
+    return response()->view('content.pages.pages-misc-under-maintenance', [], 503);
+})->name('maintenance.page');
+
+Route::get('/maintenance/status', function () {
+    $user = Auth::user();
+
+    return response()->json([
+        'enabled' => Cache::get('maintenance.enabled', false),
+        'is_admin' => $user && $user->role === 'Admin',
+        'redirect_url' => route('maintenance.page'),
+    ]);
+})->name('maintenance.status');
 
 Route::middleware(['auth', 'access.level:forms'])->group(function () {
     Route::get('/evaluation/{faculty}/{year}/{semester}/{token}', [EvaluationController::class, 'showForm'])->name('evaluation.form');
