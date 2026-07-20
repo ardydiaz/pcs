@@ -1168,13 +1168,21 @@ class ReportsController extends Controller
 
         foreach ($facultyGroups as $facultyEvaluations) {
             $evaluationIds = $facultyEvaluations->pluck('id');
-            $responsesQuery = EvaluationResponse::whereIn('evaluation_id', $evaluationIds);
+            $responsesQuery = EvaluationResponse::with(['schedule.facultyCourse.course'])
+                ->whereIn('evaluation_id', $evaluationIds);
             if ($subjectType !== 'all') {
                 $responsesQuery->whereHas('schedule.facultyCourse.course', function ($q) use ($subjectType) {
                     $q->where('subject_type', $subjectType);
                 });
             }
             $responses = $responsesQuery->get();
+
+            if ($department !== 'all') {
+                $responses = $responses
+                    ->filter(fn ($response) => $this->responseHandledByDepartment($response, $department))
+                    ->values();
+            }
+
             if ($responses->isEmpty()) {
                 continue;
             }
@@ -1182,7 +1190,7 @@ class ReportsController extends Controller
             $first = $facultyEvaluations->first();
             $ratings[] = [
                 'faculty_name' => $first->resolved_faculty_name,
-                'department' => $first->resolved_faculty_department,
+                'department' => $department !== 'all' ? $department : $first->resolved_faculty_department,
                 'average_rating' => round($responses->avg('effectiveness_rating'), 2),
                 'total_responses' => $responses->count(),
                 'courses_count' => $responses->unique('schedule_id')->count()

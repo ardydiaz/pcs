@@ -16,9 +16,9 @@
 
         .responses-hero {
             background:
-                radial-gradient(circle at 100% 0%, rgba(255, 183, 54, 0.28), transparent 11rem),
+                radial-gradient(circle at 100% 0%, rgba(255, 185, 54, 0), transparent 11rem),
                 radial-gradient(circle at 82% 100%, rgba(236, 15, 90, 0.28), transparent 12rem),
-                linear-gradient(120deg, var(--mcu-purple-midnight), var(--mcu-purple), var(--mcu-purple-haze));
+                linear-gradient(120deg, var(--mcu-purple-midnight), var(--mcu-purple), var(--mcu-purple-haze)) !important;
             border: 0;
             border-radius: 1.1rem;
             box-shadow: 0 1rem 2.2rem rgba(44, 0, 63, 0.18);
@@ -106,13 +106,12 @@
             transform: translateY(-1px);
         }
 
-        .responses-metric-card,
-        .responses-panel {
-            background:
-                radial-gradient(circle at 100% 0%, rgba(255, 183, 54, 0.1), transparent 8rem),
-                linear-gradient(180deg, #ffffff, #fbf7ff);
+        .responses-metric-card {
+            background: radial-gradient(circle at 85% 15%, rgba(255, 183, 54, .22), 
+            transparent 7rem), linear-gradient(120deg, #3a0050, #5c297c, rgba(240, 24, 77, .76)) !important;
             border: 1px solid var(--mcu-border);
             border-radius: 1rem;
+            color: #ffffff;
             box-shadow: 0 0.85rem 1.85rem rgba(44, 0, 63, 0.08);
             overflow: hidden;
         }
@@ -135,7 +134,7 @@
 
         .responses-metric-icon {
             align-items: center;
-            background: rgba(92, 41, 124, 0.1);
+            background: rgb(255 255 255);
             border: 1px solid rgba(92, 41, 124, 0.12);
             border-radius: 0.85rem;
             color: var(--mcu-purple);
@@ -148,7 +147,6 @@
         }
 
         .responses-metric-value {
-            color: var(--mcu-purple-midnight);
             font-size: 1.95rem;
             font-weight: 900;
             line-height: 1;
@@ -156,7 +154,7 @@
         }
 
         .responses-metric-label {
-            color: #52627a;
+            color: #ffcf62;
             font-size: 0.86rem;
             font-weight: 800;
             margin: 0;
@@ -165,7 +163,7 @@
         .responses-panel-header {
             background:
                 radial-gradient(circle at 100% 0%, rgba(255, 183, 54, 0.18), transparent 9rem),
-                linear-gradient(120deg, var(--mcu-purple-midnight), var(--mcu-purple));
+                linear-gradient(120deg, var(--mcu-purple-midnight), var(--mcu-purple)) !important;
             border-bottom: 0;
             color: #ffffff;
             padding: 1.1rem 1.35rem;

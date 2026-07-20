@@ -11,8 +11,7 @@
                         </span>
                     </span>
                 </th>
-                <th>Email</th>
-                <th>Job Title</th>
+                <th>Department</th>
                 <th class="text-center sortable" data-sort-key="evaluations" data-sort-state="none">
                     <span class="faculty-sort-wrapper">
                         <span class="faculty-sort-label">Evaluations</span>
@@ -56,8 +55,9 @@
             @forelse($faculties as $faculty)
                 @php
                     $facultyName = data_get($faculty, 'name', 'Unknown');
-                    $facultyEmail = data_get($faculty, 'email');
-                    $facultyJobTitle = data_get($faculty, 'job_title');
+                    $facultyDepartment = $selectedDepartment !== 'all'
+                        ? $selectedDepartment
+                        : (data_get($faculty, 'department') ?: 'No department');
                     $facultyStatus = data_get($faculty, 'status', 'active');
                 @endphp
                 <tr>
@@ -73,8 +73,9 @@
                             </div>
                         </div>
                     </td>
-                    <td>{{ $facultyEmail ?? 'N/A' }}</td>
-                    <td>{{ $facultyJobTitle ?? 'N/A' }}</td>
+                    <td>
+                        <span class="badge bg-label-primary">{{ $facultyDepartment }}</span>
+                    </td>
                     <td class="text-center">
                         <span class="badge bg-info">{{ $faculty->evaluation_count }}</span>
                         <br>
@@ -112,7 +113,7 @@
                 </tr>
             @empty
                 <tr>
-                    <td colspan="8" class="text-center py-4">
+                    <td colspan="7" class="text-center py-4">
                         <i class="bx bx-user-x text-muted mb-2" style="font-size: 2rem;"></i>
                         <p class="text-muted mb-0">No faculty members found</p>
                     </td>
