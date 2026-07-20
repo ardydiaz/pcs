@@ -151,7 +151,7 @@
             border: 1px solid rgba(255, 183, 54, 0.24);
             border-radius: 1.25rem;
             background:
-                radial-gradient(circle at 92% 0%, rgba(255, 183, 54, 0.32), transparent 14rem),
+                radial-gradient(circle at 92% 0%, rgba(255, 185, 54, 0), transparent 14rem),
                 radial-gradient(circle at 70% 85%, rgba(236, 15, 90, 0.24), transparent 16rem),
                 linear-gradient(135deg, #3a0050 0%, #5c297c 48%, #8d3d8c 100%);
             box-shadow: 0 1.35rem 3rem rgba(44, 0, 63, 0.18);
@@ -162,7 +162,7 @@
             position: absolute;
             inset: 0 auto 0 48%;
             width: 22rem;
-            background: linear-gradient(115deg, transparent 0 20%, rgba(236, 15, 90, 0.34) 20% 42%, rgba(255, 183, 54, 0.38) 42% 66%, transparent 66%);
+            /* background: linear-gradient(115deg, transparent 0 20%, rgba(236, 15, 90, 0.34) 20% 42%, rgba(255, 183, 54, 0.38) 42% 66%, transparent 66%); */
             opacity: 0.88;
             pointer-events: none;
             border-radius: inherit;

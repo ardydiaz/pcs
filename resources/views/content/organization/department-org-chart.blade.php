@@ -27,10 +27,7 @@
             border: 0;
             border-radius: 1.25rem;
             background:
-                radial-gradient(circle at 91% 86%, rgba(255, 183, 54, 0.18) 0 7rem, transparent 7.1rem),
-                linear-gradient(112deg, transparent 0 71%, rgba(255, 183, 54, 0.78) 71.2% 79%, transparent 79.2%),
-                linear-gradient(115deg, transparent 0 66%, rgba(237, 20, 91, 0.78) 66.2% 83%, transparent 83.2%),
-                linear-gradient(90deg, var(--org-purple-midnight), var(--org-purple-dark) 45%, #5c1f75 72%, #8a3d82);
+                linear-gradient(90deg, var(--org-purple-midnight), var(--org-purple-dark) 45%, #5c1f75 72%, #8a3d82) !important;
             color: #ffffff;
             box-shadow: 0 1.25rem 3rem rgba(43, 0, 63, 0.22);
             overflow: hidden;
@@ -44,25 +41,7 @@
             pointer-events: none;
         }
 
-        .org-hero::before {
-            right: 7.2rem;
-            top: -8.5rem;
-            width: 18rem;
-            height: 18rem;
-            border-radius: 50%;
-            background: linear-gradient(135deg, rgba(255, 183, 54, 0.55), rgba(237, 20, 91, 0.55));
-            opacity: 0.9;
-        }
 
-        .org-hero::after {
-            right: 2rem;
-            bottom: -6.5rem;
-            width: 12.5rem;
-            height: 12.5rem;
-            border-radius: 50%;
-            background: rgba(255, 183, 54, 0.08);
-            border: 1px solid rgba(255, 183, 54, 0.35);
-        }
 
         .org-hero h4,
         .org-hero p {
@@ -239,6 +218,15 @@
             border-bottom: 2px solid var(--org-purple-dark);
             transform: translateX(-50%) rotate(45deg);
             background: #ffffff;
+        }
+
+        .org-connector-label {
+            color: var(--org-purple);
+            font-size: 0.72rem;
+            font-weight: 900;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            margin: -0.15rem 0 0.25rem;
         }
 
         .org-faculty-row {
@@ -544,6 +532,7 @@
                     </div>
                     <div class="d-flex align-items-center gap-2 flex-wrap">
                         <span class="org-summary-pill">{{ $deans->count() }} Dean{{ $deans->count() === 1 ? '' : 's' }}</span>
+                        <span class="org-summary-pill">{{ ($viceDeans ?? collect())->count() }} Vice Dean{{ ($viceDeans ?? collect())->count() === 1 ? '' : 's' }}</span>
                         <span class="org-summary-pill">{{ $facultyMembers->count() }} Faculty</span>
                     </div>
                 </div>
@@ -553,7 +542,7 @@
                         <h5 class="mb-1">No Department Found</h5>
                         <p class="mb-0">Add department values to users or faculty records to generate an org chart.</p>
                     </div>
-                @elseif ($deans->isEmpty() && $facultyMembers->isEmpty())
+                @elseif ($deans->isEmpty() && ($viceDeans ?? collect())->isEmpty() && $facultyMembers->isEmpty())
                     <div class="org-empty">
                         <h5 class="mb-1">No Dean or Faculty Found</h5>
                         <p class="mb-0">This chart only includes records with job title containing Dean or Faculty.</p>
@@ -578,6 +567,16 @@
                                     </div>
                                 @endforelse
                             </div>
+
+                            @if (($viceDeans ?? collect())->isNotEmpty())
+                                <div class="org-connector"></div>
+                                <div class="org-connector-label">Vice Dean</div>
+                                <div class="org-level">
+                                    @foreach ($viceDeans as $person)
+                                        @include('content.organization.partials.org-person-card', ['person' => $person, 'type' => 'vice-dean'])
+                                    @endforeach
+                                </div>
+                            @endif
 
                             @if ($facultyMembers->isNotEmpty())
                                 <div class="org-connector"></div>

@@ -32,21 +32,16 @@
     .dashboard-modern .dashboard-metric-card {
       position: relative;
       color: #ffffff;
-      background:
-        linear-gradient(90deg, rgba(58, 0, 80, 0.96) 0 58%, rgba(58, 0, 80, 0.18) 58% 100%),
-        radial-gradient(circle at 78% 24%, rgba(255, 183, 54, 0.3), transparent 0 9rem),
-        radial-gradient(circle at 95% 108%, rgba(18, 168, 181, 0.34), transparent 0 12rem),
-        linear-gradient(120deg, var(--dash-purple-dark) 0 42%, var(--dash-flame) 42% 53%, var(--dash-orange) 53% 76%, var(--dash-purple-soft) 76% 100%);
+      background: radial-gradient(circle at 85% 15%, rgba(255, 183, 54, 0.22), transparent 0 7rem), 
+        linear-gradient(120deg, var(--dash-purple-dark), var(--dash-purple), rgba(240, 24, 77, 0.76));
     }
 
     .dashboard-modern .dashboard-metric-card {
-      background:
-        linear-gradient(90deg, rgba(58, 0, 80, 0.98) 0 68%, rgba(58, 0, 80, 0.38) 68% 100%),
-        radial-gradient(circle at 94% 96%, rgba(255, 183, 54, 0.2), transparent 0 7rem),
-        linear-gradient(120deg, var(--dash-purple-dark) 0 50%, var(--dash-flame) 50% 60%, var(--dash-orange) 60% 82%, var(--dash-purple-soft) 82% 100%);
+        background: radial-gradient(circle at 85% 15%, rgba(255, 183, 54, 0.22), transparent 0 7rem), 
+        linear-gradient(120deg, var(--dash-purple-dark), var(--dash-purple), rgba(240, 24, 77, 0.76));
     }
 
-    .dashboard-modern .dashboard-brand-card::before,
+    /* .dashboard-modern .dashboard-brand-card::before,
     .dashboard-modern .dashboard-metric-card::before {
       content: "";
       position: absolute;
@@ -72,7 +67,7 @@
       bottom: -4rem;
       width: 10rem;
       height: 10rem;
-    }
+    } */
 
     .dashboard-modern .dashboard-brand-card .card-body,
     .dashboard-modern .dashboard-metric-card .card-body {

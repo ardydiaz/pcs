@@ -26,9 +26,7 @@
     overflow: hidden;
     border-radius: 1.25rem;
     background:
-      radial-gradient(circle at 92% 8%, rgba(255, 183, 54, 0.25), transparent 10rem),
-      linear-gradient(90deg, rgba(58, 0, 80, 0.98) 0 60%, rgba(58, 0, 80, 0.42) 60% 100%),
-      linear-gradient(120deg, #3a0050 0 50%, #ef175c 50% 60%, #ff8738 60% 80%, #7a3f92 80% 100%);
+      linear-gradient(90deg, var(--mcu-purple-midnight), var(--mcu-purple) 45%, #5c1f75 72%, #8a3d82) !important;
     box-shadow: 0 1.1rem 2.4rem rgba(58, 0, 80, 0.14);
     color: #ffffff;
     padding: 1.75rem;

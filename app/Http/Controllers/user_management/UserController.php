@@ -37,6 +37,7 @@ class UserController extends Controller
         'College of Physical Therapy',
         'Basic Education',
         'School of Business and Management',
+        'Institute of Education'
     ];
 
     /**

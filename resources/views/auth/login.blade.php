@@ -472,20 +472,7 @@
                     monitoring.
                 </p>
 
-                <div class="brand-stats" aria-label="System highlights">
-                    <div class="brand-stat">
-                        <strong>QR</strong>
-                        <span>Fast student access after class</span>
-                    </div>
-                    <div class="brand-stat">
-                        <strong>DTR</strong>
-                        <span>Faculty load and schedule visibility</span>
-                    </div>
-                    <div class="brand-stat">
-                        <strong>Reports</strong>
-                        <span>Dean and department analytics</span>
-                    </div>
-                </div>
+               
             </div>
         </section>
 

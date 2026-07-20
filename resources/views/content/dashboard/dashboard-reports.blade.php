@@ -4,16 +4,24 @@
 
 @section('vendor-style')
     <style>
+            .dashboard-modern {
+            --dash-purple-dark: #3a0050;
+            --dash-purple: #5c297c;
+            --dash-purple-soft: #7a3f92;
+            --dash-gold: #ffb736;
+            --dash-flame: #f0184d;
+            --dash-orange: #ff8738;
+            --dash-blue: #12a8b5;
+            --dash-card-shadow: 0 1.15rem 2.5rem rgba(58, 0, 80, 0.12);
+            }
         .content-wrapper .metric-card,
         .metric-card {
             position: relative;
             overflow: hidden;
             border: 1px solid rgba(255, 183, 54, 0.24) !important;
             border-radius: 1.15rem;
-            background:
-                linear-gradient(90deg, rgba(58, 0, 80, 0.98) 0 66%, rgba(58, 0, 80, 0.42) 66% 100%),
-                radial-gradient(circle at 94% 98%, rgba(255, 183, 54, 0.18), transparent 0 7rem),
-                linear-gradient(120deg, #3a0050 0 50%, #f0184d 50% 60%, #ff8738 60% 82%, #7a3f92 82% 100%) !important;
+            background: radial-gradient(circle at 85% 15%, rgba(255,183,54,.22), transparent 7rem),
+            linear-gradient(120deg, #3a0050, #5c297c, rgba(240,24,77,.76)) !important;
             color: #ffffff;
             box-shadow: 0 1.1rem 2.4rem rgba(58, 0, 80, 0.18) !important;
             transition: transform 0.2s, box-shadow 0.2s;
@@ -28,25 +36,11 @@
         .metric-card::before {
             content: "";
             position: absolute;
-            right: -8rem;
-            top: -8rem;
-            width: 16rem;
-            height: 16rem;
-            border-radius: 50%;
-            background: rgba(255, 255, 255, 0.12);
-            pointer-events: none;
         }
 
         .metric-card::after {
             content: "";
             position: absolute;
-            right: -4.5rem;
-            bottom: -4rem;
-            width: 10rem;
-            height: 10rem;
-            border: 1px solid rgba(255, 183, 54, 0.34);
-            border-radius: 50%;
-            pointer-events: none;
         }
 
         .metric-card-clickable {
@@ -136,24 +130,15 @@
             position: relative;
             border: 1px solid rgba(255, 183, 54, 0.22) !important;
             border-radius: 1.2rem;
-            background:
-                radial-gradient(circle at 92% 12%, rgba(255, 183, 54, 0.28), transparent 10rem),
-                radial-gradient(circle at 76% 100%, rgba(240, 24, 77, 0.28), transparent 12rem),
-                linear-gradient(120deg, #3a0050 0%, #5c297c 52%, #8d3d8c 100%) !important;
+            background: radial-gradient(circle at 92% 12%, rgba(255, 185, 54, 0), 
+            transparent 10rem), radial-gradient(circle at 76% 100%, rgb(240 24 77 / 0%),
+            transparent 12rem), linear-gradient(120deg, #3a0050 0%, #5c297c 52%, #8d3d8c 100%) !important;
             box-shadow: 0 1.25rem 2.6rem rgba(58, 0, 80, 0.16) !important;
             color: #ffffff !important;
             overflow: hidden;
         }
 
-        .filtered-result-toggle-card::before {
-            content: "";
-            position: absolute;
-            inset: 0 auto 0 55%;
-            width: 24rem;
-            background: linear-gradient(115deg, transparent 0 16%, rgba(236, 15, 90, 0.36) 16% 40%, rgba(255, 183, 54, 0.28) 40% 64%, transparent 64%);
-            opacity: 0.9;
-            pointer-events: none;
-        }
+
 
         .content-wrapper .filtered-result-toggle-card .card-body,
         .filtered-result-toggle-card .card-body {
@@ -621,15 +606,6 @@
                 radial-gradient(circle at 78% 120%, rgba(236, 15, 90, 0.12), transparent 16rem),
                 linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(251, 247, 255, 0.92));
             box-shadow: 0 1.15rem 2.4rem rgba(58, 0, 80, 0.1);
-        }
-
-        .filter-section::before {
-            content: "";
-            position: absolute;
-            inset: 0 auto 0 62%;
-            width: 20rem;
-            background: linear-gradient(115deg, transparent 0 22%, rgba(236, 15, 90, 0.16) 22% 45%, rgba(255, 183, 54, 0.16) 45% 68%, transparent 68%);
-            pointer-events: none;
         }
 
         .filter-section .card-body {

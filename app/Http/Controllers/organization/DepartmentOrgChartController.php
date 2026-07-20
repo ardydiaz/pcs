@@ -39,6 +39,11 @@ class DepartmentOrgChartController extends Controller
             ? $this->peopleForDepartment($selectedDepartment)
             : collect();
 
+        $viceDeans = $people
+            ->filter(fn ($person) => $this->isViceDean($person['job_title']))
+            ->sortBy('name')
+            ->values();
+
         $deans = $people
             ->filter(fn ($person) => $this->isDean($person['job_title']))
             ->sortBy('name')
@@ -53,6 +58,7 @@ class DepartmentOrgChartController extends Controller
             'departmentOptions' => $departmentOptions,
             'selectedDepartment' => $selectedDepartment,
             'deans' => $deans,
+            'viceDeans' => $viceDeans,
             'facultyMembers' => $facultyMembers,
             'totalPeople' => $people->count(),
             'isAdmin' => $isAdmin,
@@ -153,7 +159,7 @@ class DepartmentOrgChartController extends Controller
             ->map(fn (User $user) => $this->serializePerson($user))
             ->filter(function ($person) use ($department) {
                 return in_array($department, $person['departments'], true)
-                    && ($this->isDean($person['job_title']) || $this->isFaculty($person['job_title']));
+                    && ($this->isDean($person['job_title']) || $this->isViceDean($person['job_title']) || $this->isFaculty($person['job_title']));
             })
             ->unique('id')
             ->values();
@@ -284,7 +290,19 @@ class DepartmentOrgChartController extends Controller
 
     private function isDean(?string $jobTitle): bool
     {
-        return str_contains(strtolower(trim((string) $jobTitle)), 'dean');
+        $title = strtolower(trim((string) $jobTitle));
+
+        return str_contains($title, 'dean') && !$this->isViceDean($title);
+    }
+
+    private function isViceDean(?string $jobTitle): bool
+    {
+        $title = strtolower(trim((string) $jobTitle));
+
+        return str_contains($title, 'vice dean')
+            || str_contains($title, 'vice-dean')
+            || str_contains($title, 'assistant dean')
+            || str_contains($title, 'associate dean');
     }
 
     private function isFaculty(?string $jobTitle): bool

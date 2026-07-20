@@ -1,4 +1,4 @@
-<article class="org-node {{ ($type ?? 'faculty') === 'dean' ? 'org-node--dean' : '' }}">
+<article class="org-node {{ in_array(($type ?? 'faculty'), ['dean', 'vice-dean'], true) ? 'org-node--dean' : '' }}">
     <div class="org-avatar">
         <div class="org-avatar-inner">
             @if (!empty($person['avatar']))
