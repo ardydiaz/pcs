@@ -23,7 +23,7 @@
     },
     {
       "url": "/data-management/faculties",
-      "name": "Faculties",
+      "name": "Faculty Members",
       "icon": "menu-icon tf-icons bx bx-user-voice",
       "slug": "dm.faculties"
     },
