@@ -25,6 +25,17 @@
                         </div>
 
                         <div class="row g-3">
+                            <div class="col-md-12">
+                                <label class="form-label" for="facultyConvertDepartment">Department</label>
+                                <select name="department" id="facultyConvertDepartment" class="form-select">
+                                    <option value="">Auto-detect from file</option>
+                                    @foreach ($officialDepartments ?? [] as $department)
+                                        <option value="{{ $department }}">{{ $department }}</option>
+                                    @endforeach
+                                </select>
+                                <small class="text-muted d-block mt-2">Choose a department when converting files with
+                                    generic names. The converter uses this department in the downloaded template.</small>
+                            </div>
                             <div class="col-md-6">
                                 <label class="form-label" for="facultyConvertAcademicYear">Academic Year</label>
                                 <input type="text" name="academic_year" id="facultyConvertAcademicYear"

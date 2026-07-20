@@ -2,6 +2,7 @@
 
 namespace App\Imports;
 
+use App\Models\Faculty;
 use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\ToCollection;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
@@ -9,6 +10,7 @@ use Maatwebsite\Excel\Concerns\WithHeadingRow;
 class FacultyLoadSourceConverter implements ToCollection, WithHeadingRow
 {
     private array $rows = [];
+    private array $facultyDepartmentsByEmployeeNo = [];
 
     public function __construct(private readonly array $defaults)
     {
@@ -27,15 +29,26 @@ class FacultyLoadSourceConverter implements ToCollection, WithHeadingRow
             $subjectCode = $this->cellAny($source, ['subjectcode', 'subject_code']);
             $section = $this->cellAny($source, ['section']);
             $information = $this->cellAny($source, ['information']);
+            $employeeNo = $this->cellAny($source, ['employeeno', 'employee_no', 'emp_no', 'empno']);
+            $department = $this->cellAny($source, ['department']) ?: ($this->defaults['department'] ?? '');
+            $jobTitle = $this->cellAny($source, ['jobtitle', 'job_title']) ?: ($this->defaults['job_title'] ?? '');
 
             if ($classCode === '' && $subjectCode === '' && $section === '' && $information === '') {
+                continue;
+            }
+
+            if (($this->defaults['skip_blank_employee_no'] ?? false) && $employeeNo === '') {
+                continue;
+            }
+
+            if ($this->shouldSkipForDepartment($employeeNo, $department)) {
                 continue;
             }
 
             $parsedInformation = $this->parseInformation($information);
 
             $this->rows[] = [
-                'employeeno' => $this->cellAny($source, ['employeeno', 'employee_no', 'emp_no', 'empno']),
+                'employeeno' => $employeeNo,
                 'classcode' => $classCode,
                 'section' => $section,
                 'academicyear' => $this->defaults['academic_year'],
@@ -46,8 +59,8 @@ class FacultyLoadSourceConverter implements ToCollection, WithHeadingRow
                 'subjecttype' => $this->defaults['subject_type'],
                 'status' => $this->defaults['status'],
                 'fullname' => $this->cellAny($source, ['faculty', 'name', 'fullname', 'full_name']),
-                'department' => $this->cellAny($source, ['department']),
-                'jobtitle' => $this->cellAny($source, ['jobtitle', 'job_title']),
+                'department' => $department,
+                'jobtitle' => $jobTitle,
             ];
         }
     }
@@ -103,6 +116,36 @@ class FacultyLoadSourceConverter implements ToCollection, WithHeadingRow
         }
 
         return '';
+    }
+
+    private function shouldSkipForDepartment(string $employeeNo, string $targetDepartment): bool
+    {
+        $targetDepartment = trim($targetDepartment);
+        if ($employeeNo === '' || $targetDepartment === '') {
+            return false;
+        }
+
+        $facultyDepartments = $this->facultyDepartmentsFor($employeeNo);
+        if (empty($facultyDepartments)) {
+            return false;
+        }
+
+        return count($facultyDepartments) !== 1 || $facultyDepartments[0] !== $targetDepartment;
+    }
+
+    private function facultyDepartmentsFor(string $employeeNo): array
+    {
+        $key = Faculty::normalizeEmployeeNo($employeeNo);
+        if ($key === '') {
+            return [];
+        }
+
+        if (!array_key_exists($key, $this->facultyDepartmentsByEmployeeNo)) {
+            $faculty = Faculty::findByEmployeeNoIncludingTrashed($employeeNo);
+            $this->facultyDepartmentsByEmployeeNo[$key] = Faculty::normalizeDepartmentList($faculty?->department);
+        }
+
+        return $this->facultyDepartmentsByEmployeeNo[$key];
     }
 
     private function normalizeKey(string $key): string

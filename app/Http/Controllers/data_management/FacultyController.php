@@ -20,6 +20,19 @@ use Illuminate\Support\Facades\Http; // Facade for making HTTP requests, integra
 
 class FacultyController extends Controller // Controller class for managing faculty data, including listing, creating, updating, deleting, and importing faculty records, with methods for handling HTTP requests and performing database operations related to faculty management
 {
+    private const OFFICIAL_DEPARTMENTS = [
+        'College of Nursing',
+        'College of Dentistry',
+        'College of Arts and Sciences',
+        'College of Medical Technology',
+        'College of Medicine',
+        'College of Optometry',
+        'College of Pharmacy',
+        'College of Physical Therapy',
+        'Basic Education',
+        'School of Business and Management',
+    ];
+
     public function index() // Display a listing of faculty information
     {
         $user = auth()->user();
@@ -348,15 +361,21 @@ class FacultyController extends Controller // Controller class for managing facu
             'semester' => 'required|string|in:1st Semester,2nd Semester,Summer',
             'subject_type' => 'required|string|in:major,minor',
             'status' => 'required|string|in:scheduled,completed,cancelled',
+            'department' => 'nullable|string|max:255',
         ]);
+
+        $department = $this->normalizeOfficialDepartment($validated['department'] ?? null)
+            ?? $this->detectDepartmentFromFile($request->file('file')->getClientOriginalName(), $request->file('file')->getRealPath())
+            ?? 'College of Arts and Sciences';
 
         $defaults = [
             'academic_year' => $validated['academic_year'],
             'semester' => $validated['semester'],
             'subject_type' => $validated['subject_type'],
             'status' => $validated['status'],
-            'department' => 'College of Arts and Sciences',
+            'department' => $department,
             'job_title' => 'Faculty',
+            'skip_blank_employee_no' => true,
         ];
 
         $blockConverter = new FacultyLoadBlockSourceConverter($defaults);
@@ -368,6 +387,9 @@ class FacultyController extends Controller // Controller class for managing facu
                 'semester' => $validated['semester'],
                 'subject_type' => $validated['subject_type'],
                 'status' => $validated['status'],
+                'department' => $department,
+                'job_title' => 'Faculty',
+                'skip_blank_employee_no' => true,
             ]);
 
             Excel::import($converter, $request->file('file'));
@@ -876,5 +898,82 @@ class FacultyController extends Controller // Controller class for managing facu
         }
         
         return array_reverse($entries);
+    }
+
+    private function normalizeOfficialDepartment(?string $department): ?string
+    {
+        $department = preg_replace('/\s+/', ' ', trim((string) ($department ?? '')));
+        if ($department === '') {
+            return null;
+        }
+
+        foreach (self::OFFICIAL_DEPARTMENTS as $officialDepartment) {
+            if (strcasecmp($department, $officialDepartment) === 0) {
+                return $officialDepartment;
+            }
+        }
+
+        return $this->departmentFromText($department);
+    }
+
+    private function detectDepartmentFromFile(string $originalName, string $path): ?string
+    {
+        $department = $this->departmentFromText($originalName);
+        if ($department !== null) {
+            return $department;
+        }
+
+        try {
+            $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($path);
+            foreach ($spreadsheet->getWorksheetIterator() as $sheet) {
+                $highestRow = min($sheet->getHighestDataRow(), 60);
+                $highestColumn = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::columnIndexFromString($sheet->getHighestDataColumn());
+                $samples = [];
+
+                for ($row = 1; $row <= $highestRow; $row++) {
+                    for ($column = 1; $column <= min($highestColumn, 10); $column++) {
+                        $value = trim((string) $sheet->getCell([$column, $row])->getFormattedValue());
+                        if ($value !== '') {
+                            $samples[] = $value;
+                        }
+                    }
+                }
+
+                return $this->departmentFromText(implode(' ', $samples));
+            }
+        } catch (\Throwable $e) {
+            return null;
+        }
+
+        return null;
+    }
+
+    private function departmentFromText(string $text): ?string
+    {
+        $text = strtoupper(preg_replace('/\s+/', ' ', trim($text)));
+        if ($text === '') {
+            return null;
+        }
+
+        $patterns = [
+            'College of Medical Technology' => '/\b(CMT|BS-?MT|BSMT|MEDICAL TECHNOLOGY)\b/',
+            'College of Nursing' => '/\b(CON|BSN|NURSING)\b/',
+            'College of Dentistry' => '/\b(COD|DDM|DMD|DDS|MSD|MSDO|DENTISTRY)\b/',
+            'College of Medicine' => '/\b(COM|MEDICINE)\b/',
+            'College of Arts and Sciences' => '/\b(CAS|BS-?PSYCH|AB-?COMM|BA COMM|BSIT|ARTS AND SCIENCES)\b/',
+            'College of Optometry' => '/\b(COO|OP|OPTOMETRY)\b/',
+            'College of Pharmacy' => '/\b(CPH|COP|PHARMACY)\b/',
+            'College of Physical Therapy' => '/\b(CPT|BSPT|PHYSICAL THERAPY)\b/',
+            'Basic Education' => '/\b(BED|BEDD|BASIC EDUCATION|ELEMENTARY|JHS|SHS)\b/',
+            'School of Business and Management' => '/\b(SBM|BSBA|BUSINESS AND MANAGEMENT)\b/',
+        ];
+
+        foreach ($patterns as $department => $pattern) {
+            if (preg_match($pattern, $text)) {
+                return $department;
+            }
+        }
+
+        return null;
     }
 }

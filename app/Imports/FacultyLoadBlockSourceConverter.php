@@ -33,6 +33,10 @@ class FacultyLoadBlockSourceConverter
                     continue;
                 }
 
+                if ($this->isErpHeaderRow($row)) {
+                    return [];
+                }
+
                 if ($this->isHeaderRow($row)) {
                     continue;
                 }
@@ -115,6 +119,14 @@ class FacultyLoadBlockSourceConverter
         return $this->key($row['faculty']) === 'facultyname'
             && $this->key($row['section']) === 'section'
             && $this->key($row['subject_code']) === 'subjectcode';
+    }
+
+    private function isErpHeaderRow(array $row): bool
+    {
+        return $this->key($row['section']) === 'classcode'
+            && $this->key($row['subject_code']) === 'subjectcode'
+            && $this->key($row['time_from']) === 'empno'
+            && $this->key($row['time_to']) === 'faculty';
     }
 
     private function isTotalRow(array $row): bool
