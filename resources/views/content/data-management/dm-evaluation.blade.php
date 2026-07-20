@@ -1313,42 +1313,62 @@
 
     <div class="container-fluid">
 
-        <div class="card evaluation-card evaluation-card--table mb-4 evaluation-action-card">
-            <div class="card-body d-flex flex-column flex-lg-row align-items-center justify-content-between gap-3">
-                <div class="text-center text-lg-start">
-                    <h5 class="card-title mb-1 d-flex align-items-center gap-2 justify-content-center justify-content-lg-start"
-                        style="font-size: 1.2rem;">
-                        <i class="fa-solid fa-file-invoice" style="font-size: 1.5rem;"></i>
-                        Evaluation Actions
-                    </h5>
-                    <p class="text-muted mb-0">Use the actions above to generate evaluation forms individually or for every
-                        faculty member.</p>
+        <div class="module-hero evaluation-module-hero mb-4">
+            <div class="module-hero__content">
+                <div class="module-hero__eyebrow">
+                    <i class="fa-solid fa-file-invoice"></i>
+                    Evaluation QR Links
                 </div>
-                <div class="d-flex align-items-center gap-3 flex-wrap justify-content-center">
-                    <button type="button" class="btn btn-evaluation-action {{ $canAdd ? '' : 'is-disabled' }}"
-                        @if (!$canAdd) disabled aria-disabled="true" @endif data-mdb-ripple-init
-                        data-bs-toggle="modal" data-bs-target="#generateAllModal">
-                        <i class="fa-solid fa-file-circle-plus me-2"></i>
-                        Generate All
-                    </button>
-                    <button type="button" class="btn btn-evaluation-action {{ $canAdd ? '' : 'is-disabled' }}"
-                        @if (!$canAdd) disabled aria-disabled="true" @endif data-bs-toggle="modal"
-                        data-bs-target="#generateEvaluationModal" data-mdb-ripple-init>
-                        <i class="fa-solid fa-file-pen me-2"></i>
-                        Create Form
-                    </button>
-                    @if ($canDownloadQrLinks)
-                        <button type="button" class="btn btn-evaluation-action" data-bs-toggle="modal"
-                            data-bs-target="#downloadQrLinksModal" data-mdb-ripple-init>
-                            <i class="fa-solid fa-file-excel me-2"></i>
-                            Download QR Files
+                <div class="module-hero__main">
+                    <div>
+                        <h4 class="module-hero__title">Manage Evaluation Forms</h4>
+                        <p class="module-hero__subtitle">Generate QR links, download QR files, and monitor active evaluation forms.</p>
+                    </div>
+                    <div class="module-hero__actions">
+                        <button type="button" class="btn module-hero__action-primary {{ $canAdd ? '' : 'is-disabled' }}"
+                            @if (!$canAdd) disabled aria-disabled="true" @endif data-mdb-ripple-init
+                            data-bs-toggle="modal" data-bs-target="#generateAllModal">
+                            <i class="fa-solid fa-file-circle-plus me-2"></i>
+                            Generate All
                         </button>
-                    @endif
+                        <button type="button" class="btn module-hero__action-secondary {{ $canAdd ? '' : 'is-disabled' }}"
+                            @if (!$canAdd) disabled aria-disabled="true" @endif data-bs-toggle="modal"
+                            data-bs-target="#generateEvaluationModal" data-mdb-ripple-init>
+                            <i class="fa-solid fa-file-pen me-2"></i>
+                            Create Form
+                        </button>
+                        @if ($canDownloadQrLinks)
+                            <button type="button" class="btn module-hero__action-secondary" data-bs-toggle="modal"
+                                data-bs-target="#downloadQrLinksModal" data-mdb-ripple-init>
+                                <i class="fa-solid fa-qrcode me-2"></i>
+                                Download QR Files
+                            </button>
+                        @endif
+                    </div>
+                </div>
+            </div>
+            <div class="module-hero__stats">
+                <div class="module-hero__stat">
+                    <span class="module-hero__stat-icon"><i class="fa-solid fa-link"></i></span>
+                    <span class="module-hero__stat-label">Forms</span>
+                    <strong class="module-hero__stat-value">{{ $sortedEvaluations->count() }}</strong>
+                </div>
+                <div class="module-hero__stat">
+                    <span class="module-hero__stat-icon"><i class="fa-solid fa-calendar-days"></i></span>
+                    <span class="module-hero__stat-label">Terms</span>
+                    <strong class="module-hero__stat-value">{{ $availableAcademicYears->count() }}</strong>
                 </div>
             </div>
         </div>
 
         <div class="card evaluation-card evaluation-card--table" data-table-controller data-table-id="evaluationTable">
+            <div class="module-table-heading">
+                <div>
+                    <p class="module-table-heading__eyebrow mb-1">Evaluation Records</p>
+                    <h5 class="module-table-heading__title mb-0">QR Link Directory</h5>
+                </div>
+                <span class="module-table-heading__hint">Filter, copy links, view faculty profiles, or download QR files.</span>
+            </div>
             <div class="card-body border-0 evaluation-controls">
                 <div class="row g-3 align-items-center">
                     <div class="col-md-6">

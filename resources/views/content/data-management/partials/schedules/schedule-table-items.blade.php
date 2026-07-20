@@ -1,6 +1,13 @@
 {{-- Schedule Table Items Partial --}}
 <!-- Schedule table card -->
 <div class="card schedule-card schedule-card--table" data-table-controller data-table-id="schedulesTable">
+    <div class="module-table-heading">
+        <div>
+            <p class="module-table-heading__eyebrow mb-1">Schedule Records</p>
+            <h5 class="module-table-heading__title mb-0">Course Schedule List</h5>
+        </div>
+        <span class="module-table-heading__hint">Filter by term, faculty, section, course, day, or time mode.</span>
+    </div>
     <div class="card-body border-0 schedule-controls">
         <div class="row g-3 align-items-center">
             <div class="col-md-6">

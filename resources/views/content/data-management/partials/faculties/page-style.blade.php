@@ -141,6 +141,290 @@
             box-shadow: 0 0.65rem 1.35rem rgba(230, 164, 49, 0.24);
         }
 
+        .faculty-directory-hero {
+            position: relative;
+            overflow: visible;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(260px, 0.42fr);
+            gap: 1rem;
+            padding: 1.15rem;
+            border: 1px solid rgba(255, 183, 54, 0.24);
+            border-radius: 1.25rem;
+            background:
+                radial-gradient(circle at 92% 0%, rgba(255, 183, 54, 0.32), transparent 14rem),
+                radial-gradient(circle at 70% 85%, rgba(236, 15, 90, 0.24), transparent 16rem),
+                linear-gradient(135deg, #3a0050 0%, #5c297c 48%, #8d3d8c 100%);
+            box-shadow: 0 1.35rem 3rem rgba(44, 0, 63, 0.18);
+        }
+
+        .faculty-directory-hero::before {
+            content: "";
+            position: absolute;
+            inset: 0 auto 0 48%;
+            width: 22rem;
+            background: linear-gradient(115deg, transparent 0 20%, rgba(236, 15, 90, 0.34) 20% 42%, rgba(255, 183, 54, 0.38) 42% 66%, transparent 66%);
+            opacity: 0.88;
+            pointer-events: none;
+            border-radius: inherit;
+        }
+
+        .faculty-directory-hero__content,
+        .faculty-directory-stats {
+            position: relative;
+            z-index: 1;
+        }
+
+        .faculty-directory-hero__content {
+            display: grid;
+            gap: 0.85rem;
+            padding: 0.5rem;
+            color: #ffffff;
+        }
+
+        .faculty-directory-hero__eyebrow {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            width: max-content;
+            color: #ffd400;
+            font-size: 0.78rem;
+            font-weight: 900;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+        }
+
+        .faculty-directory-hero__main {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .faculty-directory-hero__title {
+            color: #ffffff;
+            font-size: clamp(1.4rem, 2vw, 2rem);
+            font-weight: 900;
+            letter-spacing: -0.01em;
+        }
+
+        .faculty-directory-hero__subtitle {
+            max-width: 44rem;
+            color: rgba(255, 255, 255, 0.86);
+            font-weight: 600;
+        }
+
+        .faculty-directory-hero__actions {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+            gap: 0.75rem;
+            position: relative;
+        }
+
+        .faculty-import-dropdown {
+            position: relative;
+            z-index: 30;
+        }
+
+        .faculty-hero-primary,
+        .faculty-hero-secondary {
+            min-height: 2.75rem;
+            border-radius: 999px;
+            padding-inline: 1.1rem;
+            white-space: nowrap;
+        }
+
+        .faculty-hero-primary {
+            border: 1px solid rgba(255, 255, 255, 0.28);
+            background: linear-gradient(135deg, #ffb736, #ffd400);
+            color: #3a0050;
+            box-shadow: 0 0.9rem 1.8rem rgba(255, 183, 54, 0.24);
+        }
+
+        .faculty-hero-primary:hover,
+        .faculty-hero-primary:focus {
+            color: #3a0050;
+            filter: brightness(1.02);
+        }
+
+        .faculty-hero-secondary {
+            border: 1px solid rgba(255, 255, 255, 0.26);
+            background: rgba(255, 255, 255, 0.14);
+            color: #ffffff;
+            backdrop-filter: blur(10px);
+        }
+
+        .faculty-hero-secondary:hover,
+        .faculty-hero-secondary:focus {
+            background: rgba(255, 255, 255, 0.22);
+            color: #ffffff;
+        }
+
+        .faculty-import-menu {
+            position: absolute !important;
+            right: 0 !important;
+            left: auto !important;
+            top: calc(100% + 0.55rem) !important;
+            bottom: auto !important;
+            z-index: 1060;
+            min-width: 15.25rem;
+            padding: 0.55rem;
+            border: 1px solid rgba(255, 183, 54, 0.24);
+            border-radius: 1rem;
+            background:
+                radial-gradient(circle at 100% 0%, rgba(255, 183, 54, 0.13), transparent 8rem),
+                #ffffff;
+            box-shadow: 0 1rem 2.2rem rgba(33, 0, 48, 0.24);
+            transform: none !important;
+        }
+
+        .faculty-import-menu::before {
+            content: "";
+            position: absolute;
+            right: 1.3rem;
+            top: -0.45rem;
+            width: 0.85rem;
+            height: 0.85rem;
+            border-left: 1px solid rgba(255, 183, 54, 0.24);
+            border-top: 1px solid rgba(255, 183, 54, 0.24);
+            background: #ffffff;
+            transform: rotate(45deg);
+        }
+
+        .faculty-import-menu .dropdown-item {
+            display: flex;
+            align-items: center;
+            gap: 0.65rem;
+            min-height: 2.75rem;
+            padding: 0.6rem 0.75rem;
+            border-radius: 0.75rem;
+            color: #243044;
+            font-weight: 800;
+        }
+
+        .faculty-import-menu .dropdown-item i {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 1.7rem;
+            height: 1.7rem;
+            border-radius: 0.55rem;
+            background: #f8efff;
+            color: #5c297c;
+        }
+
+        .faculty-import-menu .dropdown-item:hover,
+        .faculty-import-menu .dropdown-item:focus {
+            background: #fff4d8;
+            color: #3a0050;
+        }
+
+        .faculty-directory-stats {
+            display: grid;
+            gap: 0.7rem;
+        }
+
+        .faculty-directory-stat {
+            display: grid;
+            grid-template-columns: auto 1fr auto;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.82rem 0.95rem;
+            border: 1px solid rgba(255, 255, 255, 0.22);
+            border-radius: 1rem;
+            background: rgba(255, 255, 255, 0.14);
+            color: #ffffff;
+            backdrop-filter: blur(12px);
+        }
+
+        .faculty-directory-stat__icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 2.35rem;
+            height: 2.35rem;
+            border-radius: 0.8rem;
+            background: rgba(255, 255, 255, 0.18);
+            color: #ffd400;
+        }
+
+        .faculty-directory-stat__label {
+            color: rgba(255, 255, 255, 0.78);
+            font-size: 0.78rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+
+        .faculty-directory-stat__value {
+            color: #ffffff;
+            font-size: 1.35rem;
+            font-weight: 900;
+        }
+
+        .faculty-table-heading {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            padding: 1.15rem 1.35rem 0;
+        }
+
+        .faculty-table-heading__eyebrow {
+            color: #5c297c;
+            font-size: 0.74rem;
+            font-weight: 900;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+        }
+
+        .faculty-table-heading__title {
+            color: #243044;
+            font-size: 1.15rem;
+            font-weight: 900;
+        }
+
+        .faculty-table-heading__hint {
+            color: #53657f;
+            font-size: 0.86rem;
+            font-weight: 700;
+        }
+
+        .faculty-identity {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.78rem;
+            min-width: 0;
+        }
+
+        .faculty-avatar-initials {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex: 0 0 auto;
+            width: 2.55rem;
+            height: 2.55rem;
+            border-radius: 0.85rem;
+            background:
+                radial-gradient(circle at 85% 15%, rgba(255, 212, 0, 0.48), transparent 46%),
+                linear-gradient(135deg, #5c297c, #74318a);
+            color: #ffffff;
+            font-size: 0.82rem;
+            font-weight: 900;
+            box-shadow: 0 0.65rem 1.3rem rgba(92, 41, 124, 0.16);
+        }
+
+        .faculty-name {
+            font-weight: 900;
+            letter-spacing: 0.01em;
+        }
+
+        .faculty-email {
+            color: #53657f;
+            font-size: 0.78rem;
+            font-weight: 600;
+        }
+
         .evaluation-card--table {
             border-radius: var(--bs-card-border-radius);
             padding: 0;
@@ -1427,6 +1711,95 @@
         .department-multiselect-option span {
             font-weight: 600;
             color: #0f172a;
+        }
+
+        .faculty-directory-hero .btn {
+            border-radius: 999px;
+            padding: 0.68rem 1.15rem;
+            font-weight: 900;
+            transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+        }
+
+        .faculty-directory-hero .btn:hover,
+        .faculty-directory-hero .btn:focus {
+            transform: translateY(-1px);
+        }
+
+        .faculty-directory-hero .faculty-hero-primary {
+            background: linear-gradient(135deg, #ffb736, #ffd400);
+            color: #3a0050;
+        }
+
+        .faculty-directory-hero .faculty-hero-secondary {
+            background: rgba(255, 255, 255, 0.14);
+            color: #ffffff;
+        }
+
+        .faculty-directory-hero .faculty-hero-secondary i,
+        .faculty-directory-hero .faculty-hero-secondary::after {
+            color: #ffffff;
+        }
+
+        @media (max-width: 1199.98px) {
+            .faculty-directory-hero {
+                grid-template-columns: 1fr;
+            }
+
+            .faculty-directory-stats {
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+            }
+        }
+
+        @media (max-width: 767.98px) {
+            .faculty-directory-hero {
+                padding: 1rem;
+                border-radius: 1rem;
+            }
+
+            .faculty-directory-hero__main,
+            .faculty-table-heading {
+                align-items: flex-start;
+                flex-direction: column;
+            }
+
+            .faculty-directory-hero__actions,
+            .faculty-directory-hero__actions .dropdown,
+            .faculty-directory-hero__actions .btn {
+                width: 100%;
+            }
+
+            .faculty-import-menu {
+                left: 0 !important;
+                right: 0 !important;
+                min-width: 100%;
+                width: 100%;
+            }
+
+            .faculty-import-menu::before {
+                right: 1.6rem;
+            }
+
+            .faculty-directory-stats {
+                grid-template-columns: 1fr;
+            }
+
+            .faculty-directory-stat {
+                grid-template-columns: auto 1fr auto;
+            }
+
+            .faculty-table-heading {
+                padding: 1rem 1rem 0;
+            }
+
+            .faculty-identity {
+                gap: 0.6rem;
+            }
+
+            .faculty-avatar-initials {
+                width: 2.25rem;
+                height: 2.25rem;
+                border-radius: 0.75rem;
+            }
         }
 
     </style>

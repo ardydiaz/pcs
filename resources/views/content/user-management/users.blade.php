@@ -1490,25 +1490,47 @@
     @include('components.dm-toast', ['messages' => $pageToasts])
 
     <div class="container-fluid">
-        <div class="card user-card user-action-card mb-4">
-            <div class="card-body d-flex flex-column flex-lg-row align-items-center justify-content-between gap-3">
-                <div class="text-center text-lg-start">
-                    <h5 class="card-title mb-1 d-flex align-items-center gap-2 justify-content-center justify-content-lg-start" style="font-size: 1.2rem;">
-                        <i class="fa-solid fa-users-gear" style="font-size: 1.5rem;"></i>
-                        User Actions
-                    </h5>
-                    <p class="mb-0">Use these quick actions to add new users or invite them to the platform.</p>
+        <div class="module-hero mb-4">
+            <div class="module-hero__content">
+                <div class="module-hero__eyebrow">
+                    <i class="fa-solid fa-users-gear"></i>
+                    User Access
                 </div>
-                <div class="d-flex align-items-center gap-3 flex-wrap justify-content-center">
-                    <button type="button" class="btn btn-user-action" data-bs-toggle="modal" data-bs-target="#addUserModal">
-                        <i class="fa-solid fa-user-plus me-2"></i>
-                        Add User
-                    </button>
+                <div class="module-hero__main">
+                    <div>
+                        <h4 class="module-hero__title">Manage Users</h4>
+                        <p class="module-hero__subtitle">Create accounts, assign roles, review access levels, and restore deleted users.</p>
+                    </div>
+                    <div class="module-hero__actions">
+                        <button type="button" class="btn module-hero__action-primary" data-bs-toggle="modal" data-bs-target="#addUserModal">
+                            <i class="fa-solid fa-user-plus me-2"></i>
+                            Add User
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="module-hero__stats">
+                <div class="module-hero__stat">
+                    <span class="module-hero__stat-icon"><i class="fa-solid fa-users"></i></span>
+                    <span class="module-hero__stat-label">Users</span>
+                    <strong class="module-hero__stat-value" id="usersTotalStat">{{ $enhancedUsers->count() }}</strong>
+                </div>
+                <div class="module-hero__stat">
+                    <span class="module-hero__stat-icon"><i class="fa-solid fa-user-shield"></i></span>
+                    <span class="module-hero__stat-label">Roles</span>
+                    <strong class="module-hero__stat-value">{{ count($roleOptions) }}</strong>
                 </div>
             </div>
         </div>
 
         <div class="card evaluation-card evaluation-card--table" data-table-controller data-table-id="usersTable">
+            <div class="module-table-heading">
+                <div>
+                    <p class="module-table-heading__eyebrow mb-1">User Records</p>
+                    <h5 class="module-table-heading__title mb-0">Account Directory</h5>
+                </div>
+                <span class="module-table-heading__hint">Search, filter, set access, or manage user accounts.</span>
+            </div>
             <div class="card-body border-0 evaluation-controls">
                 <div class="row g-3 align-items-center">
                     <div class="col-md-6">
@@ -2235,6 +2257,7 @@
                 this.lengthSelect = document.getElementById('userRowsPerPage');
                 this.infoEl = this.tableRoot?.querySelector('[data-table-info]');
                 this.paginationEl = this.tableRoot?.querySelector('[data-table-pagination]');
+                this.totalStatEl = document.getElementById('usersTotalStat');
                 this.filterToggle = document.getElementById('userFilterToggle');
                 this.filterControls = {
                     department: document.getElementById('filterDepartment'),
@@ -2454,6 +2477,7 @@
                         this.users = Array.isArray(payload.data) ? payload.data : [];
                         this.meta = payload.meta || { current_page: 1, last_page: 1, total: 0, from: 0, to: 0 };
                         this.currentPage = this.meta.current_page || this.currentPage;
+                        this.updateTotalStat();
                         this.renderRows();
                     })
                     .catch((error) => {
@@ -2461,6 +2485,7 @@
                             return;
                         }
                         this.tableBody.innerHTML = this.buildErrorRow(error.message || 'Failed to load users.');
+                        this.updateTotalStat(0);
                         this.updatePaginationFromMeta();
                     });
             }
@@ -2778,6 +2803,15 @@
                 }
 
                 this.infoEl.textContent = `Showing ${this.meta?.from || 0} to ${this.meta?.to || 0} of ${this.meta?.total || 0} entries`;
+            }
+
+            updateTotalStat(total = null) {
+                if (!this.totalStatEl) {
+                    return;
+                }
+
+                const value = total ?? this.meta?.total ?? this.users.length ?? 0;
+                this.totalStatEl.textContent = Number(value || 0).toLocaleString();
             }
 
             emitTableUpdated(totalRows, visibleRows) {

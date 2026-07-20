@@ -588,6 +588,8 @@
                 this.lengthSelect = document.getElementById('facultyRowsPerPage');
                 this.infoEl = this.tableRoot?.querySelector('[data-table-info]');
                 this.paginationEl = this.tableRoot?.querySelector('[data-table-pagination]');
+                this.totalStatEl = document.getElementById('facultyTotalStat');
+                this.visibleStatEl = document.getElementById('facultyVisibleStat');
 
                 this.alertContainer = document.getElementById('alertContainer');
                 this.searchInput = document.getElementById('facultySearch');
@@ -932,7 +934,18 @@
 
                 this.updatePaginationFromMeta();
                 this.emitTableUpdated(this.meta.total || 0, this.faculties.length);
+                this.updateDirectoryStats();
                 this.updateFilterToggleState();
+            }
+
+            updateDirectoryStats() {
+                if (this.totalStatEl) {
+                    this.totalStatEl.textContent = Number(this.meta?.total || 0).toLocaleString();
+                }
+
+                if (this.visibleStatEl) {
+                    this.visibleStatEl.textContent = Number(this.faculties.length || 0).toLocaleString();
+                }
             }
 
             refreshPillPalettes() {
@@ -1406,6 +1419,7 @@
                 }
                 const jobTitle = this.formatDisplayText(rawJobTitle);
                 const nameCellTitle = [displayName, emailRaw].filter(Boolean).join(' • ');
+                const initials = this.getInitials(displayName);
                 const employeeAttr = 'employee';
                 const jobTitleAttr = this.escapeAttribute(jobTitle);
                 const assignments = Array.isArray(faculty.assignments) ? faculty.assignments : [];
@@ -1468,9 +1482,12 @@
                     <tr data-faculty-id="${rowId}" class="${isSelected ? 'is-selected' : ''}" data-search="${this.escapeAttribute(searchTerms)}">
                         ${selectionCell}
                         <td>
-                            <div class="table-cell-stack is-wide" title="${this.escapeAttribute(nameCellTitle)}">
-                                <span class="faculty-name text-dark d-block">${this.escapeHtml(displayName)}</span>
-                                ${email ? `<small class="text-muted">${email}</small>` : ''}
+                            <div class="faculty-identity" title="${this.escapeAttribute(nameCellTitle)}">
+                                <span class="faculty-avatar-initials">${this.escapeHtml(initials)}</span>
+                                <span class="table-cell-stack is-wide">
+                                    <span class="faculty-name text-dark d-block">${this.escapeHtml(displayName)}</span>
+                                    ${email ? `<small class="faculty-email">${email}</small>` : ''}
+                                </span>
                             </div>
                         </td>
                         <td class="evaluation-pill-cell">
@@ -2135,6 +2152,19 @@
                 }
 
                 return String(value);
+            }
+
+            getInitials(value) {
+                const words = String(value || '')
+                    .replace(/[^A-Za-z0-9\s]/g, ' ')
+                    .split(/\s+/)
+                    .filter(Boolean);
+
+                if (words.length === 0) {
+                    return 'F';
+                }
+
+                return words.slice(0, 2).map((word) => word.charAt(0).toUpperCase()).join('');
             }
 
             parseDepartments(value) {

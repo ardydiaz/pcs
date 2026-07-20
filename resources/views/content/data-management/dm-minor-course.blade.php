@@ -399,30 +399,40 @@
     @endphp
 
     {{-- HEADER --}}
-    <div class="card evaluation-card evaluation-card--table mb-4 course-action-card">
-        <div class="card-body d-flex flex-column flex-lg-row align-items-center justify-content-between gap-3">
-
-            <div class="text-center text-lg-start">
-                <h5 class="card-title mb-1 d-flex align-items-center gap-2">
-                    <i class="fa-solid fa-book"></i>
-                    Minor Course
-                </h5>
-                 <p class="text-muted mb-0">Switch between managing courses or assignments</p>
+    <div class="module-hero mb-4">
+        <div class="module-hero__content">
+            <div class="module-hero__eyebrow">
+                <i class="fa-solid fa-book-bookmark"></i>
+                GenEd Courses
             </div>
-
-            {{-- TOGGLE BUTTONS --}}
-            <div class="course-tabs-nav d-flex gap-5">
-
-                <button type="button" class="btn btn-tab active" data-course-section="courses">
-                    Manage Course
-                </button>
-
-                <button type="button" class="btn btn-tab" data-course-section="assignments">
-                    Assign Course
-                </button>
-
+            <div class="module-hero__main">
+                <div>
+                    <h4 class="module-hero__title">General Education Courses</h4>
+                    <p class="module-hero__subtitle">Manage minor courses, assignments, faculty handlers, and schedules.</p>
+                </div>
+                <div class="module-hero__actions">
+                    <div class="course-tabs-nav module-tabs-nav">
+                        <button type="button" class="btn btn-tab active" data-course-section="courses">
+                            <i class="fa-solid fa-layer-group me-2"></i>Manage Course
+                        </button>
+                        <button type="button" class="btn btn-tab" data-course-section="assignments">
+                            <i class="fa-solid fa-user-check me-2"></i>Assign Course
+                        </button>
+                    </div>
+                </div>
             </div>
-
+        </div>
+        <div class="module-hero__stats">
+            <div class="module-hero__stat">
+                <span class="module-hero__stat-icon"><i class="fa-solid fa-graduation-cap"></i></span>
+                <span class="module-hero__stat-label">Course Mode</span>
+                <strong class="module-hero__stat-value">GenEd</strong>
+            </div>
+            <div class="module-hero__stat">
+                <span class="module-hero__stat-icon"><i class="fa-solid fa-users-gear"></i></span>
+                <span class="module-hero__stat-label">Handlers</span>
+                <strong class="module-hero__stat-value">View</strong>
+            </div>
         </div>
     </div>
 
@@ -432,8 +442,11 @@
     <div id="courses-section" class="course-section">
 
         <div class="card mb-4">
-            <div class="card-header d-flex gap-5 align-items-center">
-                <h5 class="mb-0">Manage Courses</h5>
+            <div class="module-table-heading">
+                <div>
+                    <p class="module-table-heading__eyebrow mb-1">Course Records</p>
+                    <h5 class="module-table-heading__title mb-0">GenEd Course List</h5>
+                </div>
                 @if ($canAdd)
                     <button type="button" class="btn btn-course-primary" onclick="list_methods.addMinorCourse(this)">
                         <i class="fa-solid fa-circle-plus me-2"></i>
@@ -532,10 +545,13 @@
 
         <div class="card">
             <!-- HEADER -->
-            <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-3">
+            <div class="module-table-heading">
                 <!-- LEFT -->
-                <div class="d-flex align-items-center gap-3">
-                    <h5 class="mb-0">Assign Courses</h5>
+                <div class="d-flex align-items-center gap-3 flex-wrap">
+                    <div>
+                        <p class="module-table-heading__eyebrow mb-1">Faculty Assignment</p>
+                        <h5 class="module-table-heading__title mb-0">Assigned GenEd Course List</h5>
+                    </div>
                     @if ($canAdd)
                         <button type="button" class="btn btn-course-primary" onclick="list_methods.assignCourse(this)">
                             <i class="fa-solid fa-circle-plus me-2"></i>

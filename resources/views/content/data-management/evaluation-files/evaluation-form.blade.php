@@ -622,6 +622,16 @@
                 align-items: flex-start;
                 flex-direction: column;
                 border-radius: 18px;
+                position: sticky;
+                top: 0;
+                z-index: 20;
+                margin-bottom: 14px;
+                background:
+                    radial-gradient(circle at 100% 0%, rgba(255, 183, 54, 0.26), transparent 34%),
+                    linear-gradient(135deg, rgba(58, 0, 80, 0.96), rgba(111, 42, 143, 0.92));
+                -webkit-backdrop-filter: blur(16px);
+                backdrop-filter: blur(16px);
+                box-shadow: 0 18px 42px rgba(20, 0, 32, 0.35);
             }
 
             .survey-brand-term {

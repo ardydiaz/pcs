@@ -1,6 +1,13 @@
 <!-- Assign Course to Existing Faculty Section -->
 <div id="assignmentsSection" class="course-section d-none">
     <div class="card evaluation-card evaluation-card--table" data-table-controller data-table-id="assignmentsTable">
+        <div class="module-table-heading">
+            <div>
+                <p class="module-table-heading__eyebrow mb-1">Faculty Assignment</p>
+                <h5 class="module-table-heading__title mb-0">Assigned Course List</h5>
+            </div>
+            <span class="module-table-heading__hint">Review handlers, filters, faculty load, and deleted assignments.</span>
+        </div>
         <div class="card-body border-0 evaluation-controls">
             <div class="row g-3 align-items-center">
                 <div class="col-md-6">

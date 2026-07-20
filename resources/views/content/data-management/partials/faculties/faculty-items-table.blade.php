@@ -1,5 +1,12 @@
 <!-- Faculty Table Card -->
         <div class="card evaluation-card evaluation-card--table mt-0" data-table-controller data-table-id="facultyTable">
+            <div class="faculty-table-heading">
+                <div>
+                    <p class="faculty-table-heading__eyebrow mb-1">Faculty Records</p>
+                    <h5 class="faculty-table-heading__title mb-0">Directory List</h5>
+                </div>
+                <span class="faculty-table-heading__hint">Search, filter, view load, or manage records.</span>
+            </div>
             <div class="card-body border-0 evaluation-controls">
                 <div class="row g-3 align-items-center">
                     <div class="col-md-6">

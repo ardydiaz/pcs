@@ -1,6 +1,13 @@
 <!-- Manage Courses Table Section -->
 <div id="coursesSection" class="course-section">
     <div class="card evaluation-card evaluation-card--table mb-4" data-table-controller data-table-id="coursesTable">
+        <div class="module-table-heading">
+            <div>
+                <p class="module-table-heading__eyebrow mb-1">Course Records</p>
+                <h5 class="module-table-heading__title mb-0">Professional Course List</h5>
+            </div>
+            <span class="module-table-heading__hint">Search, add, update, view handlers, or restore courses.</span>
+        </div>
         <div class="card-body border-0 evaluation-controls">
             <div class="row g-3 align-items-center">
                 <div class="col-md-6">

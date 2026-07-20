@@ -4,23 +4,25 @@
 
 @section('vendor-style')
     <style>
+        .content-wrapper .metric-card,
         .metric-card {
             position: relative;
             overflow: hidden;
-            border: 1px solid rgba(92, 41, 124, 0.12);
+            border: 1px solid rgba(255, 183, 54, 0.24) !important;
             border-radius: 1.15rem;
             background:
                 linear-gradient(90deg, rgba(58, 0, 80, 0.98) 0 66%, rgba(58, 0, 80, 0.42) 66% 100%),
                 radial-gradient(circle at 94% 98%, rgba(255, 183, 54, 0.18), transparent 0 7rem),
-                linear-gradient(120deg, #3a0050 0 50%, #f0184d 50% 60%, #ff8738 60% 82%, #7a3f92 82% 100%);
+                linear-gradient(120deg, #3a0050 0 50%, #f0184d 50% 60%, #ff8738 60% 82%, #7a3f92 82% 100%) !important;
             color: #ffffff;
-            box-shadow: 0 1.1rem 2.4rem rgba(58, 0, 80, 0.14);
+            box-shadow: 0 1.1rem 2.4rem rgba(58, 0, 80, 0.18) !important;
             transition: transform 0.2s, box-shadow 0.2s;
         }
 
+        .content-wrapper .metric-card:hover,
         .metric-card:hover {
             transform: translateY(-2px);
-            box-shadow: 0 1.35rem 2.8rem rgba(58, 0, 80, 0.18);
+            box-shadow: 0 1.35rem 2.8rem rgba(58, 0, 80, 0.24) !important;
         }
 
         .metric-card::before {
@@ -56,6 +58,7 @@
             outline-offset: 3px;
         }
 
+        .content-wrapper .metric-card .card-body,
         .metric-card .card-body {
             position: relative;
             z-index: 1;
@@ -63,8 +66,17 @@
             flex-direction: column;
             justify-content: center;
             min-height: 158px;
+            background: transparent !important;
         }
 
+        .content-wrapper .metric-card h3,
+        .content-wrapper .metric-card p,
+        .content-wrapper .metric-card small,
+        .content-wrapper .metric-card span,
+        .content-wrapper .metric-card i,
+        .content-wrapper .metric-card .text-muted,
+        .content-wrapper .metric-card .text-success,
+        .content-wrapper .metric-card .text-info,
         .metric-card h3,
         .metric-card p,
         .metric-card small,
@@ -76,6 +88,7 @@
             color: #ffffff !important;
         }
 
+        .content-wrapper .metric-card .avatar-initial,
         .metric-card .avatar-initial {
             background: rgba(255, 255, 255, 0.16) !important;
             border: 1px solid rgba(255, 255, 255, 0.28);
@@ -118,46 +131,66 @@
             vertical-align: middle;
         }
 
+        .content-wrapper .filtered-result-toggle-card,
         .filtered-result-toggle-card {
-            border: 1px solid rgba(92, 41, 124, 0.12);
-            border-radius: 1.15rem 1.15rem 0 0;
+            position: relative;
+            border: 1px solid rgba(255, 183, 54, 0.22) !important;
+            border-radius: 1.2rem;
             background:
-                radial-gradient(circle at 100% 0%, rgba(255, 183, 54, 0.2), transparent 10rem),
-                linear-gradient(135deg, #3a0050, #6f2a8f);
-            box-shadow: 0 1rem 2.2rem rgba(58, 0, 80, 0.12);
-            color: #ffffff;
+                radial-gradient(circle at 92% 12%, rgba(255, 183, 54, 0.28), transparent 10rem),
+                radial-gradient(circle at 76% 100%, rgba(240, 24, 77, 0.28), transparent 12rem),
+                linear-gradient(120deg, #3a0050 0%, #5c297c 52%, #8d3d8c 100%) !important;
+            box-shadow: 0 1.25rem 2.6rem rgba(58, 0, 80, 0.16) !important;
+            color: #ffffff !important;
             overflow: hidden;
         }
 
+        .filtered-result-toggle-card::before {
+            content: "";
+            position: absolute;
+            inset: 0 auto 0 55%;
+            width: 24rem;
+            background: linear-gradient(115deg, transparent 0 16%, rgba(236, 15, 90, 0.36) 16% 40%, rgba(255, 183, 54, 0.28) 40% 64%, transparent 64%);
+            opacity: 0.9;
+            pointer-events: none;
+        }
+
+        .content-wrapper .filtered-result-toggle-card .card-body,
         .filtered-result-toggle-card .card-body {
+            position: relative;
+            z-index: 1;
             display: flex;
             align-items: center;
             justify-content: space-between;
             gap: 1rem;
             padding: 1.35rem 1.5rem 1.55rem;
+            background: transparent !important;
         }
 
+        .content-wrapper .filtered-result-title,
         .filtered-result-title {
-            color: #ffffff;
+            color: #ffffff !important;
             font-size: 1.05rem;
             font-weight: 900;
             margin: 0;
         }
 
+        .content-wrapper .filtered-result-subtitle,
         .filtered-result-subtitle {
-            color: rgba(255, 255, 255, 0.86);
+            color: rgba(255, 255, 255, 0.9) !important;
             display: flex;
             flex-wrap: wrap;
             gap: 0.45rem;
             margin: 0.25rem 0 0;
         }
 
+        .content-wrapper .filtered-result-chip,
         .filtered-result-chip {
             align-items: center;
-            background: rgba(255, 255, 255, 0.13);
-            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.16) !important;
+            border: 1px solid rgba(255, 255, 255, 0.25) !important;
             border-radius: 999px;
-            color: #ffffff;
+            color: #ffffff !important;
             display: inline-flex;
             font-size: 0.78rem;
             font-weight: 800;
@@ -195,14 +228,18 @@
         }
 
         .filtered-result-panel {
-            border-top: 0;
-            border-radius: 0 0 1.15rem 1.15rem;
-            margin-top: 0;
-            padding-top: 0.4rem;
+            border: 1px solid rgba(232, 223, 240, 0.9);
+            border-radius: 1.15rem;
+            margin-top: 0.65rem;
+            padding-top: 0;
+            background:
+                radial-gradient(circle at 100% 0%, rgba(255, 183, 54, 0.13), transparent 13rem),
+                linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(251, 247, 255, 0.94));
+            box-shadow: 0 1rem 2.3rem rgba(44, 0, 63, 0.08);
         }
 
         .filtered-result-panel .card-body {
-            padding-top: 1.35rem;
+            padding: 1.35rem 1.5rem 1.5rem;
         }
 
         @media (max-width: 767.98px) {
@@ -351,11 +388,17 @@
             --mcu-border: rgba(92, 41, 124, 0.12);
         }
 
+        .reports-faculty-modal .modal-dialog {
+            margin-top: 5.5rem;
+            margin-bottom: 2rem;
+        }
+
         .reports-faculty-modal .modal-content {
             border: 0;
             border-radius: 1rem;
             box-shadow: 0 1.5rem 3rem rgba(44, 0, 63, 0.24);
             overflow: hidden;
+            max-height: calc(100vh - 7.5rem);
         }
 
         .reports-faculty-modal .modal-header {
@@ -405,7 +448,23 @@
             background:
                 radial-gradient(circle at 100% 0%, rgba(255, 183, 54, 0.08), transparent 14rem),
                 #fbf7ff;
+            max-height: calc(100vh - 13rem);
+            overflow-y: auto;
             padding: 1.5rem;
+        }
+
+        @media (max-width: 767.98px) {
+            .reports-faculty-modal .modal-dialog {
+                margin: 4.75rem 0.75rem 1rem;
+            }
+
+            .reports-faculty-modal .modal-content {
+                max-height: calc(100vh - 5.75rem);
+            }
+
+            .reports-faculty-modal .modal-body {
+                max-height: calc(100vh - 11rem);
+            }
         }
 
         .reports-faculty-filter-summary {
@@ -553,12 +612,112 @@
         }
 
         .filter-section {
-            border: 1px solid rgba(92, 41, 124, 0.1);
-            border-radius: 1.15rem;
+            position: relative;
+            overflow: hidden;
+            border: 1px solid rgba(255, 183, 54, 0.18);
+            border-radius: 1.2rem;
             background:
-                radial-gradient(circle at 100% 0%, rgba(255, 183, 54, 0.12), transparent 12rem),
-                linear-gradient(180deg, #ffffff, #fbf7ff);
-            box-shadow: 0 1rem 2.25rem rgba(58, 0, 80, 0.08);
+                radial-gradient(circle at 100% 0%, rgba(255, 183, 54, 0.2), transparent 13rem),
+                radial-gradient(circle at 78% 120%, rgba(236, 15, 90, 0.12), transparent 16rem),
+                linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(251, 247, 255, 0.92));
+            box-shadow: 0 1.15rem 2.4rem rgba(58, 0, 80, 0.1);
+        }
+
+        .filter-section::before {
+            content: "";
+            position: absolute;
+            inset: 0 auto 0 62%;
+            width: 20rem;
+            background: linear-gradient(115deg, transparent 0 22%, rgba(236, 15, 90, 0.16) 22% 45%, rgba(255, 183, 54, 0.16) 45% 68%, transparent 68%);
+            pointer-events: none;
+        }
+
+        .filter-section .card-body {
+            position: relative;
+            z-index: 1;
+            padding: 1.3rem 1.45rem;
+        }
+
+        .filter-section .form-label,
+        .filtered-result-panel .form-label {
+            color: #3a0050;
+            font-size: 0.74rem;
+            font-weight: 900;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+        }
+
+        .filter-section .form-control,
+        .filter-section .form-select,
+        .filtered-result-panel .form-control,
+        .filtered-result-panel .form-select {
+            border-color: rgba(92, 41, 124, 0.18);
+            color: #223045;
+            font-weight: 700;
+            box-shadow: 0 0.45rem 1rem rgba(44, 0, 63, 0.04);
+        }
+
+        .filter-section .btn-primary {
+            min-height: 3rem;
+            border: 0;
+            background: linear-gradient(135deg, #3a0050, #5c297c);
+            box-shadow: 0 0.8rem 1.55rem rgba(58, 0, 80, 0.18);
+            color: #ffffff;
+        }
+
+        .filter-section .btn-primary:hover,
+        .filter-section .btn-primary:focus {
+            background: linear-gradient(135deg, #4d0a68, #7a2c90);
+            color: #ffffff;
+        }
+
+        #departmentTableContainer {
+            border: 1px solid rgba(232, 223, 240, 0.9);
+            border-radius: 1rem;
+            background: rgba(255, 255, 255, 0.78);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+        }
+
+        #departmentTable thead th {
+            background:
+                linear-gradient(180deg, rgba(250, 247, 253, 0.98), rgba(244, 238, 250, 0.96));
+            color: #75849d;
+        }
+
+        #departmentTable tbody tr {
+            background: rgba(255, 255, 255, 0.74);
+        }
+
+        #departmentTable tbody tr:hover {
+            background:
+                linear-gradient(90deg, rgba(92, 41, 124, 0.06), rgba(255, 183, 54, 0.07));
+        }
+
+        #departmentTable h6,
+        #departmentTable .fw-medium,
+        #departmentTable .small {
+            color: #223045;
+        }
+
+        #departmentTable .avatar-initial {
+            background: linear-gradient(135deg, #5c297c, #696cff) !important;
+            color: #ffffff !important;
+            min-width: 2.55rem;
+            padding-inline: 0.45rem;
+            font-weight: 900;
+        }
+
+        #departmentTable .btn-outline-primary {
+            border-color: #5c297c;
+            color: #5c297c;
+            font-weight: 900;
+        }
+
+        #departmentTable .btn-outline-primary:hover,
+        #departmentTable .btn-outline-primary:focus {
+            background: #5c297c;
+            border-color: #5c297c;
+            color: #ffffff;
         }
     </style>
 @endsection
@@ -910,12 +1069,27 @@
                                 </thead>
                                 <tbody>
                                     @forelse($departmentBreakdown as $dept)
+                                        @php
+                                            $departmentAcronyms = [
+                                                'College of Nursing' => 'CON',
+                                                'Basic Education' => 'BED',
+                                                'College of Dentistry' => 'COD',
+                                                'College of Arts and Sciences' => 'CAS',
+                                                'College of Medical Technology' => 'CMT',
+                                                'School of Business and Management' => 'SBM',
+                                                'College of Optometry' => 'CO',
+                                                'College of Pharmacy' => 'CPH',
+                                                'College of Physical Therapy' => 'CPT',
+                                                'College of Medicine' => 'COM',
+                                            ];
+                                            $departmentAcronym = $departmentAcronyms[$dept['department']] ?? strtoupper(substr($dept['department'], 0, 2));
+                                        @endphp
                                         <tr class="department-row" data-department="{{ $dept['department'] }}">
                                             <td>
                                                 <div class="d-flex align-items-center">
                                                     <div class="avatar flex-shrink-0 me-3">
                                                         <span class="avatar-initial bg-primary rounded">
-                                                            {{ substr($dept['department'], 0, 2) }}
+                                                            {{ $departmentAcronym }}
                                                         </span>
                                                     </div>
                                                     <div>
