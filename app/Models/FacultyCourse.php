@@ -17,7 +17,8 @@ class FacultyCourse extends Model
         'course_id', // Foreign key to the courses table to link a faculty member to a specific course they are teaching
         'section', // e.g. "BSN 2 Group 4 - 1", "BSN 2 Group 4 - 2", "BSN 2 Group 4 - 3"
         'academic_year', // e.g. "2025-2026"
-        'semester' // e.g. "1st", "2nd", "Summer"
+        'semester', // e.g. "1st", "2nd", "Summer"
+        'department', // Department from the Excel assignment row, used for strict report exports
     ];
 
     // public function faculty(): BelongsTo

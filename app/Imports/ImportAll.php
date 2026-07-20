@@ -126,6 +126,7 @@ class ImportAll implements ToModel, WithHeadingRow // Class to handle the import
             $normalizedDepartment = $department === ''
                 ? null
                 : Faculty::serializeDepartmentList(Faculty::normalizeDepartmentList($department));
+            $assignmentDepartment = $normalizedDepartment;
 
             if (!$faculty) {
                 // Create faculty even when optional profile details are missing.
@@ -218,7 +219,13 @@ class ImportAll implements ToModel, WithHeadingRow // Class to handle the import
                     'section' => $section,
                     'academic_year' => $academicYear,
                     'semester' => $semester,
+                    'department' => $assignmentDepartment,
                 ]);
+            }
+
+            if ($facultyCourse && $assignmentDepartment !== null && $facultyCourse->department !== $assignmentDepartment) {
+                $facultyCourse->department = $assignmentDepartment;
+                $facultyCourse->save();
             }
             
             // Validate FacultyCourse was created/found and can be queried back

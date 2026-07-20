@@ -27,6 +27,7 @@ class ReportsController extends Controller
         'College of Physical Therapy',
         'Basic Education',
         'School of Business and Management',
+        'Institute of Education'
     ];
 
     private const EXCLUDED_DEPARTMENTS = [
@@ -645,7 +646,7 @@ class ReportsController extends Controller
 
     public function exportDepartmentFaculties(Request $request)
     {
-        $department = $request->get('department');
+        $department = $this->normalizeDepartmentName($request->get('department')) ?? trim((string) $request->get('department'));
         $excludedDepartments = self::EXCLUDED_DEPARTMENTS;
 
         if (!$department || in_array($department, $excludedDepartments, true)) {
@@ -705,26 +706,8 @@ class ReportsController extends Controller
             [$start, $end] = [$end, $start];
         }
 
-        $facultyUserIds = Faculty::forDepartments([$department])
-            ->pluck('user_id')
-            ->filter()
-            ->values();
-
         $evaluationsQuery = Evaluation::where('is_active', true);
-        if ($facultyUserIds->isNotEmpty()) {
-            $evaluationsQuery->where(function ($query) use ($facultyUserIds, $department) {
-                $query->whereIn('faculty_id', $facultyUserIds)
-                    ->orWhere(function ($query) use ($department) {
-                        $query->whereNull('faculty_id')
-                            ->whereRaw(
-                                "FIND_IN_SET(?, REPLACE(faculty_department_snapshot, ', ', ','))",
-                                [$department]
-                            );
-                    });
-            });
-        } else {
-            $evaluationsQuery->whereRaw('0 = 1');
-        }
+        $this->whereAnyDepartment($evaluationsQuery, [$department], 'faculty_department_snapshot');
 
         if ($academicYear !== 'all') {
             $evaluationsQuery->where('academic_year', $academicYear);
@@ -759,7 +742,9 @@ class ReportsController extends Controller
             });
         }
 
-        $responses = $responsesQuery->get();
+        $responses = $responsesQuery->get()
+            ->filter(fn ($response) => $this->responseHandledByDepartment($response, $department))
+            ->values();
 
         if ($responses->isEmpty()) {
             return redirect()->back()->with('error', 'No responses found for the selected filters.');
@@ -820,9 +805,9 @@ class ReportsController extends Controller
             
             $data[] = [
                 $facultyName,
-                $evaluation?->resolved_faculty_department ?? '',
+                $department,
                 $evaluation?->academic_year ?? '',
-                $evaluation?->semester ?? '',
+                $this->formatSemesterLabel($evaluation?->semester ?? ''),
                 $subjectTypeValue,
                 $response->resolved_course_code,
                 $section,
@@ -1621,6 +1606,95 @@ class ReportsController extends Controller
         }, $items);
         $filtered = array_filter($normalized, static fn ($value) => $value !== '');
         return array_values(array_unique($filtered));
+    }
+
+    private function formatSemesterLabel(?string $semester): string
+    {
+        $value = trim((string) ($semester ?? ''));
+        $normalized = strtolower($value);
+
+        return match ($normalized) {
+            '1st', 'first', 'first semester', '1st semester' => '1st Semester',
+            '2nd', 'second', 'second semester', '2nd semester' => '2nd Semester',
+            'summer', 'summer semester' => 'Summer',
+            default => $value,
+        };
+    }
+
+    private function responseHandledByDepartment($response, string $department): bool
+    {
+        $facultyCourse = optional($response->schedule)->facultyCourse;
+        $course = optional($facultyCourse)->course;
+        $assignmentDepartments = $this->normalizeDepartmentList(optional($facultyCourse)->department ?? '');
+
+        if (!empty($assignmentDepartments)) {
+            return in_array($department, $assignmentDepartments, true);
+        }
+
+        $inferredDepartment = $this->inferDepartmentFromAssignment(
+            optional($facultyCourse)->section ?? '',
+            $response->resolved_course_code ?? optional($course)->class_code ?? '',
+            $response->resolved_course_name ?? optional($course)->subject_code ?? ''
+        );
+
+        return $inferredDepartment === $department;
+    }
+
+    private function inferDepartmentFromAssignment(?string $section, ?string $courseCode, ?string $courseName): ?string
+    {
+        $sectionText = strtoupper(trim((string) $section));
+
+        if ($sectionText !== '') {
+            $sectionDepartment = $this->matchDepartmentPattern($sectionText, [
+                'College of Dentistry' => '/\b(DDM|DMD|DDS|MSD|MSDO)\b/',
+                'College of Nursing' => '/\b(BSN|CON)\b/',
+                'College of Arts and Sciences' => '/\b(CAS|BS-?PSYCH|BSPSYCH|PSYCH|ABCOMM|AB-?COMM|BA COMM|BSIT|BIO|MICROBIO)\b/',
+                'College of Medical Technology' => '/\b(CMT|BS-?MT|BSMT|MT)\b/',
+                'College of Medicine' => '/\b(COM|MED|MEDICINE)\b/',
+                'College of Optometry' => '/\b(OP|OPT|COO)\b/',
+                'College of Pharmacy' => '/\b(BSPH|PHARMA|PHARMACY|CPH)\b/',
+                'College of Physical Therapy' => '/\b(BSPT|PT|CPT)\b/',
+                'Basic Education' => '/\b(BED|BEDD|BASIC EDUCATION|ELEMENTARY|JHS|SHS|GRADE)\b/',
+                'School of Business and Management' => '/\b(SBM|BSBA|MAN-?ADM|MBA)\b/',
+            ]);
+
+            if ($sectionDepartment !== null) {
+                return $sectionDepartment;
+            }
+        }
+
+        $text = strtoupper(trim(implode(' ', array_filter([
+            (string) $courseCode,
+            (string) $courseName,
+        ]))));
+
+        if ($text === '') {
+            return null;
+        }
+
+        return $this->matchDepartmentPattern($text, [
+            'College of Dentistry' => '/\b(DDM|DMD|DDS|MSD|MSDO|CLD|ORS|CCC|CCS|PID|DPH|NUT|ORT|DME|CAR|ANA|GMA|PRO|PDO|PER|GPA|ICL)\b/',
+            'College of Nursing' => '/\b(BSN|CON)\b/',
+            'College of Arts and Sciences' => '/\b(CAS|BS-?PSYCH|BSPSYCH|PSYCH|ABCOMM|AB-?COMM|BA COMM|BSIT|BIO|MICROBIO|ZOO|STS|PEE)\b/',
+            'College of Medical Technology' => '/\b(CMT|BS-?MT|BSMT|MT)\b/',
+            'College of Medicine' => '/\b(COM|MED|MEDICINE)\b/',
+            'College of Optometry' => '/\b(OP|OPT|COO)\b/',
+            'College of Pharmacy' => '/\b(BSPH|PHARMA|PHARMACY|CPH)\b/',
+            'College of Physical Therapy' => '/\b(BSPT|PT|CPT)\b/',
+            'Basic Education' => '/\b(BED|BEDD|BASIC EDUCATION|ELEMENTARY|JHS|SHS|GRADE)\b/',
+            'School of Business and Management' => '/\b(SBM|BSBA|MAN-?ADM|MBA)\b/',
+        ]);
+    }
+
+    private function matchDepartmentPattern(string $text, array $patterns): ?string
+    {
+        foreach ($patterns as $department => $pattern) {
+            if (preg_match($pattern, $text)) {
+                return $department;
+            }
+        }
+
+        return null;
     }
 
     private function normalizeDepartmentName(?string $department): ?string
