@@ -1588,7 +1588,9 @@ class EvaluationController extends Controller
             ]);
         }
 
-        $responses = $allResponses;
+        $responses = $allResponses
+            ->filter(fn (EvaluationResponse $response) => $this->responseHasActiveCourseLink($response))
+            ->values();
 
         $facultySlug = Str::slug($evaluation->resolved_faculty_name, '_');
         $dateTag = now()->format('Ymd_His');
@@ -1603,7 +1605,9 @@ class EvaluationController extends Controller
                 'Faculty Department',
                 'Academic Year',
                 'Semester',
+                'Subject Type',
                 'Course Code',
+                'Section',
                 'Course Name',
                 'Effectiveness Rating',
                 'Effectiveness Text',
@@ -1616,7 +1620,9 @@ class EvaluationController extends Controller
                     $evaluation->resolved_faculty_department,
                     $evaluation->academic_year,
                     $evaluation->semester,
+                    $this->formatResponseSubjectType($response),
                     $response->resolved_course_code,
+                    $response->schedule?->facultyCourse?->section ?? '',
                     $response->resolved_course_name,
                     $response->effectiveness_rating,
                     $response->effectiveness_text,
@@ -1628,6 +1634,43 @@ class EvaluationController extends Controller
         }, $filename, [
             'Content-Type' => 'text/csv; charset=UTF-8',
         ]);
+    }
+
+    private function responseHasActiveCourseLink(EvaluationResponse $response): bool
+    {
+        return $response->schedule !== null
+            && $response->schedule->facultyCourse !== null
+            && $response->schedule->facultyCourse->course !== null;
+    }
+
+    private function formatResponseSubjectType(EvaluationResponse $response): string
+    {
+        $subjectType = strtolower((string) ($response->schedule?->facultyCourse?->course?->subject_type ?? ''));
+
+        if ($subjectType === '') {
+            $courseCode = trim((string) ($response->resolved_course_code ?? ''));
+            $courseName = trim((string) ($response->resolved_course_name ?? ''));
+
+            $course = Course::query()
+                ->where(function ($query) use ($courseCode, $courseName) {
+                    if ($courseCode !== '') {
+                        $query->orWhere('class_code', $courseCode);
+                    }
+
+                    if ($courseName !== '') {
+                        $query->orWhere('subject_code', $courseName);
+                    }
+                })
+                ->first();
+
+            $subjectType = strtolower((string) ($course?->subject_type ?? ''));
+        }
+
+        return match ($subjectType) {
+            'major' => 'Professional Course',
+            'minor' => 'Minor Course',
+            default => 'N/A',
+        };
     }
 
     public function convertToShortUrls()
