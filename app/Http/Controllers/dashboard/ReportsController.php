@@ -1686,8 +1686,8 @@ class ReportsController extends Controller
             $response->resolved_course_name ?? optional($course)->subject_code ?? ''
         );
 
-        if ($inferredDepartment !== null && in_array($inferredDepartment, $selectedAliases, true)) {
-            return true;
+        if ($inferredDepartment !== null) {
+            return in_array($inferredDepartment, $selectedAliases, true);
         }
 
         $snapshotDepartments = $this->normalizeDepartmentList(optional($response->evaluation)->faculty_department_snapshot ?? '');
@@ -1710,7 +1710,7 @@ class ReportsController extends Controller
                 'College of Nursing' => '/\b(BSN|CON)\b/',
                 'College of Arts and Sciences' => '/\b(CAS|BS-?PSYCH|BSPSYCH|PSYCH|ABCOMM|AB-?COMM|BA COMM|BSIT|BIO|MICROBIO)\b/',
                 'College of Medical Technology' => '/\b(CMT|BS-?MT|BSMT|MT)\b/',
-                'College of Medicine' => '/\b(COM|MED|MEDICINE)\b/',
+                'College of Medicine' => '/\b(COLLEGE OF MEDICINE|MEDICINE|MED)\b/',
                 'College of Optometry' => '/\b(OP|OPT|COO)\b/',
                 'College of Pharmacy' => '/\b(BSPH|PHARMA|PHARMACY|CPH)\b/',
                 'College of Physical Therapy' => '/\b(BSPT|PT|CPT)\b/',
@@ -1738,7 +1738,7 @@ class ReportsController extends Controller
             'College of Nursing' => '/\b(BSN|CON)\b/',
             'College of Arts and Sciences' => '/\b(CAS|BS-?PSYCH|BSPSYCH|PSYCH|ABCOMM|AB-?COMM|BA COMM|BSIT|BIO|MICROBIO|ZOO|STS|PEE)\b/',
             'College of Medical Technology' => '/\b(CMT|BS-?MT|BSMT|MT)\b/',
-            'College of Medicine' => '/\b(COM|MED|MEDICINE)\b/',
+            'College of Medicine' => '/\b(COLLEGE OF MEDICINE|MEDICINE|MED)\b/',
             'College of Optometry' => '/\b(OP|OPT|COO)\b/',
             'College of Pharmacy' => '/\b(BSPH|PHARMA|PHARMACY|CPH)\b/',
             'College of Physical Therapy' => '/\b(BSPT|PT|CPT)\b/',
