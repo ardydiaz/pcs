@@ -3,6 +3,7 @@
 namespace App\Imports;
 
 use App\Models\Faculty;
+use App\Support\SectionNormalizer;
 use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\ToCollection;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
@@ -27,7 +28,7 @@ class FacultyLoadSourceConverter implements ToCollection, WithHeadingRow
 
             $classCode = $this->cellAny($source, ['classcode', 'class_code']);
             $subjectCode = $this->cellAny($source, ['subjectcode', 'subject_code']);
-            $section = $this->cellAny($source, ['section']);
+            $section = SectionNormalizer::normalize($this->cellAny($source, ['section']));
             $information = $this->cellAny($source, ['information']);
             $employeeNo = $this->cellAny($source, ['employeeno', 'employee_no', 'emp_no', 'empno']);
             $department = $this->cellAny($source, ['department']) ?: ($this->defaults['department'] ?? '');

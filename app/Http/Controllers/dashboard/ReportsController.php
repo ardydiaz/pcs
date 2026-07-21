@@ -127,9 +127,9 @@ class ReportsController extends Controller
             ->sort()
             ->values();
 
-        // Base query for evaluations with department filtering
-        $evaluationsQuery = Evaluation::with(['responses.schedule.facultyCourse.course'])
-            ->where('is_active', true);
+        // Base query for evaluations with department filtering.
+        // Keep this lightweight; response-heavy aggregates are calculated in SQL below.
+        $evaluationsQuery = Evaluation::where('is_active', true);
 
         foreach ($excludedDepartments as $excludedDepartment) {
             $evaluationsQuery->whereRaw(
@@ -156,42 +156,60 @@ class ReportsController extends Controller
             $evaluationsQuery->where('semester', $selectedSemester);
         }
 
-        $evaluations = $evaluationsQuery->get();
+        $reportCacheKey = 'reports.index.' . md5(json_encode([
+            'department' => $selectedDepartment,
+            'academic_year' => $selectedAcademicYear,
+            'semester' => $selectedSemester,
+            'subject_type' => $selectedSubjectType,
+            'per_page' => $perPage,
+            'locked_departments' => $lockedDepartments->values()->all(),
+        ]));
 
-        // Calculate metrics
-        $metrics = $this->calculateMetrics($evaluations, $selectedDepartment, $selectedAcademicYear, $selectedSemester, $selectedSubjectType);
-
-        // Get department-wise breakdown with pagination
-        $departmentBreakdown = $this->getDepartmentBreakdown(
+        $reportData = Cache::remember($reportCacheKey, now()->addMinutes(3), function () use (
+            $evaluationsQuery,
+            $selectedSubjectType,
             $selectedDepartment,
             $selectedAcademicYear,
             $selectedSemester,
             $perPage,
-            $lockedDepartments->values()->all(),
-            $excludedDepartments,
-            $selectedSubjectType
-        );
+            $lockedDepartments,
+            $excludedDepartments
+        ) {
+            return [
+                'metrics' => $this->calculateMetrics($evaluationsQuery, $selectedSubjectType),
+                'departmentBreakdown' => $this->getDepartmentBreakdown(
+                    $selectedDepartment,
+                    $selectedAcademicYear,
+                    $selectedSemester,
+                    $perPage,
+                    $lockedDepartments->values()->all(),
+                    $excludedDepartments,
+                    $selectedSubjectType
+                ),
+                'recentResponses' => $this->getRecentResponses(
+                    $selectedDepartment,
+                    $selectedAcademicYear,
+                    $selectedSemester,
+                    10,
+                    $lockedDepartments->values()->all(),
+                    $excludedDepartments,
+                    $selectedSubjectType
+                ),
+                'facultyRatings' => $this->getFacultyRatings(
+                    $selectedDepartment,
+                    $selectedAcademicYear,
+                    $selectedSemester,
+                    $lockedDepartments->values()->all(),
+                    $excludedDepartments,
+                    $selectedSubjectType
+                ),
+            ];
+        });
 
-        // Get recent responses for activity feed
-        $recentResponses = $this->getRecentResponses(
-            $selectedDepartment,
-            $selectedAcademicYear,
-            $selectedSemester,
-            10,
-            $lockedDepartments->values()->all(),
-            $excludedDepartments,
-            $selectedSubjectType
-        );
-
-        // Get top/bottom rated faculties
-        $facultyRatings = $this->getFacultyRatings(
-            $selectedDepartment,
-            $selectedAcademicYear,
-            $selectedSemester,
-            $lockedDepartments->values()->all(),
-            $excludedDepartments,
-            $selectedSubjectType
-        );
+        $metrics = $reportData['metrics'];
+        $departmentBreakdown = $reportData['departmentBreakdown'];
+        $recentResponses = $reportData['recentResponses'];
+        $facultyRatings = $reportData['facultyRatings'];
 
         return view('content.dashboard.dashboard-reports', compact(
             'metrics',
@@ -882,33 +900,55 @@ class ReportsController extends Controller
         );
     }
 
-    private function calculateMetrics($evaluations, $department, $academicYear, $semester, string $subjectType = 'all')
+    private function calculateMetrics($evaluationsQuery, string $subjectType = 'all')
     {
-        $allResponses = collect();
-        foreach ($evaluations as $evaluation) {
-            $allResponses = $allResponses->concat($evaluation->responses);
+        $evaluationIdsQuery = (clone $evaluationsQuery)->select('evaluations.id');
+
+        $totalEvaluations = (clone $evaluationsQuery)->count();
+        $totalFaculties = DB::query()
+            ->fromSub(
+                (clone $evaluationsQuery)
+                    ->leftJoin('users', 'users.id', '=', 'evaluations.faculty_id')
+                    ->selectRaw("COALESCE(NULLIF(users.name, ''), NULLIF(evaluations.faculty_name_snapshot, ''), 'Unknown') as faculty_name")
+                    ->distinct(),
+                'report_faculties'
+            )
+            ->count('faculty_name');
+
+        $responsesQuery = EvaluationResponse::query()
+            ->leftJoin('schedules', 'schedules.id', '=', 'evaluation_responses.schedule_id')
+            ->leftJoin('faculty_courses', 'faculty_courses.id', '=', 'schedules.faculty_course_id')
+            ->leftJoin('courses', 'courses.id', '=', 'faculty_courses.course_id')
+            ->whereIn('evaluation_responses.evaluation_id', $evaluationIdsQuery);
+
+        if ($subjectType !== 'all') {
+            $responsesQuery->where('courses.subject_type', $subjectType);
         }
 
-        // Filter responses by subject_type if needed
-        if ($subjectType !== 'all') {
-            $allResponses = $allResponses->filter(function ($response) use ($subjectType) {
-                $course = optional(optional($response->schedule)->facultyCourse)->course;
-                return $course && strtolower((string) ($course->subject_type ?? '')) === $subjectType;
-            })->values();
-        }
+        $responseStats = (clone $responsesQuery)
+            ->selectRaw('COUNT(evaluation_responses.id) as total_responses')
+            ->selectRaw('AVG(evaluation_responses.effectiveness_rating) as average_rating')
+            ->selectRaw("COUNT(DISTINCT COALESCE(evaluation_responses.schedule_id, evaluation_responses.course_code_snapshot)) as courses_evaluated")
+            ->selectRaw("SUM(CASE WHEN evaluation_responses.feedback_comments IS NOT NULL AND evaluation_responses.feedback_comments <> '' THEN 1 ELSE 0 END) as responses_with_feedback")
+            ->first();
+
+        $ratingDistribution = (clone $responsesQuery)
+            ->select('evaluation_responses.effectiveness_rating')
+            ->selectRaw('COUNT(*) as count')
+            ->groupBy('evaluation_responses.effectiveness_rating')
+            ->pluck('count', 'evaluation_responses.effectiveness_rating');
+
+        $totalResponses = (int) ($responseStats?->total_responses ?? 0);
 
         return [
-            'total_evaluations' => $evaluations->count(),
-            'active_evaluations' => $evaluations->count(),
-            'total_responses' => $allResponses->count(),
-            'total_faculties' => $evaluations->pluck('resolved_faculty_name')->unique()->count(),
-            'average_rating' => $allResponses->count() > 0 ? round($allResponses->avg('effectiveness_rating'), 2) : 0,
-            'courses_evaluated' => $allResponses->map(function ($response) {
-                return $response->schedule_id ?? $response->course_code_snapshot ?? '';
-            })->filter()->unique()->count(),
-            'responses_with_feedback' => $allResponses->whereNotNull('feedback_comments')
-                ->where('feedback_comments', '!=', '')->count(),
-            'rating_distribution' => $allResponses->groupBy('effectiveness_rating')->map->count(),
+            'total_evaluations' => $totalEvaluations,
+            'active_evaluations' => $totalEvaluations,
+            'total_responses' => $totalResponses,
+            'total_faculties' => $totalFaculties,
+            'average_rating' => $totalResponses > 0 ? round((float) $responseStats->average_rating, 2) : 0,
+            'courses_evaluated' => (int) ($responseStats?->courses_evaluated ?? 0),
+            'responses_with_feedback' => (int) ($responseStats?->responses_with_feedback ?? 0),
+            'rating_distribution' => $ratingDistribution,
         ];
     }
 

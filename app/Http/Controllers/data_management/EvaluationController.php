@@ -9,6 +9,7 @@ use App\Models\{Evaluation, EvaluationResponse, Schedule, User, FacultyCourse, F
 use Illuminate\Support\Str;
 use App\Support\AuditLogger;
 use App\Support\BrandedQrCode;
+use App\Support\SectionNormalizer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Response;
 use Illuminate\Database\QueryException;
@@ -1107,6 +1108,22 @@ class EvaluationController extends Controller
                 ->all()
             : [];
 
+        $schedules = $schedules
+            ->sortByDesc(fn ($schedule) => in_array((int) $schedule->id, $evaluatedScheduleIds, true))
+            ->unique(function ($schedule) {
+                $facultyCourse = $schedule->facultyCourse;
+                $course = optional($facultyCourse)->course;
+                $scheduleLabel = Schedule::formatScheduleLabel($schedule->day, $schedule->time);
+
+                return implode('|', [
+                    $course?->id ?? $course?->class_code ?? '',
+                    SectionNormalizer::key($facultyCourse?->section ?? ''),
+                    $scheduleLabel,
+                ]);
+            })
+            ->sortByDesc('created_at')
+            ->values();
+
         return view('content.data-management.evaluation-files.evaluation-form', compact('evaluation', 'schedules', 'canSubmitEvaluation', 'evaluatedScheduleIds'));
     }
 
@@ -1136,11 +1153,12 @@ class EvaluationController extends Controller
         $course = optional($schedule->facultyCourse)->course;
 
         $ipAddress = $request->ip();
-        $scheduleId = $request->schedule_id;
+        $scheduleId = (int) $request->schedule_id;
+        $equivalentScheduleIds = $this->equivalentScheduleIds($schedule);
         $submittedDate = now()->toDateString();
 
         $alreadyEvaluated = EvaluationResponse::where('evaluation_id', $evaluation->id)
-            ->where('schedule_id', $scheduleId)
+            ->whereIn('schedule_id', $equivalentScheduleIds)
             ->where('student_user_id', $studentUserId)
             ->where('submitted_date', $submittedDate)
             ->exists();
@@ -1153,9 +1171,14 @@ class EvaluationController extends Controller
 
         $cooldownMinutes = 1; // 1 minute cooldown
 
-        // Check if IP is still in cooldown period for this specific schedule
-        if (EvaluationResponse::isInCooldown($scheduleId, $ipAddress, $cooldownMinutes)) {
-            $remainingSeconds = EvaluationResponse::getRemainingCooldown($scheduleId, $ipAddress, $cooldownMinutes);
+        // Check if IP is still in cooldown period for this same real course/section/schedule.
+        $lastSubmission = EvaluationResponse::whereIn('schedule_id', $equivalentScheduleIds)
+            ->where('ip_address', $ipAddress)
+            ->orderBy('created_at', 'desc')
+            ->first();
+
+        if ($lastSubmission && now()->lt($lastSubmission->created_at->copy()->addMinutes($cooldownMinutes))) {
+            $remainingSeconds = now()->diffInSeconds($lastSubmission->created_at->copy()->addMinutes($cooldownMinutes));
             $remainingTime = gmdate("i:s", $remainingSeconds); // Format as MM:SS
 
             // Return with a specific cooldown error that the frontend can detect
@@ -1187,6 +1210,44 @@ class EvaluationController extends Controller
         }
 
         return back()->with('success', 'Thank you! Your evaluation has been submitted successfully.');
+    }
+
+    private function equivalentScheduleIds(Schedule $schedule): array
+    {
+        $facultyCourse = $schedule->facultyCourse;
+        if (!$facultyCourse) {
+            return [$schedule->id];
+        }
+
+        $sectionKey = SectionNormalizer::key($facultyCourse->section);
+
+        return Schedule::with('facultyCourse')
+            ->where(function ($query) use ($schedule) {
+                $schedule->day === null
+                    ? $query->whereNull('day')
+                    : $query->where('day', $schedule->day);
+            })
+            ->where(function ($query) use ($schedule) {
+                $schedule->time === null
+                    ? $query->whereNull('time')
+                    : $query->where('time', $schedule->time);
+            })
+            ->whereHas('facultyCourse', function ($query) use ($facultyCourse) {
+                $query->where('faculty_id', $facultyCourse->faculty_id)
+                    ->where('course_id', $facultyCourse->course_id)
+                    ->where('academic_year', $facultyCourse->academic_year)
+                    ->where('semester', $facultyCourse->semester);
+            })
+            ->get()
+            ->filter(function (Schedule $candidate) use ($sectionKey) {
+                return SectionNormalizer::key($candidate->facultyCourse?->section) === $sectionKey;
+            })
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->push((int) $schedule->id)
+            ->unique()
+            ->values()
+            ->all();
     }
 
     private function generateUniqueLink($facultyId, $academicYear, $semester)

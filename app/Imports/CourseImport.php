@@ -5,6 +5,7 @@ namespace App\Imports;
 use App\Models\Course; // Import Course model to create course records based on the imported data
 use App\Models\Faculty; // Import Faculty model to find faculty records based on employee number and create linked FacultyCourse records
 use App\Models\FacultyCourse; // Import FacultyCourse model to create records that link faculties to courses with specific sections, academic years, and semesters
+use App\Support\SectionNormalizer;
 use Maatwebsite\Excel\Concerns\ToModel; // Interface to convert each row of the Excel file into a model instance
 use Maatwebsite\Excel\Concerns\WithHeadingRow; // Interface to indicate that the first row of the Excel file contains column headings, allowing us to access row data using those headings as keys
 use Maatwebsite\Excel\Concerns\RemembersRowNumber;
@@ -32,7 +33,7 @@ class CourseImport implements ToModel, WithHeadingRow // Class to handle the imp
         $classCode = isset($row['classcode']) ? trim((string) $row['classcode']) : ''; // e.g 2110001, 213039
         $subjectCode = isset($row['subjectcode']) ? trim((string) $row['subjectcode']) : '';  // e.g LRK 002 - Language/Reading, SCK 001 - Science, Computer Programming
         $subjectType = strtolower(trim((string) ($row['subjecttype'] ?? '')));
-        $section = isset($row['section']) ? trim((string) $row['section']) : ''; // e.g BSN 3, BSCS 1A, BSIT 2B
+        $section = SectionNormalizer::normalize($row['section'] ?? ''); // e.g BSN 3, BSCS 1A, BSIT 2B
         $academicYear = isset($row['academicyear']) ? trim((string) $row['academicyear']) : ''; // e.g 2022-2023, 2023-2024
         $semester = $this->normalizeSemester($row['semester'] ?? ''); // Normalize semester value to standard format (e.g 1st Semester, 2nd Semester, Summer)
         
@@ -98,13 +99,13 @@ class CourseImport implements ToModel, WithHeadingRow // Class to handle the imp
              // =========================
             // 5. FacultyCourse insert
             // =========================
-            $facultyCourse = FacultyCourse::withTrashed()->where([
-                'faculty_id' => $faculty->id,
-                'course_id' => $course->id,
-                'section' => $section,
-                'academic_year' => $academicYear,
-                'semester' => $semester,
-            ])->first();
+            $facultyCourse = $this->findExistingFacultyCourse(
+                $faculty->id,
+                $course->id,
+                $section,
+                $academicYear,
+                $semester
+            );
 
             if ($facultyCourse && $facultyCourse->trashed()) {
                 $facultyCourse->restore();
@@ -116,6 +117,8 @@ class CourseImport implements ToModel, WithHeadingRow // Class to handle the imp
                     'academic_year' => $academicYear,
                     'semester' => $semester,
                 ]);
+            } elseif ($facultyCourse->section !== $section) {
+                $facultyCourse->update(['section' => $section]);
             }
         }
 
@@ -149,5 +152,28 @@ class CourseImport implements ToModel, WithHeadingRow // Class to handle the imp
     public function getErrors()
     {
         return $this->errors;
+    }
+
+    private function findExistingFacultyCourse(
+        int $facultyId,
+        int $courseId,
+        string $section,
+        string $academicYear,
+        string $semester
+    ): ?FacultyCourse {
+        $targetSectionKey = SectionNormalizer::key($section);
+
+        return FacultyCourse::withTrashed()
+            ->where('faculty_id', $facultyId)
+            ->where('course_id', $courseId)
+            ->where('academic_year', $academicYear)
+            ->where('semester', $semester)
+            ->get()
+            ->sortByDesc(function (FacultyCourse $facultyCourse) use ($section) {
+                return $facultyCourse->section === $section ? 1 : 0;
+            })
+            ->first(function (FacultyCourse $facultyCourse) use ($targetSectionKey) {
+                return SectionNormalizer::key($facultyCourse->section) === $targetSectionKey;
+            });
     }
 }

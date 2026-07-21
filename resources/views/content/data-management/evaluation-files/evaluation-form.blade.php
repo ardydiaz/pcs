@@ -818,7 +818,7 @@
                     $evaluatedScheduleIds = collect($evaluatedScheduleIds ?? [])->map(fn ($id) => (int) $id)->all();
                     $sectionOptions = $schedules
                         ->map(function ($schedule) {
-                            return optional($schedule->facultyCourse)->section;
+                            return \App\Support\SectionNormalizer::normalize(optional($schedule->facultyCourse)->section);
                         })
                         ->filter(function ($section) {
                             return $section !== null && trim($section) !== '';
@@ -849,17 +849,18 @@
                             @php
                                 $scheduleLabel = \App\Models\Schedule::formatScheduleLabel($schedule->day, $schedule->time);
                                 $course = $schedule->facultyCourse->course;
-                                $fullCourseLabel = trim(($course->class_code ?? '') . ' - ' . ($course->subject_code ?? '') . ' - ' . ($schedule->facultyCourse->section ?? '') . ' - ' . $scheduleLabel);
+                                $normalizedSection = \App\Support\SectionNormalizer::normalize($schedule->facultyCourse->section ?? '');
+                                $fullCourseLabel = trim(($course->class_code ?? '') . ' - ' . ($course->subject_code ?? '') . ' - ' . $normalizedSection . ' - ' . $scheduleLabel);
                                 $isAlreadyEvaluated = in_array((int) $schedule->id, $evaluatedScheduleIds, true);
                                 $displayCourseLabel = $isAlreadyEvaluated
                                     ? 'Already evaluated today - ' . $fullCourseLabel
                                     : $fullCourseLabel;
-                                $compactCourseLabel = trim(($course->class_code ?? '') . ' - ' . ($schedule->facultyCourse->section ?? '') . ' - ' . $scheduleLabel);
+                                $compactCourseLabel = trim(($course->class_code ?? '') . ' - ' . $normalizedSection . ' - ' . $scheduleLabel);
                                 $shortCourseLabel = \Illuminate\Support\Str::limit($compactCourseLabel, 58);
                                 $shortEvaluatedLabel = \Illuminate\Support\Str::limit('Already evaluated today - ' . $compactCourseLabel, 74);
                             @endphp
                             <option value="{{ $schedule->id }}"
-                                data-section="{{ optional($schedule->facultyCourse)->section }}"
+                                data-section="{{ $normalizedSection }}"
                                 data-course-label="{{ $fullCourseLabel }}"
                                 data-already-evaluated="{{ $isAlreadyEvaluated ? '1' : '0' }}"
                                 title="{{ $displayCourseLabel }}"

@@ -7,6 +7,7 @@ use App\Models\Faculty; // Relationship with faculties to create new Faculty rec
 use App\Models\Course; // Import Course model to create course records based on the imported data
 use App\Models\FacultyCourse; // Import FacultyCourse model to create records that link faculties to courses with specific sections, academic years, and semesters
 use App\Models\Schedule; // Import Schedule model to create schedule records based on the imported data
+use App\Support\SectionNormalizer;
 use Maatwebsite\Excel\Concerns\ToModel; // Interface to convert each row of the Excel file into a model instance
 use Maatwebsite\Excel\Concerns\WithHeadingRow; // Interface to indicate that the first row of the Excel file contains column headings, allowing us to access row data using those headings as keys
 use Maatwebsite\Excel\Concerns\RemembersRowNumber;
@@ -56,7 +57,7 @@ class ImportAll implements ToModel, WithHeadingRow // Class to handle the import
         $classCode = $this->cell($row, 'classcode');
         $subjectCode = $this->cell($row, 'subjectcode');
         $subjectType = strtolower($this->cell($row, 'subjecttype', 'major'));
-        $section = $this->cell($row, 'section');
+        $section = SectionNormalizer::normalize($this->cell($row, 'section'));
         $academicYear = $this->normalizeAcademicYear($this->cell($row, 'academicyear'));
         $semester = $this->normalizeSemester($row['semester'] ?? '');
 
@@ -152,7 +153,11 @@ class ImportAll implements ToModel, WithHeadingRow // Class to handle the import
                     $faculty->restore();
                 }
 
-                $normalizedDepartment = $normalizedDepartment ?? $faculty->department;
+                $incomingDepartment = $normalizedDepartment;
+                $normalizedDepartment = $incomingDepartment === null
+                    ? $faculty->department
+                    : Faculty::mergeDepartments($faculty->department, $incomingDepartment);
+
                 if (!$faculty->user && $name !== '') {
                     $user = User::create([
                         'name' => $name,
@@ -175,8 +180,11 @@ class ImportAll implements ToModel, WithHeadingRow // Class to handle the import
 
                 if ($faculty->user) {
                     $userUpdates = ['status' => 'Active'];
-                    if ($normalizedDepartment !== null) {
-                        $userUpdates['department'] = $normalizedDepartment;
+                    if ($incomingDepartment !== null) {
+                        $userUpdates['department'] = Faculty::mergeDepartments(
+                            $faculty->user->department,
+                            $incomingDepartment
+                        );
                     }
                     if ($jobTitle !== '') {
                         $userUpdates['job_title'] = $jobTitle;
@@ -202,13 +210,13 @@ class ImportAll implements ToModel, WithHeadingRow // Class to handle the import
             }
 
             // 3. Find or create FacultyCourse linking record
-            $facultyCourse = FacultyCourse::withTrashed()
-                ->where('faculty_id', $faculty->id)
-                ->where('course_id', $course->id)
-                ->where('section', $section)
-                ->where('academic_year', $academicYear)
-                ->where('semester', $semester)
-                ->first();
+            $facultyCourse = $this->findExistingFacultyCourse(
+                $faculty->id,
+                $course->id,
+                $section,
+                $academicYear,
+                $semester
+            );
 
             if ($facultyCourse && $facultyCourse->trashed()) {
                 $facultyCourse->restore();
@@ -221,6 +229,11 @@ class ImportAll implements ToModel, WithHeadingRow // Class to handle the import
                     'semester' => $semester,
                     'department' => $assignmentDepartment,
                 ]);
+            }
+
+            if ($facultyCourse && $facultyCourse->section !== $section) {
+                $facultyCourse->section = $section;
+                $facultyCourse->save();
             }
 
             if ($facultyCourse && $assignmentDepartment !== null && $facultyCourse->department !== $assignmentDepartment) {
@@ -525,5 +538,28 @@ class ImportAll implements ToModel, WithHeadingRow // Class to handle the import
         $value = preg_replace('/\s+/u', ' ', $value);
 
         return trim($value ?? '');
+    }
+
+    private function findExistingFacultyCourse(
+        int $facultyId,
+        int $courseId,
+        string $section,
+        string $academicYear,
+        string $semester
+    ): ?FacultyCourse {
+        $targetSectionKey = SectionNormalizer::key($section);
+
+        return FacultyCourse::withTrashed()
+            ->where('faculty_id', $facultyId)
+            ->where('course_id', $courseId)
+            ->where('academic_year', $academicYear)
+            ->where('semester', $semester)
+            ->get()
+            ->sortByDesc(function (FacultyCourse $facultyCourse) use ($section) {
+                return $facultyCourse->section === $section ? 1 : 0;
+            })
+            ->first(function (FacultyCourse $facultyCourse) use ($targetSectionKey) {
+                return SectionNormalizer::key($facultyCourse->section) === $targetSectionKey;
+            });
     }
 }

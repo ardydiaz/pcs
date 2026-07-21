@@ -3,6 +3,7 @@
 namespace App\Imports;
 
 use App\Models\Faculty;
+use App\Support\SectionNormalizer;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 
@@ -71,6 +72,7 @@ class FacultyLoadBlockSourceConverter
                     continue;
                 }
 
+                $course['section'] = SectionNormalizer::normalize($course['section']);
                 $lastCourse = $course;
                 $subjectCode = $this->formatSubjectCode($course['code'], $course['description']);
 

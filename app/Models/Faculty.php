@@ -55,14 +55,16 @@ class Faculty extends Model
 
     public static function mergeDepartments(?string $current, ?string $incoming): ?string
     {
-        $incoming = trim((string) ($incoming ?? ''));
-        if ($incoming === '') {
+        $incomingDepartments = self::normalizeDepartmentList($incoming);
+        if ($incomingDepartments === []) {
             return $current;
         }
 
         $departments = self::normalizeDepartmentList($current);
-        if (!in_array($incoming, $departments, true)) {
-            $departments[] = $incoming;
+        foreach ($incomingDepartments as $incomingDepartment) {
+            if (!in_array($incomingDepartment, $departments, true)) {
+                $departments[] = $incomingDepartment;
+            }
         }
 
         if (empty($departments)) {
