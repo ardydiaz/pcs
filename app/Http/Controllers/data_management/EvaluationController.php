@@ -1139,13 +1139,19 @@ class EvaluationController extends Controller
                 ->withInput();
         }
 
+        $request->merge([
+            'feedback_comments' => $this->normalizeFeedback($request->input('feedback_comments')),
+        ]);
+
         $request->validate([
             'schedule_id' => 'required|exists:schedules,id',
             'effectiveness_rating' => 'required|in:1,2,3,4',
-            'feedback_comments' => 'required|string|min:20|max:500',
+            'feedback_comments' => ['required', 'string', 'min:20', 'max:500', 'regex:/^[\p{L}\p{N}\s.,!?;:\'"\-\(\)‘’“”]+$/u', 'not_regex:/-{3,}/'],
         ], [
             'feedback_comments.min' => 'Feedback must be at least 20 characters.',
             'feedback_comments.max' => 'Feedback must not exceed 500 characters.',
+            'feedback_comments.regex' => 'Feedback can only use letters, numbers, spaces, and basic punctuation.',
+            'feedback_comments.not_regex' => 'Repeated dash lines are not allowed in feedback.',
         ]);
 
         $studentUserId = $request->user()?->id;
@@ -1193,7 +1199,7 @@ class EvaluationController extends Controller
                 'submitted_date' => $submittedDate,
                 'ip_address' => $ipAddress,
                 'effectiveness_rating' => $request->effectiveness_rating,
-                'feedback_comments' => $request->feedback_comments,
+                'feedback_comments' => $request->input('feedback_comments'),
                 'course_code_snapshot' => $course->class_code ?? null,
                 'course_name_snapshot' => $course->subject_code ?? null,
                 'schedule_time_snapshot' => $schedule->time,
@@ -1210,6 +1216,15 @@ class EvaluationController extends Controller
         }
 
         return back()->with('success', 'Thank you! Your evaluation has been submitted successfully.');
+    }
+
+    private function normalizeFeedback(?string $feedback): string
+    {
+        $feedback = preg_replace('/[\x{200B}-\x{200D}\x{FEFF}]/u', '', (string) $feedback);
+        $feedback = str_replace(["\xC2\xA0", "\u{00A0}"], ' ', $feedback);
+        $feedback = preg_replace('/\s+/u', ' ', $feedback);
+
+        return trim($feedback);
     }
 
     private function equivalentScheduleIds(Schedule $schedule): array

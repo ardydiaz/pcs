@@ -950,7 +950,7 @@
                         Feedback must be 20 to 500 characters.
                     </div>
                     <small class="text-muted d-block mt-2" id="feedbackHelp">
-                        Please write 20 to 500 characters. One-word answers like "good" or "bad" are too short.
+                        Please write 20 to 500 characters. Letters, numbers, spaces, and basic punctuation only.
                     </small>
                     <small class="d-block mt-1" id="feedbackCounter">
                         20 more characters needed.
@@ -1113,9 +1113,12 @@
                     } else {
                         clearFieldError(field);
                     }
-                } else if (field.name === 'feedback_comments' && !isFeedbackValid(field.value)) {
-                    showFieldError(field);
-                    return false;
+                } else if (field.name === 'feedback_comments') {
+                    if (!isFeedbackValid(field.value)) {
+                        showFieldError(field);
+                        return false;
+                    }
+                    clearFieldError(field);
                 } else if (!field.value.trim()) {
                     showFieldError(field);
                     return false;
@@ -1230,13 +1233,28 @@
             }
         }
 
+        function normalizeFeedbackValue(value) {
+            return (value || '')
+                .replace(/[\u200B-\u200D\uFEFF]/g, '')
+                .replace(/\s+/g, ' ')
+                .trim();
+        }
+
+        function hasInvalidFeedbackCharacters(value) {
+            return !/^[\p{L}\p{N}\s.,!?;:'"\-()‘’“”]*$/u.test(value || '');
+        }
+
+        function hasRepeatedDashLine(value) {
+            return /-{3,}/.test(value || '');
+        }
+
         function feedbackLength(value) {
-            return (value || '').trim().length;
+            return normalizeFeedbackValue(value).length;
         }
 
         function isFeedbackValid(value) {
             const length = feedbackLength(value);
-            return length >= feedbackMinLength && length <= feedbackMaxLength;
+            return length >= feedbackMinLength && length <= feedbackMaxLength && !hasInvalidFeedbackCharacters(value) && !hasRepeatedDashLine(value);
         }
 
         function updateFeedbackCounter(forceError = false) {
@@ -1252,8 +1270,22 @@
             const remainingMax = Math.max(feedbackMaxLength - length, 0);
             const isTooShort = length < feedbackMinLength;
             const isTooLong = length > feedbackMaxLength;
+            const hasInvalidCharacters = hasInvalidFeedbackCharacters(field.value);
+            const hasDashLine = hasRepeatedDashLine(field.value);
 
-            if (isTooShort) {
+            if (hasInvalidCharacters) {
+                counter.textContent = 'Special characters are not allowed.';
+                counter.className = 'd-block mt-1 text-danger';
+                if (error) {
+                    error.textContent = 'Please use only letters, numbers, spaces, and basic punctuation.';
+                }
+            } else if (hasDashLine) {
+                counter.textContent = 'Repeated dash lines are not allowed.';
+                counter.className = 'd-block mt-1 text-danger';
+                if (error) {
+                    error.textContent = 'Please remove repeated dash lines from your feedback.';
+                }
+            } else if (isTooShort) {
                 counter.textContent = `${remainingMin} more character${remainingMin === 1 ? '' : 's'} needed.`;
                 counter.className = 'd-block mt-1 text-danger';
                 if (error) {
@@ -1273,8 +1305,8 @@
                 }
             }
 
-            const shouldShowError = forceError || isTooShort || isTooLong;
-            field.classList.toggle('is-invalid', shouldShowError && length > 0);
+            const shouldShowError = forceError || hasInvalidCharacters || hasDashLine || isTooShort || isTooLong;
+            field.classList.toggle('is-invalid', shouldShowError);
         }
 
         document.getElementById('feedback_comments')?.addEventListener('input', function() {
