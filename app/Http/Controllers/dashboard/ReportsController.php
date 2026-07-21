@@ -156,7 +156,7 @@ class ReportsController extends Controller
             $evaluationsQuery->where('semester', $selectedSemester);
         }
 
-        $reportCacheKey = 'reports.index.' . md5(json_encode([
+        $reportCacheKey = 'reports.index.v3.' . md5(json_encode([
             'department' => $selectedDepartment,
             'academic_year' => $selectedAcademicYear,
             'semester' => $selectedSemester,
@@ -1182,21 +1182,11 @@ class ReportsController extends Controller
         }
 
         if (!empty($allowedDepartments)) {
-            $evaluationsQuery->where(function ($query) use ($allowedDepartments) {
-                foreach ($allowedDepartments as $departmentItem) {
-                    $query->orWhereRaw(
-                        "FIND_IN_SET(?, REPLACE(faculty_department_snapshot, ', ', ','))",
-                        [$departmentItem]
-                    );
-                }
-            });
+            $this->whereAnyDepartment($evaluationsQuery, $allowedDepartments, 'faculty_department_snapshot');
         }
 
         if ($department !== 'all') {
-            $evaluationsQuery->whereRaw(
-                "FIND_IN_SET(?, REPLACE(faculty_department_snapshot, ', ', ','))",
-                [$department]
-            );
+            $this->whereAnyDepartment($evaluationsQuery, [$department], 'faculty_department_snapshot');
         }
 
         $evaluations = $evaluationsQuery->get();
@@ -1208,7 +1198,7 @@ class ReportsController extends Controller
 
         foreach ($facultyGroups as $facultyEvaluations) {
             $evaluationIds = $facultyEvaluations->pluck('id');
-            $responsesQuery = EvaluationResponse::with(['schedule.facultyCourse.course'])
+            $responsesQuery = EvaluationResponse::with(['evaluation', 'schedule.facultyCourse.course'])
                 ->whereIn('evaluation_id', $evaluationIds);
             if ($subjectType !== 'all') {
                 $responsesQuery->whereHas('schedule.facultyCourse.course', function ($q) use ($subjectType) {
@@ -1674,9 +1664,20 @@ class ReportsController extends Controller
         $facultyCourse = optional($response->schedule)->facultyCourse;
         $course = optional($facultyCourse)->course;
         $assignmentDepartments = $this->normalizeDepartmentList(optional($facultyCourse)->department ?? '');
+        $selectedAliases = collect($this->departmentAliases($department))
+            ->map(fn ($value) => $this->normalizeDepartmentName($value) ?? $value)
+            ->unique()
+            ->values()
+            ->all();
 
         if (!empty($assignmentDepartments)) {
-            return in_array($department, $assignmentDepartments, true);
+            $assignmentAliases = collect($assignmentDepartments)
+                ->flatMap(fn ($value) => $this->departmentAliases($value))
+                ->map(fn ($value) => $this->normalizeDepartmentName($value) ?? $value)
+                ->unique()
+                ->values();
+
+            return $assignmentAliases->intersect($selectedAliases)->isNotEmpty();
         }
 
         $inferredDepartment = $this->inferDepartmentFromAssignment(
@@ -1685,7 +1686,18 @@ class ReportsController extends Controller
             $response->resolved_course_name ?? optional($course)->subject_code ?? ''
         );
 
-        return $inferredDepartment === $department;
+        if ($inferredDepartment !== null && in_array($inferredDepartment, $selectedAliases, true)) {
+            return true;
+        }
+
+        $snapshotDepartments = $this->normalizeDepartmentList(optional($response->evaluation)->faculty_department_snapshot ?? '');
+        $snapshotAliases = collect($snapshotDepartments)
+            ->flatMap(fn ($value) => $this->departmentAliases($value))
+            ->map(fn ($value) => $this->normalizeDepartmentName($value) ?? $value)
+            ->unique()
+            ->values();
+
+        return $snapshotAliases->intersect($selectedAliases)->isNotEmpty();
     }
 
     private function inferDepartmentFromAssignment(?string $section, ?string $courseCode, ?string $courseName): ?string
@@ -1702,8 +1714,9 @@ class ReportsController extends Controller
                 'College of Optometry' => '/\b(OP|OPT|COO)\b/',
                 'College of Pharmacy' => '/\b(BSPH|PHARMA|PHARMACY|CPH)\b/',
                 'College of Physical Therapy' => '/\b(BSPT|PT|CPT)\b/',
-                'Basic Education' => '/\b(BED|BEDD|BASIC EDUCATION|ELEMENTARY|JHS|SHS|GRADE)\b/',
-                'School of Business and Management' => '/\b(SBM|BSBA|MAN-?ADM|MBA)\b/',
+                'Institute of Education' => '/\b(INSTITUTE OF EDUCATION|IOE|IED|EDUCATION INSTITUTE|BSE|BSED|BEED|BSE-?ENG)\b/',
+                'Basic Education' => '/\b(BED|BEDD|BASIC EDUCATION|ELEMENTARY|JHS|SHS|GRADE|STEM|ABM|HUMSS|HIGHSCHOOL|HIGH SCHOOL)\b|\b(MATH|SCIENCE|ENGLISH|FILIPINO|COMPUTER|MAPEH|TLE|AP|VALUES EDUCATION)\s*(7|8|9|10)\b/',
+                'School of Business and Management' => '/\b(SBM|BSBA|MAN-?ADM|MBA|BSHM|BSTM|ACCOUNTANCY|AC|MM|HM|TM)\b/',
             ]);
 
             if ($sectionDepartment !== null) {
@@ -1729,8 +1742,9 @@ class ReportsController extends Controller
             'College of Optometry' => '/\b(OP|OPT|COO)\b/',
             'College of Pharmacy' => '/\b(BSPH|PHARMA|PHARMACY|CPH)\b/',
             'College of Physical Therapy' => '/\b(BSPT|PT|CPT)\b/',
-            'Basic Education' => '/\b(BED|BEDD|BASIC EDUCATION|ELEMENTARY|JHS|SHS|GRADE)\b/',
-            'School of Business and Management' => '/\b(SBM|BSBA|MAN-?ADM|MBA)\b/',
+            'Institute of Education' => '/\b(INSTITUTE OF EDUCATION|IOE|IED|EDUCATION INSTITUTE|BSE|BSED|BEED|BSE-?ENG)\b/',
+            'Basic Education' => '/\b(BED|BEDD|BASIC EDUCATION|ELEMENTARY|JHS|SHS|GRADE|STEM|ABM|HUMSS|HIGHSCHOOL|HIGH SCHOOL)\b|\b(MATH|SCIENCE|ENGLISH|FILIPINO|COMPUTER|MAPEH|TLE|AP|VALUES EDUCATION)\s*(7|8|9|10)\b/',
+            'School of Business and Management' => '/\b(SBM|BSBA|MAN-?ADM|MBA|BSHM|BSTM|ACCOUNTANCY|AC|MM|HM|TM)\b/',
         ]);
     }
 
@@ -1751,12 +1765,6 @@ class ReportsController extends Controller
 
         if ($department === '') {
             return null;
-        }
-
-        foreach (self::OFFICIAL_DEPARTMENTS as $officialDepartment) {
-            if (strcasecmp($department, $officialDepartment) === 0) {
-                return $officialDepartment;
-            }
         }
 
         $map = [
@@ -1805,14 +1813,31 @@ class ReportsController extends Controller
             'bed d' => 'Basic Education',
             'beded' => 'Basic Education',
             'basic education department' => 'Basic Education',
+            'institute of education' => 'Institute of Education',
+            'ioe' => 'Institute of Education',
+            'ied' => 'Institute of Education',
+            'education institute' => 'Institute of Education',
             'business' => 'School of Business and Management',
             'business and management' => 'School of Business and Management',
             'school of business' => 'School of Business and Management',
+            'school and business management' => 'School of Business and Management',
+            'school and business' => 'School of Business and Management',
             'sbm' => 'School of Business and Management',
             'bsba' => 'School of Business and Management',
         ];
 
-        return $map[$this->departmentKey($department)] ?? null;
+        $mappedDepartment = $map[$this->departmentKey($department)] ?? null;
+        if ($mappedDepartment !== null) {
+            return $mappedDepartment;
+        }
+
+        foreach (self::OFFICIAL_DEPARTMENTS as $officialDepartment) {
+            if (strcasecmp($department, $officialDepartment) === 0) {
+                return $officialDepartment;
+            }
+        }
+
+        return null;
     }
 
     private function departmentAliases(string $department): array
@@ -1828,7 +1853,8 @@ class ReportsController extends Controller
             'College of Optometry' => ['College of Optometry', 'Optometry', 'COO'],
             'College of Pharmacy' => ['College of Pharmacy', 'Pharmacy', 'COP'],
             'College of Physical Therapy' => ['College of Physical Therapy', 'Physical Therapy', 'PT', 'CPT'],
-            'Basic Education' => ['Basic Education', 'BED', 'BEDD', 'BEdD', 'Bed D', 'BEDED', 'Basic Education Department', 'Institute of Education'],
+            'Basic Education' => ['Basic Education', 'BED', 'BEDD', 'BEdD', 'Bed D', 'BEDED', 'Basic Education Department'],
+            'Institute of Education' => ['Institute of Education', 'IOE', 'IED', 'BSED', 'PHD', 'MAED CI', 'MAED ADM '],
             'School of Business and Management' => ['School of Business and Management', 'Business', 'Business and Management', 'School of Business', 'SBM', 'BSBA'],
         ];
 
