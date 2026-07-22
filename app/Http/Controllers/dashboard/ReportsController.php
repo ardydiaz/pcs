@@ -375,7 +375,47 @@ class ReportsController extends Controller
 
         // Fetch faculties and their evaluations for the requested department
         try {
-            $faculties = Faculty::with('user')->forDepartments([$department])->get();
+            $assignmentFacultyIdsQuery = EvaluationResponse::join('evaluations', 'evaluation_responses.evaluation_id', '=', 'evaluations.id')
+                ->join('schedules', 'evaluation_responses.schedule_id', '=', 'schedules.id')
+                ->join('faculty_courses', 'schedules.faculty_course_id', '=', 'faculty_courses.id')
+                ->join('courses', 'faculty_courses.course_id', '=', 'courses.id')
+                ->where('evaluations.is_active', true)
+                ->where(function ($query) use ($department) {
+                    $query->whereRaw(
+                        "FIND_IN_SET(?, REPLACE(COALESCE(faculty_courses.department, ''), ', ', ','))",
+                        [$department]
+                    )->orWhereRaw(
+                        "FIND_IN_SET(?, REPLACE(COALESCE(evaluations.faculty_department_snapshot, ''), ', ', ','))",
+                        [$department]
+                    );
+                });
+
+            if ($academicYear !== 'all') {
+                $assignmentFacultyIdsQuery->where('evaluations.academic_year', $academicYear);
+            }
+            if ($semester !== 'all') {
+                $assignmentFacultyIdsQuery->where('evaluations.semester', $semester);
+            }
+            if ($subjectType !== 'all') {
+                $assignmentFacultyIdsQuery->where('courses.subject_type', $subjectType);
+            }
+
+            $assignmentFacultyIds = $assignmentFacultyIdsQuery
+                ->pluck('faculty_courses.faculty_id')
+                ->filter()
+                ->unique()
+                ->values();
+
+            $faculties = Faculty::with('user')
+                ->where(function ($query) use ($department, $assignmentFacultyIds) {
+                    $query->forDepartments([$department]);
+
+                    if ($assignmentFacultyIds->isNotEmpty()) {
+                        $query->orWhereIn('id', $assignmentFacultyIds);
+                    }
+                })
+                ->get();
+            $facultyIds = $faculties->pluck('id')->filter()->values();
             $facultyUserIds = $faculties->pluck('user_id')->filter()->values();
 
             $baseEvaluationsQuery = Evaluation::where('is_active', true);
@@ -416,18 +456,21 @@ class ReportsController extends Controller
                 ->keyBy('faculty_id');
 
             $ratingStatsQuery = EvaluationResponse::join('evaluations', 'evaluation_responses.evaluation_id', '=', 'evaluations.id')
+                ->join('schedules', 'evaluation_responses.schedule_id', '=', 'schedules.id')
+                ->join('faculty_courses', 'schedules.faculty_course_id', '=', 'faculty_courses.id')
+                ->join('courses', 'faculty_courses.course_id', '=', 'courses.id')
+                ->where(function ($query) use ($department) {
+                    $query->whereRaw(
+                        "FIND_IN_SET(?, REPLACE(COALESCE(faculty_courses.department, ''), ', ', ','))",
+                        [$department]
+                    )->orWhereRaw(
+                        "FIND_IN_SET(?, REPLACE(COALESCE(evaluations.faculty_department_snapshot, ''), ', ', ','))",
+                        [$department]
+                    );
+                })
                 ->where('evaluations.is_active', true);
-            if ($facultyUserIds->isNotEmpty()) {
-                $ratingStatsQuery->where(function ($query) use ($facultyUserIds, $department) {
-                    $query->whereIn('evaluations.faculty_id', $facultyUserIds)
-                        ->orWhere(function ($query) use ($department) {
-                            $query->whereNull('evaluations.faculty_id')
-                                ->whereRaw(
-                                    "FIND_IN_SET(?, REPLACE(evaluations.faculty_department_snapshot, ', ', ','))",
-                                    [$department]
-                                );
-                        });
-                });
+            if ($facultyIds->isNotEmpty()) {
+                $ratingStatsQuery->whereIn('faculty_courses.faculty_id', $facultyIds);
             } else {
                 $ratingStatsQuery->whereRaw('0 = 1');
             }
@@ -441,18 +484,16 @@ class ReportsController extends Controller
 
             // Apply subject_type filter via schedule → faculty_course → course
             if ($subjectType !== 'all') {
-                $ratingStatsQuery
-                    ->join('schedules', 'evaluation_responses.schedule_id', '=', 'schedules.id')
-                    ->join('faculty_courses', 'schedules.faculty_course_id', '=', 'faculty_courses.id')
-                    ->join('courses', 'faculty_courses.course_id', '=', 'courses.id')
-                    ->where('courses.subject_type', $subjectType);
+                $ratingStatsQuery->where('courses.subject_type', $subjectType);
             }
 
             $ratingStats = $ratingStatsQuery
-                ->select('evaluations.faculty_id as faculty_id')
+                ->select('faculty_courses.faculty_id as faculty_id')
+                ->selectRaw('COUNT(DISTINCT evaluation_responses.evaluation_id) as matching_evaluation_count')
                 ->selectRaw('COUNT(evaluation_responses.id) as response_count')
                 ->selectRaw('AVG(evaluation_responses.effectiveness_rating) as average_rating')
-                ->groupBy('evaluations.faculty_id')
+                ->selectRaw('MAX(evaluation_responses.evaluation_id) as latest_response_evaluation_id')
+                ->groupBy('faculty_courses.faculty_id')
                 ->get()
                 ->keyBy('faculty_id');
 
@@ -463,8 +504,7 @@ class ReportsController extends Controller
             if ($nullKeyStats !== null) {
                 // Fetch all NULL-faculty_id evaluations for this department/year/semester
                 $nullEvalQuery = Evaluation::where('is_active', true)
-                    ->whereNull('faculty_id')
-                    ->whereRaw("FIND_IN_SET(?, REPLACE(faculty_department_snapshot, ', ', ','))", [$department]);
+                    ->whereNull('faculty_id');
                 if ($academicYear !== 'all') {
                     $nullEvalQuery->where('academic_year', $academicYear);
                 }
@@ -480,7 +520,7 @@ class ReportsController extends Controller
                 });
 
                 // For each NULL eval, find the matching faculty and accumulate stats
-                $nullAccumulator = []; // faculty_user_id => [total_rating, count]
+                $nullAccumulator = []; // faculty_user_id => [total_rating, count, latest_evaluation_id]
                 foreach ($nullEvals as $nullEval) {
                     $snapshotName = strtolower(trim($nullEval->faculty_name_snapshot ?? ''));
                     $matchedFacultyId = $nameToFacultyId->get($snapshotName);
@@ -488,23 +528,31 @@ class ReportsController extends Controller
                         continue;
                     }
 
-                    $respQuery = EvaluationResponse::where('evaluation_id', $nullEval->id);
+                    $respQuery = EvaluationResponse::with(['evaluation', 'schedule.facultyCourse.course'])
+                        ->where('evaluation_id', $nullEval->id);
                     if ($subjectType !== 'all') {
                         $respQuery->whereHas('schedule.facultyCourse.course', function ($q) use ($subjectType) {
                             $q->where('subject_type', $subjectType);
                         });
                     }
-                    $resps = $respQuery->get();
+                    $resps = $respQuery->get()
+                        ->filter(fn ($response) => $this->responseHandledByDepartment($response, $department))
+                        ->values();
 
                     if ($resps->isEmpty()) {
                         continue;
                     }
 
                     if (!isset($nullAccumulator[$matchedFacultyId])) {
-                        $nullAccumulator[$matchedFacultyId] = ['sum' => 0, 'count' => 0];
+                        $nullAccumulator[$matchedFacultyId] = ['sum' => 0, 'count' => 0, 'latest_evaluation_id' => null];
                     }
                     $nullAccumulator[$matchedFacultyId]['sum'] += $resps->sum('effectiveness_rating');
                     $nullAccumulator[$matchedFacultyId]['count'] += $resps->count();
+                    $latestResponse = $resps->sortByDesc('created_at')->first();
+                    if ($latestResponse && (!$nullAccumulator[$matchedFacultyId]['latest_evaluation_id']
+                        || $latestResponse->evaluation_id > $nullAccumulator[$matchedFacultyId]['latest_evaluation_id'])) {
+                        $nullAccumulator[$matchedFacultyId]['latest_evaluation_id'] = $latestResponse->evaluation_id;
+                    }
                 }
 
                 // Merge accumulated NULL-eval stats into $ratingStats
@@ -518,11 +566,15 @@ class ReportsController extends Controller
                         $totalSum = ($existing->average_rating * $existing->response_count) + $acc['sum'];
                         $existing->response_count = $totalCount;
                         $existing->average_rating = $totalCount > 0 ? $totalSum / $totalCount : 0;
+                        $existing->latest_response_evaluation_id = $acc['latest_evaluation_id']
+                            ?? $existing->latest_response_evaluation_id
+                            ?? null;
                     } else {
                         $ratingStats->put($fId, (object) [
                             'faculty_id' => $fId,
                             'response_count' => $acc['count'],
                             'average_rating' => $acc['sum'] / $acc['count'],
+                            'latest_response_evaluation_id' => $acc['latest_evaluation_id'],
                         ]);
                     }
                 }
@@ -535,19 +587,19 @@ class ReportsController extends Controller
             $facultyRows = $faculties->map(function ($faculty) use ($evaluationStats, $ratingStats, $latestEvaluationIds) {
                 $facultyId = $faculty->user_id;
                 $evalStat = $facultyId ? $evaluationStats->get($facultyId) : null;
-                $ratingStat = $facultyId ? $ratingStats->get($facultyId) : null;
+                $ratingStat = $ratingStats->get($faculty->id);
                 $latestEvaluation = $facultyId ? $latestEvaluationIds->get($facultyId) : null;
 
                 $average = $ratingStat ? (float) $ratingStat->average_rating : 0;
                 return (object) [
-                    'evaluation_id' => $latestEvaluation?->latest_id,
+                    'evaluation_id' => $ratingStat?->latest_response_evaluation_id ?? $latestEvaluation?->latest_id,
                     'name' => $faculty->user?->name ?? 'Unknown',
                     'email' => $faculty->user?->email,
                     'job_title' => $faculty->job_title ?? $faculty->user?->job_title,
                     'department' => $faculty->department ?? $faculty->user?->department,
                     'status' => strtolower((string) ($faculty->user?->status ?? 'active')),
-                    'evaluation_count' => (int) ($evalStat?->evaluation_count ?? 0),
-                    'active_evaluations' => (int) ($evalStat?->evaluation_count ?? 0),
+                    'evaluation_count' => (int) ($ratingStat?->matching_evaluation_count ?? $evalStat?->evaluation_count ?? 0),
+                    'active_evaluations' => (int) ($ratingStat?->matching_evaluation_count ?? $evalStat?->evaluation_count ?? 0),
                     'response_count' => (int) ($ratingStat?->response_count ?? 0),
                     'average_rating' => $average > 0 ? round($average, 2) : 0,
                 ];
@@ -555,7 +607,7 @@ class ReportsController extends Controller
 
             // Only show faculty who have at least one response under the current filters
             $facultyRows = $facultyRows->filter(function ($faculty) {
-                return $faculty->average_rating > 0;
+                return (int) ($faculty->response_count ?? 0) > 0;
             })->values();
 
             if ($search) {

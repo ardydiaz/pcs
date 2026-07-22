@@ -286,6 +286,33 @@
             margin-bottom: 0.15rem;
         }
 
+        .responses-subject-type-badge {
+            align-items: center;
+            border-radius: 999px;
+            display: inline-flex;
+            font-size: 0.76rem;
+            font-weight: 900;
+            gap: 0.35rem;
+            line-height: 1.2;
+            padding: 0.42rem 0.7rem;
+            white-space: nowrap;
+        }
+
+        .responses-subject-type-badge.is-professional {
+            background: #e5fbdb;
+            color: #2dae1f;
+        }
+
+        .responses-subject-type-badge.is-gened {
+            background: #fff0c9;
+            color: #f59f00;
+        }
+
+        .responses-subject-type-badge.is-unknown {
+            background: #eef2f7;
+            color: #52627a;
+        }
+
         .responses-rating-badge {
             border-radius: 999px;
             font-weight: 900;
@@ -629,6 +656,7 @@
                             <input type="hidden" name="academic_year" value="{{ request('academic_year', $evaluation->academic_year) }}">
                             <input type="hidden" name="semester" value="{{ request('semester', $evaluation->semester) }}">
                             <input type="hidden" name="subject_type" value="{{ request('subject_type', 'all') }}">
+                            <input type="hidden" name="department" value="{{ request('department', '') }}">
                         </div>
                         <div class="modal-footer">
                             <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -796,6 +824,15 @@
                                         </span>
                                     </span>
                                 </th>
+                                <th data-sort-key="subjectType" class="sortable" data-sort-state="none">
+                                    <span class="responses-sort-wrapper">
+                                        <span>Subject Type</span>
+                                        <span class="responses-sort-indicator">
+                                            <i class="bx bx-chevron-up icon-up"></i>
+                                            <i class="bx bx-chevron-down icon-down"></i>
+                                        </span>
+                                    </span>
+                                </th>
                                 <th data-sort-key="rating" data-sort-type="number" class="sortable" data-sort-state="none">
                                     <span class="responses-sort-wrapper">
                                         <span>Rating</span>
@@ -824,9 +861,22 @@
                                     $courseName = $response->resolved_course_name;
                                     $scheduleTime = $response->resolved_schedule_time;
                                     $scheduleDays = $response->resolved_schedule_days;
+                                    $rawSubjectType = strtolower((string) optional(optional(optional($response->schedule)->facultyCourse)->course)->subject_type);
+                                    $subjectTypeLabel = match ($rawSubjectType) {
+                                        'major' => 'Professional Course',
+                                        'minor' => 'GenEd Course',
+                                        default => 'N/A',
+                                    };
+                                    $subjectTypeClass = match ($rawSubjectType) {
+                                        'major' => 'is-professional',
+                                        'minor' => 'is-gened',
+                                        default => 'is-unknown',
+                                    };
+                                    $subjectTypeIcon = $rawSubjectType === 'minor' ? 'bx-book' : 'bx-book-open';
                                 @endphp
                                 <tr data-response-row
                                     data-sort-course="{{ strtolower(trim(($courseCode ?? '') . ' ' . ($courseName ?? ''))) }}"
+                                    data-sort-subject-type="{{ strtolower($subjectTypeLabel) }}"
                                     data-sort-rating="{{ $response->effectiveness_rating }}"
                                     data-sort-date="{{ $response->created_at->timestamp }}"
                                     data-rating="{{ $response->effectiveness_rating }}"
@@ -847,6 +897,12 @@
                                                 </small>
                                             @endif
                                         </div>
+                                    </td>
+                                    <td>
+                                        <span class="responses-subject-type-badge {{ $subjectTypeClass }}">
+                                            <i class="bx {{ $subjectTypeIcon }}"></i>
+                                            {{ $subjectTypeLabel }}
+                                        </span>
                                     </td>
                                     <td>
                                         <span class="badge responses-rating-badge
@@ -872,7 +928,7 @@
                                 </tr>
                             @empty
                                 <tr data-empty>
-                                    <td colspan="5" class="text-center py-4">
+                                    <td colspan="6" class="text-center py-4">
                                         <div class="empty-state">
                                             <i class="bx bx-bar-chart display-4 text-muted mb-3"></i>
                                             <h5 class="mb-2">No responses yet</h5>
@@ -882,7 +938,7 @@
                                 </tr>
                             @endforelse
                             <tr data-empty-search style="display: none;">
-                                <td colspan="5" class="text-center py-4 text-muted">
+                                <td colspan="6" class="text-center py-4 text-muted">
                                     No matching responses found.
                                 </td>
                             </tr>

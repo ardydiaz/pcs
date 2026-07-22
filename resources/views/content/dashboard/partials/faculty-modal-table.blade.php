@@ -87,9 +87,9 @@
                     <td class="text-center">
                         @if($faculty->average_rating > 0)
                             <span class="fw-medium">{{ $faculty->average_rating }}/4.0</span>
-                            <div class="progress mt-1" style="height: 4px;">
-                                <div class="progress-bar bg-{{ $faculty->average_rating >= 3 ? 'success' : ($faculty->average_rating >= 2 ? 'warning' : 'danger') }}"
-                                    style="width: {{ ($faculty->average_rating / 4) * 100 }}%"></div>
+                            <div class="faculty-rating-indicator">
+                                <span class="faculty-rating-indicator-fill"
+                                    style="width: {{ min(100, max(0, ($faculty->average_rating / 4) * 100)) }}%"></span>
                             </div>
                         @else
                             <span class="text-muted">No ratings</span>

@@ -559,8 +559,42 @@
             background: linear-gradient(90deg, var(--mcu-purple), var(--mcu-gold)) !important;
         }
 
+        .reports-faculty-modal .faculty-rating-indicator {
+            background: #edf0f4;
+            border-radius: 999px;
+            height: 5px;
+            margin: 0.35rem auto 0;
+            max-width: 5.5rem;
+            overflow: hidden;
+            width: 100%;
+        }
+
+        .reports-faculty-modal .faculty-rating-indicator-fill {
+            background: linear-gradient(90deg, #5c297c, #ffb736);
+            border-radius: inherit;
+            display: block;
+            height: 100%;
+        }
+
         .rating-progress {
             height: 6px;
+        }
+
+        .department-rating-indicator {
+            background: #edf0f4;
+            border-radius: 999px;
+            height: 6px;
+            margin: 0.35rem auto 0;
+            max-width: 5.5rem;
+            overflow: hidden;
+            width: 100%;
+        }
+
+        .department-rating-indicator-fill {
+            background: linear-gradient(90deg, #5c297c, #ffb736);
+            border-radius: inherit;
+            display: block;
+            height: 100%;
         }
 
         .department-card {
@@ -854,8 +888,8 @@
         setInterval(refreshData, 300000);
 
         // Add CSS animations
-        const style = document.createElement('style');
-        style.textContent = `
+        const reportsDynamicStyle = document.createElement('style');
+        reportsDynamicStyle.textContent = `
                                                                                             @keyframes pulse {
                                                                                                 0% { transform: scale(1); }
                                                                                                 50% { transform: scale(1.05); }
@@ -874,7 +908,7 @@
                                                                                                 box-shadow: 0 4px 12px rgba(0,0,0,0.1);
                                                                                             }
                                                                                         `;
-        document.head.appendChild(style);
+        document.head.appendChild(reportsDynamicStyle);
     </script>
 @endsection
 
@@ -1112,9 +1146,9 @@
                                             </td>
                                             <td class="text-center">
                                                 <span class="fw-medium">{{ $dept['average_rating'] }}</span>
-                                                <div class="progress rating-progress mt-1">
-                                                    <div class="progress-bar bg-{{ $dept['average_rating'] >= 3 ? 'success' : ($dept['average_rating'] >= 2 ? 'warning' : 'danger') }}"
-                                                        style="width: {{ ($dept['average_rating'] / 4) * 100 }}%"></div>
+                                                <div class="department-rating-indicator">
+                                                    <span class="department-rating-indicator-fill"
+                                                        style="width: {{ min(100, max(0, ($dept['average_rating'] / 4) * 100)) }}%"></span>
                                                 </div>
                                             </td>
                                             <td class="text-center">

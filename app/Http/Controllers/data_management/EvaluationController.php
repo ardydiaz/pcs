@@ -1368,6 +1368,7 @@ class EvaluationController extends Controller
         $academicYear = request('academic_year', $evaluation->academic_year);
         $semester = request('semester', $evaluation->semester);
         $subjectType = request('subject_type', 'all');
+        $department = trim((string) request('department', ''));
         
         \Log::info('ViewResponses - Starting', [
             'evaluation_id' => $evaluation->id,
@@ -1403,6 +1404,7 @@ class EvaluationController extends Controller
         }
         
         $responses = $query->latest()->get();
+        $responses = $this->filterResponsesByRequestedDepartment($responses, $department);
         
         \Log::info('ViewResponses - Query result', [
             'evaluation_id' => $evaluation->id,
@@ -1435,6 +1437,7 @@ class EvaluationController extends Controller
             }
             
             $responses = $fallbackQuery->latest()->get();
+            $responses = $this->filterResponsesByRequestedDepartment($responses, $department);
             
             \Log::info('ViewResponses - Fallback result', [
                 'count' => $responses->count()
@@ -1452,9 +1455,10 @@ class EvaluationController extends Controller
                 'faculty_id' => $evaluation->faculty_id,
                 'faculty_name' => $evaluation->resolved_faculty_name,
                 'academic_year' => $academicYear,
-                'semester' => $semester,
-                'subject_type' => $subjectType,
-                'responses_count' => $responses->count(),
+            'semester' => $semester,
+            'department' => $department,
+            'subject_type' => $subjectType,
+            'responses_count' => $responses->count(),
                 'courses_evaluated_count' => $coursesEvaluatedCount,
             ],
             'severity' => 'info',
@@ -1474,6 +1478,7 @@ class EvaluationController extends Controller
         $academicYear = $request->get('academic_year', $evaluation->academic_year);
         $semester = $request->get('semester', $evaluation->semester);
         $subjectType = $request->get('subject_type', 'all');
+        $department = trim((string) $request->get('department', ''));
         $startDate = $request->get('start_date');
         $endDate = $request->get('end_date');
 
@@ -1482,6 +1487,7 @@ class EvaluationController extends Controller
             'faculty_id' => $evaluation->faculty_id,
             'academic_year' => $academicYear,
             'semester' => $semester,
+            'department' => $department,
             'subject_type' => $subjectType,
             'start_date' => $startDate,
             'end_date' => $endDate
@@ -1605,13 +1611,14 @@ class EvaluationController extends Controller
 
         $responses = $allResponses
             ->filter(fn (EvaluationResponse $response) => $this->responseHasActiveCourseLink($response))
+            ->pipe(fn ($collection) => $this->filterResponsesByRequestedDepartment($collection, $department))
             ->values();
 
         $facultySlug = Str::slug($evaluation->resolved_faculty_name, '_');
         $dateTag = now()->format('Ymd_His');
         $filename = "evaluation_responses_{$facultySlug}_{$dateTag}.csv";
 
-        return response()->streamDownload(function () use ($responses, $evaluation) {
+        return response()->streamDownload(function () use ($responses, $evaluation, $department) {
             $handle = fopen('php://output', 'w');
             fwrite($handle, "\xEF\xBB\xBF");
 
@@ -1630,11 +1637,15 @@ class EvaluationController extends Controller
             ]);
 
             foreach ($responses as $response) {
+                $exportDepartment = $department !== '' && strtolower($department) !== 'all'
+                    ? implode(', ', Faculty::normalizeDepartmentList($department))
+                    : $this->resolveResponseDepartmentForExport($response, $evaluation);
+
                 fputcsv($handle, [
                     $evaluation->resolved_faculty_name,
-                    $evaluation->resolved_faculty_department,
+                    $exportDepartment,
                     $evaluation->academic_year,
-                    $evaluation->semester,
+                    $this->formatSemesterLabel($evaluation->semester),
                     $this->formatResponseSubjectType($response),
                     $response->resolved_course_code,
                     $response->schedule?->facultyCourse?->section ?? '',
@@ -1656,6 +1667,46 @@ class EvaluationController extends Controller
         return $response->schedule !== null
             && $response->schedule->facultyCourse !== null
             && $response->schedule->facultyCourse->course !== null;
+    }
+
+    private function filterResponsesByRequestedDepartment($responses, string $department)
+    {
+        $selectedDepartments = Faculty::normalizeDepartmentList($department);
+
+        if (empty($selectedDepartments) || in_array('all', array_map('strtolower', $selectedDepartments), true)) {
+            return $responses;
+        }
+
+        return $responses
+            ->filter(fn (EvaluationResponse $response) => $this->responseMatchesRequestedDepartment($response, $selectedDepartments))
+            ->values();
+    }
+
+    private function responseMatchesRequestedDepartment(EvaluationResponse $response, array $selectedDepartments): bool
+    {
+        $facultyCourse = $response->schedule?->facultyCourse;
+        $assignmentDepartments = Faculty::normalizeDepartmentList($facultyCourse?->department ?? '');
+
+        if (!empty($assignmentDepartments)) {
+            if (collect($assignmentDepartments)->intersect($selectedDepartments)->isNotEmpty()) {
+                return true;
+            }
+        }
+
+        $snapshotDepartments = Faculty::normalizeDepartmentList($response->evaluation?->resolved_faculty_department ?? '');
+
+        return collect($snapshotDepartments)->intersect($selectedDepartments)->isNotEmpty();
+    }
+
+    private function resolveResponseDepartmentForExport(EvaluationResponse $response, Evaluation $evaluation): string
+    {
+        $assignmentDepartments = Faculty::normalizeDepartmentList($response->schedule?->facultyCourse?->department ?? '');
+
+        if (!empty($assignmentDepartments)) {
+            return implode(', ', $assignmentDepartments);
+        }
+
+        return $evaluation->resolved_faculty_department;
     }
 
     private function formatResponseSubjectType(EvaluationResponse $response): string

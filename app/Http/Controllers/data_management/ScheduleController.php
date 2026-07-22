@@ -146,28 +146,41 @@ class ScheduleController extends Controller
 
         $validated['day'] = !empty($validated['day'] ?? []) ? implode('', $validated['day']) : null;
         $validated['time'] = $this->normalizeTimeInput((string) ($validated['time'] ?? ''));
-        $targetFacultyCourse = FacultyCourse::with('faculty.user')->findOrFail($validated['faculty_course_id']);
+        $targetFacultyCourse = FacultyCourse::with(['course', 'faculty.user'])->findOrFail($validated['faculty_course_id']);
         $this->authorizeFacultyCourseDepartmentAccess($targetFacultyCourse);
+        $originalFacultyCourse = $schedule->facultyCourse;
 
         if ($subjectType !== null) {
-            $targetFacultyCourse = $this->applySubjectTypeToFacultyCourse($targetFacultyCourse, $subjectType);
+            $targetFacultyCourse = $this->resolveFacultyCourseForScheduleSubjectType($targetFacultyCourse, $subjectType);
             $validated['faculty_course_id'] = $targetFacultyCourse->id;
         }
 
-        $exists = Schedule::where('faculty_course_id', $validated['faculty_course_id'])
+        $existingSchedule = Schedule::where('faculty_course_id', $validated['faculty_course_id'])
             ->where('time', $validated['time'])
             ->where('day', $validated['day'])
             ->where('id', '!=', $schedule->id)
-            ->exists();
+            ->first();
 
-        if ($exists) {
+        if ($existingSchedule) {
+            $schedule->delete();
+            $this->deleteEmptyFacultyCourse($originalFacultyCourse);
+
+            $existingSchedule->load([
+                'facultyCourse.course',
+                'facultyCourse.faculty.user',
+            ]);
+
             return response()->json([
-                'success' => false,
-                'message' => 'This schedule already exists for the selected course, time, and day(s).'
-            ], 422);
+                'success' => true,
+                'message' => 'Matching schedule already existed, so the duplicate was merged.',
+                'merged' => true,
+                'removed_id' => $schedule->id,
+                'data' => $existingSchedule,
+            ]);
         }
 
         $schedule->update($validated);
+        $this->deleteEmptyFacultyCourse($originalFacultyCourse);
         $schedule->load([
             'facultyCourse.course',
             'facultyCourse.faculty.user',
@@ -267,7 +280,7 @@ class ScheduleController extends Controller
         ]);
     }
 
-    private function applySubjectTypeToFacultyCourse(FacultyCourse $facultyCourse, string $subjectType): FacultyCourse
+    private function resolveFacultyCourseForScheduleSubjectType(FacultyCourse $facultyCourse, string $subjectType): FacultyCourse
     {
         $facultyCourse->loadMissing('course');
         $course = $facultyCourse->course;
@@ -282,52 +295,51 @@ class ScheduleController extends Controller
             ->where('subject_type', $subjectType)
             ->first();
 
-        if ($targetCourse && $targetCourse->id !== $course->id) {
-            if ($targetCourse->trashed()) {
-                $targetCourse->restore();
-            }
-
-            $targetAssignment = FacultyCourse::withTrashed()
-                ->where('faculty_id', $facultyCourse->faculty_id)
-                ->where('course_id', $targetCourse->id)
-                ->where('section', $facultyCourse->section)
-                ->where('academic_year', $facultyCourse->academic_year)
-                ->where('semester', $facultyCourse->semester)
-                ->first();
-
-            if ($targetAssignment) {
-                if ($targetAssignment->trashed()) {
-                    $targetAssignment->restore();
-                }
-
-                Schedule::withTrashed()
-                    ->where('faculty_course_id', $facultyCourse->id)
-                    ->update(['faculty_course_id' => $targetAssignment->id]);
-
-                if (!$facultyCourse->trashed()) {
-                    $facultyCourse->delete();
-                }
-
-                if (!$course->facultyCourses()->exists() && !$course->trashed()) {
-                    $course->delete();
-                }
-
-                return $targetAssignment->fresh();
-            }
-
-            $facultyCourse->course_id = $targetCourse->id;
-            $facultyCourse->save();
-
-            if (!$course->facultyCourses()->exists() && !$course->trashed()) {
-                $course->delete();
-            }
-
-            return $facultyCourse->fresh();
+        if (!$targetCourse) {
+            $targetCourse = Course::create([
+                'class_code' => $course->class_code,
+                'subject_code' => $course->subject_code,
+                'subject_type' => $subjectType,
+            ]);
+        } elseif ($targetCourse->trashed()) {
+            $targetCourse->restore();
         }
 
-        $course->update(['subject_type' => $subjectType]);
+        $targetAssignment = FacultyCourse::withTrashed()
+            ->where('faculty_id', $facultyCourse->faculty_id)
+            ->where('course_id', $targetCourse->id)
+            ->where('section', $facultyCourse->section)
+            ->where('academic_year', $facultyCourse->academic_year)
+            ->where('semester', $facultyCourse->semester)
+            ->first();
 
-        return $facultyCourse->fresh();
+        if ($targetAssignment) {
+            if ($targetAssignment->trashed()) {
+                $targetAssignment->restore();
+            }
+
+            return $targetAssignment->fresh();
+        }
+
+        return FacultyCourse::create([
+            'faculty_id' => $facultyCourse->faculty_id,
+            'course_id' => $targetCourse->id,
+            'section' => $facultyCourse->section,
+            'academic_year' => $facultyCourse->academic_year,
+            'semester' => $facultyCourse->semester,
+            'department' => $facultyCourse->department,
+        ]);
+    }
+
+    private function deleteEmptyFacultyCourse(?FacultyCourse $facultyCourse): void
+    {
+        if (!$facultyCourse || $facultyCourse->trashed()) {
+            return;
+        }
+
+        if (!$facultyCourse->schedules()->exists()) {
+            $facultyCourse->delete();
+        }
     }
 
     /**
