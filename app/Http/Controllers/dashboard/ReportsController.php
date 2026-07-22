@@ -1019,15 +1019,18 @@ class ReportsController extends Controller
         };
 
         // Helper to get major/minor response counts and avg ratings for a set of evaluation IDs
-        $getSubjectTypeSplit = function ($evaluationIds) {
+        $getSubjectTypeSplit = function ($evaluationIds) use ($subjectType) {
             if ($evaluationIds->isEmpty()) {
                 return ['major_responses' => 0, 'minor_responses' => 0, 'major_avg_rating' => 0, 'minor_avg_rating' => 0];
             }
+
+            $subjectTypes = $subjectType === 'all' ? ['major', 'minor'] : [$subjectType];
+
             $rows = EvaluationResponse::whereIn('evaluation_responses.evaluation_id', $evaluationIds)
                 ->join('schedules', 'evaluation_responses.schedule_id', '=', 'schedules.id')
                 ->join('faculty_courses', 'schedules.faculty_course_id', '=', 'faculty_courses.id')
                 ->join('courses', 'faculty_courses.course_id', '=', 'courses.id')
-                ->whereIn('courses.subject_type', ['major', 'minor'])
+                ->whereIn('courses.subject_type', $subjectTypes)
                 ->selectRaw('courses.subject_type, COUNT(*) as cnt, AVG(evaluation_responses.effectiveness_rating) as avg_rating')
                 ->groupBy('courses.subject_type')
                 ->get()

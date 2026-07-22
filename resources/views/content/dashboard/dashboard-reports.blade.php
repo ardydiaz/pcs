@@ -1090,20 +1090,24 @@
                                                     $minorR = $dept['minor_responses'] ?? 0;
                                                 @endphp
                                                 <div class="d-flex flex-column gap-1 align-items-center">
-                                                    <div class="d-flex align-items-center gap-1"
-                                                        title="Professional Course: {{ $majorR }} responses">
-                                                        <span class="badge bg-label-success">
-                                                            <i class="bx bx-book-open me-1"></i>Professional
-                                                        </span>
-                                                        <span class="fw-medium small">{{ $majorR }} resp.</span>
-                                                    </div>
-                                                    <div class="d-flex align-items-center gap-1"
-                                                        title="Minor Course: {{ $minorR }} responses">
-                                                        <span class="badge bg-label-warning">
-                                                            <i class="bx bx-book me-1"></i>GenEd
-                                                        </span>
-                                                        <span class="fw-medium small">{{ $minorR }} resp.</span>
-                                                    </div>
+                                                    @if($selectedSubjectType === 'major' || $selectedSubjectType === 'all')
+                                                        <div class="d-flex align-items-center gap-1"
+                                                            title="Professional Course: {{ $majorR }} responses">
+                                                            <span class="badge bg-label-success">
+                                                                <i class="bx bx-book-open me-1"></i>Professional
+                                                            </span>
+                                                            <span class="fw-medium small">{{ $majorR }} resp.</span>
+                                                        </div>
+                                                    @endif
+                                                    @if($selectedSubjectType === 'minor' || $selectedSubjectType === 'all')
+                                                        <div class="d-flex align-items-center gap-1"
+                                                            title="GenEd Course: {{ $minorR }} responses">
+                                                            <span class="badge bg-label-warning">
+                                                                <i class="bx bx-book me-1"></i>GenEd
+                                                            </span>
+                                                            <span class="fw-medium small">{{ $minorR }} resp.</span>
+                                                        </div>
+                                                    @endif
                                                 </div>
                                             </td>
                                             <td class="text-center">
