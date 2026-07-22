@@ -112,6 +112,7 @@
                             </span>
                         </th>
                         <th>Section</th>
+                        <th>Subject Type</th>
                         <th>Time</th>
                         <th>Day(s)</th>
                         <th>Actions</th>

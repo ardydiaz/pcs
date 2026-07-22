@@ -260,6 +260,10 @@
                     bg: '#d1f9e0',
                     color: '#047857'
                 }],
+                yellow: [{
+                    bg: '#fff0c2',
+                    color: '#7a3b00'
+                }],
                 gray: [{
                     bg: '#e3e8f1',
                     color: '#475569'
@@ -1484,6 +1488,21 @@
                             data-pill-value="schedule-section">${this.escapeHtml(sectionSource)}</span>` :
                         '<span class="text-muted">—</span>';
 
+                    const subjectTypeRaw = String(schedule.subject_type ?? '').toLowerCase();
+                    const subjectTypeDisplay = subjectTypeRaw === 'minor' ?
+                        `<span class="schedule-pill"
+                            data-pill-palette="yellow"
+                            data-pill-value="gened-course">
+                            <i class="bx bx-book me-1"></i>GenEd Course
+                        </span>` :
+                        subjectTypeRaw === 'major' ?
+                        `<span class="schedule-pill"
+                            data-pill-palette="green"
+                            data-pill-value="professional-course">
+                            <i class="bx bx-book-open me-1"></i>Professional Course
+                        </span>` :
+                        '<span class="text-muted">N/A</span>';
+
                     const selectionCell = schedulePermissions.canDelete ?
                         `
                         <td class="text-center">
@@ -1538,6 +1557,9 @@
                             ${sectionDisplay}
                         </td>
                         <td>
+                            ${subjectTypeDisplay}
+                        </td>
+                        <td>
                             <div class="schedule-pill-group">${timeContent}</div>
                         </td>
                         <td>
@@ -1551,7 +1573,7 @@
                 buildEmptyStateRow() {
                     return `
                     <tr data-empty>
-                        <td colspan="{{ $canDelete ? 6 : 5 }}" class="text-center py-5">
+                        <td colspan="{{ $canDelete ? 7 : 6 }}" class="text-center py-5">
                             <div class="empty-state">
                                 <i class="fa-solid fa-calendar-days display-4 text-muted mb-3"></i>
                                 <h5 class="mb-2">No schedules found</h5>
@@ -1565,7 +1587,7 @@
                 buildSearchEmptyRow() {
                     return `
                     <tr data-empty-search style="display: none;">
-                        <td colspan="{{ $canDelete ? 6 : 5 }}" class="text-center py-5">
+                        <td colspan="{{ $canDelete ? 7 : 6 }}" class="text-center py-5">
                             <div class="empty-state">
                                 <i class="fa-solid fa-magnifying-glass display-4 text-muted mb-3"></i>
                                 <h5 class="mb-2">No results found</h5>
