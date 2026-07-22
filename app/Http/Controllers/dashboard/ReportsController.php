@@ -156,7 +156,7 @@ class ReportsController extends Controller
             $evaluationsQuery->where('semester', $selectedSemester);
         }
 
-        $reportCacheKey = 'reports.index.v3.' . md5(json_encode([
+        $reportCacheKey = 'reports.index.v4.' . md5(json_encode([
             'department' => $selectedDepartment,
             'academic_year' => $selectedAcademicYear,
             'semester' => $selectedSemester,
@@ -176,7 +176,12 @@ class ReportsController extends Controller
             $excludedDepartments
         ) {
             return [
-                'metrics' => $this->calculateMetrics($evaluationsQuery, $selectedSubjectType),
+                'metrics' => $this->calculateMetrics(
+                    $evaluationsQuery,
+                    $selectedSubjectType,
+                    $selectedDepartment,
+                    $lockedDepartments->values()->all()
+                ),
                 'departmentBreakdown' => $this->getDepartmentBreakdown(
                     $selectedDepartment,
                     $selectedAcademicYear,
@@ -610,11 +615,23 @@ class ReportsController extends Controller
                 return (int) ($faculty->response_count ?? 0) > 0;
             })->values();
 
+            $matchedResponses = $this->getFilteredReportResponses(
+                $department,
+                $academicYear,
+                $semester,
+                $subjectType,
+                [$department],
+                $excludedDepartments
+            );
+
+            if ($matchedResponses->isNotEmpty()) {
+                $facultyRows = $this->buildFacultyRowsFromResponses($matchedResponses, $department);
+            }
+
             if ($search) {
                 $needle = strtolower(trim($search));
                 $facultyRows = $facultyRows->filter(function ($faculty) use ($needle) {
                     return str_contains(strtolower($faculty->name ?? ''), $needle)
-                        || str_contains(strtolower($faculty->email ?? ''), $needle)
                         || str_contains(strtolower($faculty->department ?? ''), $needle);
                 })->values();
             }
@@ -807,18 +824,13 @@ class ReportsController extends Controller
 
         // Apply subject_type filter
         if ($subjectType !== 'all') {
-            $responsesQuery->whereHas('schedule.facultyCourse.course', function ($q) use ($subjectType) {
-                $q->where('subject_type', $subjectType);
-            });
+            $responsesQuery->whereHas('schedule.facultyCourse.course');
         }
 
         $responses = $responsesQuery->get()
             ->filter(fn ($response) => $this->responseHandledByDepartment($response, $department))
+            ->filter(fn ($response) => $this->responseMatchesResolvedSubjectType($response, $subjectType))
             ->values();
-
-        if ($responses->isEmpty()) {
-            return redirect()->back()->with('error', 'No responses found for the selected filters.');
-        }
 
         // Sort responses by faculty name alphabetically, then by created_at within each faculty
         $responses = $responses->sortBy(function ($response) {
@@ -850,17 +862,26 @@ class ReportsController extends Controller
         ];
 
         $data = [];
+        if ($responses->isEmpty()) {
+            $data[] = [
+                'No matching responses found',
+                $department,
+                $academicYear === 'all' ? 'All Academic Years' : $academicYear,
+                $semester === 'all' ? 'All Semesters' : $this->formatSemesterLabel($semester),
+                $subjectType === 'major' ? 'Professional Course' : ($subjectType === 'minor' ? 'Minor Course' : 'All Subject Types'),
+                '',
+                '',
+                'No responses matched the selected department, academic year, semester, and subject type.',
+                '',
+                '',
+                '',
+            ];
+        }
+
         foreach ($responses as $response) {
             $evaluation = $response->evaluation;
             $course = optional(optional($response->schedule)->facultyCourse)->course;
-            $subjectTypeValue = $course ? ucfirst(strtolower($course->subject_type ?? '')) : '';
-            
-            // Convert subject type to display label
-            if ($subjectTypeValue === 'Major') {
-                $subjectTypeValue = 'Professional Course';
-            } elseif ($subjectTypeValue === 'Minor') {
-                $subjectTypeValue = 'Minor Course';
-            }
+            $subjectTypeValue = $this->formatResolvedResponseSubjectType($response);
             
             $section = optional(optional($response->schedule)->facultyCourse)->section ?? '';
             
@@ -905,54 +926,22 @@ class ReportsController extends Controller
             'severity' => 'info',
         ]);
 
-        // Use Laravel Excel to export with styling
-        return \Maatwebsite\Excel\Facades\Excel::download(
-            new class($headers, $data) implements \Maatwebsite\Excel\Concerns\FromArray, \Maatwebsite\Excel\Concerns\WithStyles {
-                private $headers;
-                private $data;
+        return response()->streamDownload(function () use ($headers, $data) {
+            $handle = fopen('php://output', 'w');
+            fwrite($handle, "\xEF\xBB\xBF");
+            fputcsv($handle, $headers);
 
-                public function __construct($headers, $data)
-                {
-                    $this->headers = $headers;
-                    $this->data = $data;
-                }
+            foreach ($data as $row) {
+                fputcsv($handle, $row);
+            }
 
-                public function array(): array
-                {
-                    return array_merge([$this->headers], $this->data);
-                }
-
-                public function styles(\PhpOffice\PhpSpreadsheet\Worksheet\Worksheet $sheet)
-                {
-                    // Style header row
-                    $sheet->getStyle('1:1')->applyFromArray([
-                        'font' => [
-                            'bold' => true,
-                            'color' => ['rgb' => 'FFFFFF'],
-                        ],
-                        'fill' => [
-                            'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
-                            'startColor' => ['rgb' => '5C297C'],
-                        ],
-                        'alignment' => [
-                            'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER,
-                            'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER,
-                        ],
-                    ]);
-
-                    // Auto-fit columns
-                    foreach (range('A', 'K') as $column) {
-                        $sheet->getColumnDimension($column)->setAutoSize(true);
-                    }
-
-                    return [];
-                }
-            },
-            $csvFilename
-        );
+            fclose($handle);
+        }, $csvFilename, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+        ]);
     }
 
-    private function calculateMetrics($evaluationsQuery, string $subjectType = 'all')
+    private function calculateMetrics($evaluationsQuery, string $subjectType = 'all', string $department = 'all', array $allowedDepartments = [])
     {
         $evaluationIdsQuery = (clone $evaluationsQuery)->select('evaluations.id');
 
@@ -967,39 +956,44 @@ class ReportsController extends Controller
             )
             ->count('faculty_name');
 
-        $responsesQuery = EvaluationResponse::query()
-            ->leftJoin('schedules', 'schedules.id', '=', 'evaluation_responses.schedule_id')
-            ->leftJoin('faculty_courses', 'faculty_courses.id', '=', 'schedules.faculty_course_id')
-            ->leftJoin('courses', 'courses.id', '=', 'faculty_courses.course_id')
-            ->whereIn('evaluation_responses.evaluation_id', $evaluationIdsQuery);
+        $responses = EvaluationResponse::with(['evaluation', 'schedule.facultyCourse.course'])
+            ->whereIn('evaluation_id', $evaluationIdsQuery)
+            ->get()
+            ->filter(fn ($response) => $this->responseMatchesResolvedSubjectType($response, $subjectType))
+            ->filter(function ($response) use ($department, $allowedDepartments) {
+                if ($department !== 'all') {
+                    return $this->responseHandledByDepartment($response, $department);
+                }
 
-        if ($subjectType !== 'all') {
-            $responsesQuery->where('courses.subject_type', $subjectType);
-        }
+                if (empty($allowedDepartments)) {
+                    return true;
+                }
 
-        $responseStats = (clone $responsesQuery)
-            ->selectRaw('COUNT(evaluation_responses.id) as total_responses')
-            ->selectRaw('AVG(evaluation_responses.effectiveness_rating) as average_rating')
-            ->selectRaw("COUNT(DISTINCT COALESCE(evaluation_responses.schedule_id, evaluation_responses.course_code_snapshot)) as courses_evaluated")
-            ->selectRaw("SUM(CASE WHEN evaluation_responses.feedback_comments IS NOT NULL AND evaluation_responses.feedback_comments <> '' THEN 1 ELSE 0 END) as responses_with_feedback")
-            ->first();
+                foreach ($allowedDepartments as $allowedDepartment) {
+                    if ($this->responseHandledByDepartment($response, $allowedDepartment)) {
+                        return true;
+                    }
+                }
 
-        $ratingDistribution = (clone $responsesQuery)
-            ->select('evaluation_responses.effectiveness_rating')
-            ->selectRaw('COUNT(*) as count')
-            ->groupBy('evaluation_responses.effectiveness_rating')
-            ->pluck('count', 'evaluation_responses.effectiveness_rating');
+                return false;
+            })
+            ->values();
 
-        $totalResponses = (int) ($responseStats?->total_responses ?? 0);
+        $totalResponses = $responses->count();
+        $ratingDistribution = $responses
+            ->groupBy('effectiveness_rating')
+            ->map(fn ($items) => $items->count());
 
         return [
             'total_evaluations' => $totalEvaluations,
             'active_evaluations' => $totalEvaluations,
             'total_responses' => $totalResponses,
             'total_faculties' => $totalFaculties,
-            'average_rating' => $totalResponses > 0 ? round((float) $responseStats->average_rating, 2) : 0,
-            'courses_evaluated' => (int) ($responseStats?->courses_evaluated ?? 0),
-            'responses_with_feedback' => (int) ($responseStats?->responses_with_feedback ?? 0),
+            'average_rating' => $totalResponses > 0 ? round((float) $responses->avg('effectiveness_rating'), 2) : 0,
+            'courses_evaluated' => $responses->unique(fn ($response) => $response->schedule_id ?: $response->course_code_snapshot)->count(),
+            'responses_with_feedback' => $responses
+                ->filter(fn ($response) => trim((string) ($response->feedback_comments ?? '')) !== '')
+                ->count(),
             'rating_distribution' => $ratingDistribution,
         ];
     }
@@ -1059,34 +1053,52 @@ class ReportsController extends Controller
         $evaluations = $evaluationsQuery->get();
         $breakdown = [];
 
-        // Helper to get filtered responses for a set of evaluation IDs
-        $getResponses = function ($evaluationIds) use ($subjectType) {
-            $query = EvaluationResponse::whereIn('evaluation_id', $evaluationIds);
-            if ($subjectType !== 'all') {
-                $query->whereHas('schedule.facultyCourse.course', function ($q) use ($subjectType) {
-                    $q->where('subject_type', $subjectType);
-                });
+        // Helper to get filtered responses for a set of evaluation IDs and actual handled department.
+        $getResponses = function ($evaluationIds, ?string $departmentScope = null) use ($subjectType) {
+            $responses = EvaluationResponse::with(['evaluation', 'schedule.facultyCourse.course'])
+                ->whereIn('evaluation_id', $evaluationIds)
+                ->get()
+                ->filter(fn ($response) => $this->responseMatchesResolvedSubjectType($response, $subjectType))
+                ->values();
+
+            if ($departmentScope !== null && $departmentScope !== 'all') {
+                $responses = $responses
+                    ->filter(fn ($response) => $this->responseHandledByDepartment($response, $departmentScope))
+                    ->values();
             }
-            return $query->get();
+
+            return $responses;
         };
 
         // Helper to get major/minor response counts and avg ratings for a set of evaluation IDs
-        $getSubjectTypeSplit = function ($evaluationIds) use ($subjectType) {
+        $getSubjectTypeSplit = function ($evaluationIds, ?string $departmentScope = null) use ($subjectType) {
             if ($evaluationIds->isEmpty()) {
                 return ['major_responses' => 0, 'minor_responses' => 0, 'major_avg_rating' => 0, 'minor_avg_rating' => 0];
             }
 
             $subjectTypes = $subjectType === 'all' ? ['major', 'minor'] : [$subjectType];
-
-            $rows = EvaluationResponse::whereIn('evaluation_responses.evaluation_id', $evaluationIds)
-                ->join('schedules', 'evaluation_responses.schedule_id', '=', 'schedules.id')
-                ->join('faculty_courses', 'schedules.faculty_course_id', '=', 'faculty_courses.id')
-                ->join('courses', 'faculty_courses.course_id', '=', 'courses.id')
-                ->whereIn('courses.subject_type', $subjectTypes)
-                ->selectRaw('courses.subject_type, COUNT(*) as cnt, AVG(evaluation_responses.effectiveness_rating) as avg_rating')
-                ->groupBy('courses.subject_type')
+            $responses = EvaluationResponse::with(['evaluation', 'schedule.facultyCourse.course'])
+                ->whereIn('evaluation_id', $evaluationIds)
                 ->get()
-                ->keyBy('subject_type');
+                ->filter(function ($response) use ($subjectTypes) {
+                    return in_array($this->resolveResponseSubjectType($response), $subjectTypes, true);
+                })
+                ->values();
+
+            if ($departmentScope !== null && $departmentScope !== 'all') {
+                $responses = $responses
+                    ->filter(fn ($response) => $this->responseHandledByDepartment($response, $departmentScope))
+                    ->values();
+            }
+
+            $rows = $responses
+                ->groupBy(fn ($response) => $this->resolveResponseSubjectType($response))
+                ->map(function ($items) {
+                    return (object) [
+                        'cnt' => $items->count(),
+                        'avg_rating' => $items->avg('effectiveness_rating'),
+                    ];
+                });
 
             return [
                 'major_responses' => (int) ($rows->get('major')?->cnt ?? 0),
@@ -1102,8 +1114,8 @@ class ReportsController extends Controller
                 return in_array($selectedDepartment, $departments, true);
             });
 
-            $responses = $getResponses($deptEvaluations->pluck('id'));
-            $split = $getSubjectTypeSplit($deptEvaluations->pluck('id'));
+            $responses = $getResponses($deptEvaluations->pluck('id'), $selectedDepartment);
+            $split = $getSubjectTypeSplit($deptEvaluations->pluck('id'), $selectedDepartment);
 
             $breakdown[] = [
                 'department' => $selectedDepartment,
@@ -1134,8 +1146,8 @@ class ReportsController extends Controller
             }
 
             foreach ($departmentGroups as $dept => $deptEvaluations) {
-                $responses = $getResponses($deptEvaluations->pluck('id'));
-                $split = $getSubjectTypeSplit($deptEvaluations->pluck('id'));
+                $responses = $getResponses($deptEvaluations->pluck('id'), $dept);
+                $split = $getSubjectTypeSplit($deptEvaluations->pluck('id'), $dept);
 
                 $breakdown[] = [
                     'department' => $dept,
@@ -1213,7 +1225,27 @@ class ReportsController extends Controller
             });
         }
 
-        return $query->latest()->limit($limit)->get();
+        $responses = $query->latest()->limit($limit * 5)->get();
+
+        if ($department !== 'all') {
+            $responses = $responses
+                ->filter(fn ($response) => $this->responseHandledByDepartment($response, $department))
+                ->values();
+        } elseif (!empty($allowedDepartments)) {
+            $responses = $responses
+                ->filter(function ($response) use ($allowedDepartments) {
+                    foreach ($allowedDepartments as $allowedDepartment) {
+                        if ($this->responseHandledByDepartment($response, $allowedDepartment)) {
+                            return true;
+                        }
+                    }
+
+                    return false;
+                })
+                ->values();
+        }
+
+        return $responses->take($limit)->values();
     }
 
     private function getFacultyRatings($department, $academicYear, $semester, array $allowedDepartments = [], array $excludedDepartments = [], string $subjectType = 'all')
@@ -1244,43 +1276,64 @@ class ReportsController extends Controller
             $this->whereAnyDepartment($evaluationsQuery, [$department], 'faculty_department_snapshot');
         }
 
-        $evaluations = $evaluationsQuery->get();
-        $ratings = [];
+        $responses = EvaluationResponse::with(['evaluation', 'schedule.facultyCourse.faculty.user', 'schedule.facultyCourse.course'])
+            ->whereIn('evaluation_id', (clone $evaluationsQuery)->select('id'))
+            ->get()
+            ->filter(fn ($response) => $this->responseMatchesResolvedSubjectType($response, $subjectType))
+            ->filter(function ($response) use ($department, $allowedDepartments) {
+                if ($department !== 'all') {
+                    return $this->responseHandledByDepartment($response, $department);
+                }
 
-        $facultyGroups = $evaluations->groupBy(function ($evaluation) {
-            return strtolower($evaluation->resolved_faculty_name ?? '');
-        });
+                if (empty($allowedDepartments)) {
+                    return true;
+                }
 
-        foreach ($facultyGroups as $facultyEvaluations) {
-            $evaluationIds = $facultyEvaluations->pluck('id');
-            $responsesQuery = EvaluationResponse::with(['evaluation', 'schedule.facultyCourse.course'])
-                ->whereIn('evaluation_id', $evaluationIds);
-            if ($subjectType !== 'all') {
-                $responsesQuery->whereHas('schedule.facultyCourse.course', function ($q) use ($subjectType) {
-                    $q->where('subject_type', $subjectType);
-                });
-            }
-            $responses = $responsesQuery->get();
+                foreach ($allowedDepartments as $allowedDepartment) {
+                    if ($this->responseHandledByDepartment($response, $allowedDepartment)) {
+                        return true;
+                    }
+                }
 
-            if ($department !== 'all') {
-                $responses = $responses
-                    ->filter(fn ($response) => $this->responseHandledByDepartment($response, $department))
-                    ->values();
-            }
+                return false;
+            })
+            ->values();
 
-            if ($responses->isEmpty()) {
-                continue;
-            }
+        $ratings = $responses
+            ->groupBy(function ($response) {
+                $facultyCourse = optional($response->schedule)->facultyCourse;
+                $facultyId = optional($facultyCourse)->faculty_id;
+                if ($facultyId) {
+                    return 'faculty:' . $facultyId;
+                }
 
-            $first = $facultyEvaluations->first();
-            $ratings[] = [
-                'faculty_name' => $first->resolved_faculty_name,
-                'department' => $department !== 'all' ? $department : $first->resolved_faculty_department,
-                'average_rating' => round($responses->avg('effectiveness_rating'), 2),
-                'total_responses' => $responses->count(),
-                'courses_count' => $responses->unique('schedule_id')->count()
-            ];
-        }
+                $userId = optional($response->evaluation)->faculty_id;
+                if ($userId) {
+                    return 'user:' . $userId;
+                }
+
+                return 'name:' . strtolower(trim((string) optional($response->evaluation)->resolved_faculty_name));
+            })
+            ->map(function ($facultyResponses) use ($department) {
+                $firstResponse = $facultyResponses->first();
+                $evaluation = $firstResponse?->evaluation;
+                $facultyCourse = optional($firstResponse?->schedule)->facultyCourse;
+                $faculty = optional($facultyCourse)->faculty;
+                $facultyUser = optional($faculty)->user;
+                $facultyName = trim((string) ($facultyUser?->name ?? $evaluation?->resolved_faculty_name ?? 'Unknown'));
+
+                return [
+                    'faculty_name' => $facultyName === '' ? 'Unknown' : $facultyName,
+                    'department' => $department !== 'all'
+                        ? $department
+                        : ($facultyCourse?->department ?: $faculty?->department ?: $evaluation?->resolved_faculty_department ?: 'No department'),
+                    'average_rating' => round($facultyResponses->avg('effectiveness_rating'), 2),
+                    'total_responses' => $facultyResponses->count(),
+                    'courses_count' => $facultyResponses->unique('schedule_id')->count(),
+                ];
+            })
+            ->values()
+            ->all();
 
         $ratingsCollection = collect($ratings);
 
@@ -1289,6 +1342,104 @@ class ReportsController extends Controller
             'low_rated' => $ratingsCollection->sortBy('average_rating')->values()->take(5),
             'most_evaluated' => $ratingsCollection->sortByDesc('total_responses')->values()->take(5)
         ];
+    }
+
+    private function getFilteredReportResponses(
+        string $department,
+        string $academicYear,
+        string $semester,
+        string $subjectType,
+        array $allowedDepartments = [],
+        array $excludedDepartments = []
+    ) {
+        $evaluationsQuery = Evaluation::where('is_active', true);
+
+        if ($academicYear !== 'all') {
+            $evaluationsQuery->where('academic_year', $academicYear);
+        }
+        if ($semester !== 'all') {
+            $evaluationsQuery->where('semester', $semester);
+        }
+
+        foreach ($excludedDepartments as $excludedDepartment) {
+            $evaluationsQuery->whereRaw(
+                "NOT FIND_IN_SET(?, REPLACE(faculty_department_snapshot, ', ', ','))",
+                [$excludedDepartment]
+            );
+        }
+
+        if ($department !== 'all') {
+            $this->whereAnyDepartment($evaluationsQuery, [$department], 'faculty_department_snapshot');
+        } elseif (!empty($allowedDepartments)) {
+            $this->whereAnyDepartment($evaluationsQuery, $allowedDepartments, 'faculty_department_snapshot');
+        }
+
+        return EvaluationResponse::with(['evaluation', 'schedule.facultyCourse.faculty.user', 'schedule.facultyCourse.course'])
+            ->whereIn('evaluation_id', (clone $evaluationsQuery)->select('id'))
+            ->get()
+            ->filter(fn ($response) => $this->responseMatchesResolvedSubjectType($response, $subjectType))
+            ->filter(function ($response) use ($department, $allowedDepartments) {
+                if ($department !== 'all') {
+                    return $this->responseHandledByDepartment($response, $department);
+                }
+
+                if (empty($allowedDepartments)) {
+                    return true;
+                }
+
+                foreach ($allowedDepartments as $allowedDepartment) {
+                    if ($this->responseHandledByDepartment($response, $allowedDepartment)) {
+                        return true;
+                    }
+                }
+
+                return false;
+            })
+            ->values();
+    }
+
+    private function buildFacultyRowsFromResponses($responses, string $department)
+    {
+        return $responses
+            ->groupBy(function ($response) {
+                $facultyCourse = optional($response->schedule)->facultyCourse;
+                $facultyId = optional($facultyCourse)->faculty_id;
+                if ($facultyId) {
+                    return 'faculty:' . $facultyId;
+                }
+
+                $userId = optional($response->evaluation)->faculty_id;
+                if ($userId) {
+                    return 'user:' . $userId;
+                }
+
+                return 'name:' . strtolower(trim((string) optional($response->evaluation)->resolved_faculty_name));
+            })
+            ->map(function ($facultyResponses) use ($department) {
+                $firstResponse = $facultyResponses->sortByDesc('created_at')->first();
+                $evaluation = $firstResponse?->evaluation;
+                $facultyCourse = optional($firstResponse?->schedule)->facultyCourse;
+                $faculty = optional($facultyCourse)->faculty;
+                $facultyUser = optional($faculty)->user;
+                $facultyName = trim((string) ($facultyUser?->name ?? $evaluation?->resolved_faculty_name ?? 'Unknown'));
+                $status = strtolower((string) ($facultyUser?->status ?? 'active'));
+                $evaluationCount = $facultyResponses->pluck('evaluation_id')->unique()->count();
+                $average = (float) $facultyResponses->avg('effectiveness_rating');
+
+                return (object) [
+                    'evaluation_id' => $firstResponse?->evaluation_id,
+                    'name' => $facultyName === '' ? 'Unknown' : $facultyName,
+                    'department' => $department !== 'all'
+                        ? $department
+                        : ($facultyCourse?->department ?: $faculty?->department ?: $evaluation?->resolved_faculty_department ?: 'No department'),
+                    'status' => $status,
+                    'evaluation_count' => $evaluationCount,
+                    'active_evaluations' => $evaluationCount,
+                    'response_count' => $facultyResponses->count(),
+                    'average_rating' => $average > 0 ? round($average, 2) : 0,
+                ];
+            })
+            ->values();
     }
 
     private function getFacultyKey($evaluation): string
@@ -1717,7 +1868,6 @@ class ReportsController extends Controller
     private function responseHandledByDepartment($response, string $department): bool
     {
         $facultyCourse = optional($response->schedule)->facultyCourse;
-        $course = optional($facultyCourse)->course;
         $assignmentDepartments = $this->normalizeDepartmentList(optional($facultyCourse)->department ?? '');
         $selectedAliases = collect($this->departmentAliases($department))
             ->map(fn ($value) => $this->normalizeDepartmentName($value) ?? $value)
@@ -1732,20 +1882,16 @@ class ReportsController extends Controller
                 ->unique()
                 ->values();
 
-            return $assignmentAliases->intersect($selectedAliases)->isNotEmpty();
-        }
-
-        $inferredDepartment = $this->inferDepartmentFromAssignment(
-            optional($facultyCourse)->section ?? '',
-            $response->resolved_course_code ?? optional($course)->class_code ?? '',
-            $response->resolved_course_name ?? optional($course)->subject_code ?? ''
-        );
-
-        if ($inferredDepartment !== null) {
-            return in_array($inferredDepartment, $selectedAliases, true);
+            if ($assignmentAliases->intersect($selectedAliases)->isNotEmpty()) {
+                return true;
+            }
         }
 
         $snapshotDepartments = $this->normalizeDepartmentList(optional($response->evaluation)->faculty_department_snapshot ?? '');
+        if (count($snapshotDepartments) !== 1) {
+            return false;
+        }
+
         $snapshotAliases = collect($snapshotDepartments)
             ->flatMap(fn ($value) => $this->departmentAliases($value))
             ->map(fn ($value) => $this->normalizeDepartmentName($value) ?? $value)
@@ -1755,63 +1901,29 @@ class ReportsController extends Controller
         return $snapshotAliases->intersect($selectedAliases)->isNotEmpty();
     }
 
-    private function inferDepartmentFromAssignment(?string $section, ?string $courseCode, ?string $courseName): ?string
+    private function responseMatchesResolvedSubjectType($response, string $subjectType): bool
     {
-        $sectionText = strtoupper(trim((string) $section));
-
-        if ($sectionText !== '') {
-            $sectionDepartment = $this->matchDepartmentPattern($sectionText, [
-                'College of Dentistry' => '/\b(DDM|DMD|DDS|MSD|MSDO)\b/',
-                'College of Nursing' => '/\b(BSN|CON)\b/',
-                'College of Arts and Sciences' => '/\b(CAS|BS-?PSYCH|BSPSYCH|PSYCH|ABCOMM|AB-?COMM|BA COMM|BSIT|BIO|MICROBIO)\b/',
-                'College of Medical Technology' => '/\b(CMT|BS-?MT|BSMT|MT)\b/',
-                'College of Medicine' => '/\b(COLLEGE OF MEDICINE|MEDICINE|MED)\b/',
-                'College of Optometry' => '/\b(OP|OPT|COO)\b/',
-                'College of Pharmacy' => '/\b(BSPH|PHARMA|PHARMACY|CPH)\b/',
-                'College of Physical Therapy' => '/\b(BSPT|PT|CPT)\b/',
-                'Institute of Education' => '/\b(INSTITUTE OF EDUCATION|IOE|IED|EDUCATION INSTITUTE|BSE|BSED|BEED|BSE-?ENG)\b/',
-                'Basic Education' => '/\b(BED|BEDD|BASIC EDUCATION|ELEMENTARY|JHS|SHS|GRADE|STEM|ABM|HUMSS|HIGHSCHOOL|HIGH SCHOOL)\b|\b(MATH|SCIENCE|ENGLISH|FILIPINO|COMPUTER|MAPEH|TLE|AP|VALUES EDUCATION)\s*(7|8|9|10)\b/',
-                'School of Business and Management' => '/\b(SBM|BSBA|MAN-?ADM|MBA|BSHM|BSTM|ACCOUNTANCY|AC|MM|HM|TM)\b/',
-            ]);
-
-            if ($sectionDepartment !== null) {
-                return $sectionDepartment;
-            }
+        if ($subjectType === 'all') {
+            return true;
         }
 
-        $text = strtoupper(trim(implode(' ', array_filter([
-            (string) $courseCode,
-            (string) $courseName,
-        ]))));
-
-        if ($text === '') {
-            return null;
-        }
-
-        return $this->matchDepartmentPattern($text, [
-            'College of Dentistry' => '/\b(DDM|DMD|DDS|MSD|MSDO|CLD|ORS|CCC|CCS|PID|DPH|NUT|ORT|DME|CAR|ANA|GMA|PRO|PDO|PER|GPA|ICL)\b/',
-            'College of Nursing' => '/\b(BSN|CON)\b/',
-            'College of Arts and Sciences' => '/\b(CAS|BS-?PSYCH|BSPSYCH|PSYCH|ABCOMM|AB-?COMM|BA COMM|BSIT|BIO|MICROBIO|ZOO|STS|PEE)\b/',
-            'College of Medical Technology' => '/\b(CMT|BS-?MT|BSMT|MT)\b/',
-            'College of Medicine' => '/\b(COLLEGE OF MEDICINE|MEDICINE|MED)\b/',
-            'College of Optometry' => '/\b(OP|OPT|COO)\b/',
-            'College of Pharmacy' => '/\b(BSPH|PHARMA|PHARMACY|CPH)\b/',
-            'College of Physical Therapy' => '/\b(BSPT|PT|CPT)\b/',
-            'Institute of Education' => '/\b(INSTITUTE OF EDUCATION|IOE|IED|EDUCATION INSTITUTE|BSE|BSED|BEED|BSE-?ENG)\b/',
-            'Basic Education' => '/\b(BED|BEDD|BASIC EDUCATION|ELEMENTARY|JHS|SHS|GRADE|STEM|ABM|HUMSS|HIGHSCHOOL|HIGH SCHOOL)\b|\b(MATH|SCIENCE|ENGLISH|FILIPINO|COMPUTER|MAPEH|TLE|AP|VALUES EDUCATION)\s*(7|8|9|10)\b/',
-            'School of Business and Management' => '/\b(SBM|BSBA|MAN-?ADM|MBA|BSHM|BSTM|ACCOUNTANCY|AC|MM|HM|TM)\b/',
-        ]);
+        return $this->resolveResponseSubjectType($response) === $subjectType;
     }
 
-    private function matchDepartmentPattern(string $text, array $patterns): ?string
+    private function resolveResponseSubjectType($response): string
     {
-        foreach ($patterns as $department => $pattern) {
-            if (preg_match($pattern, $text)) {
-                return $department;
-            }
-        }
+        $course = optional(optional($response->schedule)->facultyCourse)->course;
 
-        return null;
+        return strtolower(trim((string) ($course->subject_type ?? '')));
+    }
+
+    private function formatResolvedResponseSubjectType($response): string
+    {
+        return match ($this->resolveResponseSubjectType($response)) {
+            'major' => 'Professional Course',
+            'minor' => 'Minor Course',
+            default => 'N/A',
+        };
     }
 
     private function normalizeDepartmentName(?string $department): ?string

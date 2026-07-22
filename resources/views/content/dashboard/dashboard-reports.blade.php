@@ -1668,6 +1668,8 @@
                     <div class="modal-body">
                         <input type="hidden" name="department" id="departmentExportDepartment">
                         <input type="hidden" name="subject_type" value="{{ $selectedSubjectType }}">
+                        <input type="hidden" name="academic_year" value="{{ $selectedAcademicYear }}">
+                        <input type="hidden" name="semester" value="{{ $selectedSemester }}">
                         <div class="mb-3">
                             <label for="departmentExportStartDate" class="form-label">Start Date</label>
                             <input type="date" class="form-control" id="departmentExportStartDate" name="start_date">
@@ -1677,19 +1679,19 @@
                             <label for="departmentExportEndDate" class="form-label">End Date</label>
                             <input type="date" class="form-control" id="departmentExportEndDate" name="end_date">
                         </div>
-                        <div class="mb-3">
+                        <div class="mb-3 d-none">
                             <label for="departmentExportAcademicYear" class="form-label">Academic Year</label>
-                            <select class="form-select" id="departmentExportAcademicYear" name="academic_year">
-                                <option value="all" selected>All</option>
+                            <select class="form-select" id="departmentExportAcademicYear">
+                                <option value="all" {{ $selectedAcademicYear === 'all' ? 'selected' : '' }}>All</option>
                                 @if($selectedAcademicYear !== 'all')
                                     <option value="{{ $selectedAcademicYear }}" selected>{{ $selectedAcademicYear }}</option>
                                 @endif
                             </select>
                         </div>
-                        <div class="mb-0">
+                        <div class="mb-0 d-none">
                             <label for="departmentExportSemester" class="form-label">Semester</label>
-                            <select class="form-select" id="departmentExportSemester" name="semester">
-                                <option value="all" selected>All</option>
+                            <select class="form-select" id="departmentExportSemester">
+                                <option value="all" {{ $selectedSemester === 'all' ? 'selected' : '' }}>All</option>
                                 @if($selectedSemester !== 'all')
                                     <option value="{{ $selectedSemester }}" selected>{{ $selectedSemester }}</option>
                                 @endif
@@ -2207,6 +2209,8 @@
         function bindDepartmentExportButton() {
             const button = document.getElementById('departmentExportBtn');
             const departmentInput = document.getElementById('departmentExportDepartment');
+            const academicYearInput = document.getElementById('departmentExportAcademicYear');
+            const semesterInput = document.getElementById('departmentExportSemester');
             const modalTitle = document.getElementById('departmentExportModalLabel');
             const exportModalEl = document.getElementById('departmentExportModal');
             const facultyModalEl = document.getElementById('facultyModal');
@@ -2219,6 +2223,12 @@
                     return;
                 }
                 departmentInput.value = currentDepartment;
+                if (academicYearInput) {
+                    academicYearInput.value = '{{ $selectedAcademicYear }}';
+                }
+                if (semesterInput) {
+                    semesterInput.value = '{{ $selectedSemester }}';
+                }
                 if (modalTitle) {
                     modalTitle.textContent = `Export Responses - ${currentDepartment}`;
                 }

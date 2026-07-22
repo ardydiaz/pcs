@@ -1591,15 +1591,14 @@ class EvaluationController extends Controller
         if ($subjectType && $subjectType !== 'all') {
             $beforeSubjectFilter = $allResponses->count();
             $allResponses = $allResponses->filter(function ($response) use ($subjectType) {
-                $course = $response->schedule?->facultyCourse?->course;
-                $courseSubjectType = $course?->subject_type;
+                $courseSubjectType = $this->resolveResponseSubjectType($response);
                 \Log::debug('ExportResponses - Checking subject_type', [
                     'response_id' => $response->id,
                     'course_subject_type' => $courseSubjectType,
                     'filter_subject_type' => $subjectType,
                     'match' => $courseSubjectType === $subjectType
                 ]);
-                return $course && $courseSubjectType === $subjectType;
+                return $courseSubjectType === $subjectType;
             })->values();
             
             \Log::info('ExportResponses - After subject_type filter', [
@@ -1711,32 +1710,20 @@ class EvaluationController extends Controller
 
     private function formatResponseSubjectType(EvaluationResponse $response): string
     {
-        $subjectType = strtolower((string) ($response->schedule?->facultyCourse?->course?->subject_type ?? ''));
-
-        if ($subjectType === '') {
-            $courseCode = trim((string) ($response->resolved_course_code ?? ''));
-            $courseName = trim((string) ($response->resolved_course_name ?? ''));
-
-            $course = Course::query()
-                ->where(function ($query) use ($courseCode, $courseName) {
-                    if ($courseCode !== '') {
-                        $query->orWhere('class_code', $courseCode);
-                    }
-
-                    if ($courseName !== '') {
-                        $query->orWhere('subject_code', $courseName);
-                    }
-                })
-                ->first();
-
-            $subjectType = strtolower((string) ($course?->subject_type ?? ''));
-        }
+        $subjectType = $this->resolveResponseSubjectType($response);
 
         return match ($subjectType) {
             'major' => 'Professional Course',
             'minor' => 'Minor Course',
             default => 'N/A',
         };
+    }
+
+    private function resolveResponseSubjectType(EvaluationResponse $response): string
+    {
+        $course = $response->schedule?->facultyCourse?->course;
+
+        return strtolower(trim((string) ($course?->subject_type ?? '')));
     }
 
     public function convertToShortUrls()
