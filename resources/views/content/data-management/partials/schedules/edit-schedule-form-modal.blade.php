@@ -73,6 +73,19 @@
                                 <span class="text-muted text-center">Select a course to view faculty information</span>
                             </div>
                         </div>
+                        @if ($canEditSubjectType)
+                            <div class="mb-3">
+                                <label class="form-label" for="editScheduleSubjectType">Subject Type</label>
+                                <select class="form-select" id="editScheduleSubjectType" name="subject_type">
+                                    <option value="major">Professional Course</option>
+                                    <option value="minor">GenEd Course</option>
+                                </select>
+                                <small class="text-muted d-block mt-2">
+                                    Admin only: this updates the course subject type without changing the schedule,
+                                    faculty, section, department, or responses.
+                                </small>
+                            </div>
+                        @endif
                         <div class="mb-3">
                             <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
                                 <label class="form-label mb-0" for="editTimeStart">Time</label>

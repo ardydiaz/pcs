@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Schedule;
 use App\Models\Faculty;
 use App\Models\FacultyCourse;
+use App\Models\Course;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use App\Imports\ScheduleImport;
@@ -135,12 +136,23 @@ class ScheduleController extends Controller
             'time' => 'nullable|string', // e.g. "07:00a - 08:30a"
             'day' => 'nullable|array',
             'day.*' => 'in:M,T,W,TH,F,S,SU', // Validate that each day is one of the allowed values
+            'subject_type' => 'nullable|string|in:major,minor',
         ]);
+
+        $subjectType = auth()->user()?->role === 'Admin'
+            ? ($validated['subject_type'] ?? null)
+            : null;
+        unset($validated['subject_type']);
 
         $validated['day'] = !empty($validated['day'] ?? []) ? implode('', $validated['day']) : null;
         $validated['time'] = $this->normalizeTimeInput((string) ($validated['time'] ?? ''));
         $targetFacultyCourse = FacultyCourse::with('faculty.user')->findOrFail($validated['faculty_course_id']);
         $this->authorizeFacultyCourseDepartmentAccess($targetFacultyCourse);
+
+        if ($subjectType !== null) {
+            $targetFacultyCourse = $this->applySubjectTypeToFacultyCourse($targetFacultyCourse, $subjectType);
+            $validated['faculty_course_id'] = $targetFacultyCourse->id;
+        }
 
         $exists = Schedule::where('faculty_course_id', $validated['faculty_course_id'])
             ->where('time', $validated['time'])
@@ -253,6 +265,69 @@ class ScheduleController extends Controller
             'message' => 'Schedule restored successfully.',
             'data' => $schedule,
         ]);
+    }
+
+    private function applySubjectTypeToFacultyCourse(FacultyCourse $facultyCourse, string $subjectType): FacultyCourse
+    {
+        $facultyCourse->loadMissing('course');
+        $course = $facultyCourse->course;
+
+        if (!$course || $course->subject_type === $subjectType) {
+            return $facultyCourse;
+        }
+
+        $targetCourse = Course::withTrashed()
+            ->where('class_code', $course->class_code)
+            ->where('subject_code', $course->subject_code)
+            ->where('subject_type', $subjectType)
+            ->first();
+
+        if ($targetCourse && $targetCourse->id !== $course->id) {
+            if ($targetCourse->trashed()) {
+                $targetCourse->restore();
+            }
+
+            $targetAssignment = FacultyCourse::withTrashed()
+                ->where('faculty_id', $facultyCourse->faculty_id)
+                ->where('course_id', $targetCourse->id)
+                ->where('section', $facultyCourse->section)
+                ->where('academic_year', $facultyCourse->academic_year)
+                ->where('semester', $facultyCourse->semester)
+                ->first();
+
+            if ($targetAssignment) {
+                if ($targetAssignment->trashed()) {
+                    $targetAssignment->restore();
+                }
+
+                Schedule::withTrashed()
+                    ->where('faculty_course_id', $facultyCourse->id)
+                    ->update(['faculty_course_id' => $targetAssignment->id]);
+
+                if (!$facultyCourse->trashed()) {
+                    $facultyCourse->delete();
+                }
+
+                if (!$course->facultyCourses()->exists() && !$course->trashed()) {
+                    $course->delete();
+                }
+
+                return $targetAssignment->fresh();
+            }
+
+            $facultyCourse->course_id = $targetCourse->id;
+            $facultyCourse->save();
+
+            if (!$course->facultyCourses()->exists() && !$course->trashed()) {
+                $course->delete();
+            }
+
+            return $facultyCourse->fresh();
+        }
+
+        $course->update(['subject_type' => $subjectType]);
+
+        return $facultyCourse->fresh();
     }
 
     /**

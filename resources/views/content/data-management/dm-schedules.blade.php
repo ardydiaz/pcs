@@ -121,6 +121,7 @@
     $canAdd = $isAdmin;
     $canEdit = $canManageSchedules;
     $canDelete = $isAdmin;
+    $canEditSubjectType = $isAdmin;
     $showDeleteDisabled = !$isAdmin && $canManageSchedules;
     $canImport = $isAdmin;
 @endphp
@@ -1773,6 +1774,10 @@
 
                     this.setTimeFields(form, schedule.time ?? '');
                     this.setDaySelection(form, this.splitDayString(schedule.day));
+                    const subjectTypeSelect = form.querySelector('[name="subject_type"]');
+                    if (subjectTypeSelect) {
+                        subjectTypeSelect.value = schedule.subject_type === 'minor' ? 'minor' : 'major';
+                    }
 
                     this.editModal?.show();
                 }
@@ -1916,10 +1921,27 @@
                         }
 
                         const normalised = this.normaliseSchedule(payload.data);
+                        const previous = this.schedules.find((item) => Number(item.id) === Number(scheduleId));
+                        const previousCode = previous?.course_code ?? normalised.course_code;
+                        const previousSubject = previous?.course_subject ?? normalised.course_subject;
                         const index = this.schedules.findIndex((item) => Number(item.id) === Number(scheduleId));
                         if (index !== -1) {
                             this.schedules[index] = normalised;
                         }
+                        this.schedules = this.schedules.map((item) => {
+                            if (Number(item.id) === Number(scheduleId)) {
+                                return item;
+                            }
+
+                            if (item.course_code === previousCode && item.course_subject === previousSubject) {
+                                return {
+                                    ...item,
+                                    subject_type: normalised.subject_type,
+                                };
+                            }
+
+                            return item;
+                        });
                         this.refreshFilterOptions();
                         this.editModal?.hide();
                         this.renderTable();
