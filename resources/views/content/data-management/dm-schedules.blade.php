@@ -2139,7 +2139,7 @@
                     if (!dayString) return [];
                     const codes = [];
                     let index = 0;
-                    const upper = String(dayString).toUpperCase();
+                    const upper = String(dayString).toUpperCase().replace(/[\s,;/|]+/g, '');
                     while (index < upper.length) {
                         if (upper.startsWith('TH', index)) {
                             codes.push('TH');
@@ -2147,12 +2147,14 @@
                         } else if (upper.startsWith('SU', index)) {
                             codes.push('SU');
                             index += 2;
-                        } else {
+                        } else if (['M', 'T', 'W', 'F', 'S'].includes(upper.charAt(index))) {
                             codes.push(upper.charAt(index));
+                            index += 1;
+                        } else {
                             index += 1;
                         }
                     }
-                    return codes;
+                    return [...new Set(codes)];
                 }
 
                 splitTimeRange(timeString) {
