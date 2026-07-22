@@ -315,7 +315,8 @@ class FacultyController extends Controller // Controller class for managing facu
         'file' => 'required|mimes:xlsx,csv,xls',
     ]);
 
-    $import = new ImportAll();
+    $subjectTypeOnly = $request->boolean('subject_type_only');
+    $import = new ImportAll($subjectTypeOnly);
 
     try {
         DB::transaction(function () use ($request, $import) {
@@ -339,13 +340,18 @@ class FacultyController extends Controller // Controller class for managing facu
 
     $imported = $import->getImportedCount();
     $skipped = $import->getSkippedRecords();
+    $updatedSubjectTypes = $import->getUpdatedSubjectTypeCount();
 
     return response()->json([
         'success' => $imported > 0,
-        'message' => $imported > 0
-            ? "$imported records imported successfully"
-            : "No records imported",
+        'message' => $subjectTypeOnly
+            ? "$updatedSubjectTypes subject type update" . ($updatedSubjectTypes === 1 ? '' : 's') . " applied. $imported row" . ($imported === 1 ? '' : 's') . " checked."
+            : ($imported > 0
+                ? "$imported records imported successfully"
+                : "No records imported"),
         'imported' => $imported,
+        'subject_type_only' => $subjectTypeOnly,
+        'subject_type_updates' => $updatedSubjectTypes,
         'skipped' => count($skipped),
         'skipped_details' => array_slice($skipped, 0, 5),
     ]);

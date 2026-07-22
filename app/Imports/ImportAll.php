@@ -19,6 +19,13 @@ class ImportAll implements ToModel, WithHeadingRow // Class to handle the import
     protected $skippedRecords = []; // Array to track skipped records during import, such as those with missing required fields or duplicates
     protected $importedCount = 0; // Counter to track the number of successfully imported records, incremented each time a new faculty, course, and schedule record is created
     protected $debugLog = []; // Store detailed debug information for troubleshooting
+    protected $subjectTypeOnly = false;
+    protected $updatedSubjectTypeCount = 0;
+
+    public function __construct(bool $subjectTypeOnly = false)
+    {
+        $this->subjectTypeOnly = $subjectTypeOnly;
+    }
 
     // Method to retrieve the list of skipped records, which can be used for reporting or debugging purposes after the import process is complete
     public function getSkippedRecords(): array 
@@ -32,6 +39,11 @@ class ImportAll implements ToModel, WithHeadingRow // Class to handle the import
         return $this->importedCount;
     }
 
+    public function getUpdatedSubjectTypeCount(): int
+    {
+        return $this->updatedSubjectTypeCount;
+    }
+
     // Method to retrieve debug log for detailed troubleshooting
     public function getDebugLog(): array
     {
@@ -41,6 +53,15 @@ class ImportAll implements ToModel, WithHeadingRow // Class to handle the import
     public function model(array $row) // Convert each row of the Excel file into a model instance, while also creating linked FacultyCourse and Schedule records based on the imported data
     {
          //dd($row);
+        // Extract course details first so subject-type-only correction can run without touching faculty/schedules.
+        $classCode = $this->cell($row, 'classcode');
+        $subjectCode = $this->cell($row, 'subjectcode');
+        $subjectType = strtolower($this->cell($row, 'subjecttype', 'major'));
+
+        if ($this->subjectTypeOnly) {
+            return $this->updateSubjectTypeOnly($row, $classCode, $subjectCode, $subjectType);
+        }
+
         // Extract and validate employee number from the row
         $employeeNo = $this->cell($row, 'employeeno');
         if ($employeeNo === '' || strlen($employeeNo) < 2) {
@@ -54,9 +75,6 @@ class ImportAll implements ToModel, WithHeadingRow // Class to handle the import
         }
 
         // Extract and validate course details from the row
-        $classCode = $this->cell($row, 'classcode');
-        $subjectCode = $this->cell($row, 'subjectcode');
-        $subjectType = strtolower($this->cell($row, 'subjecttype', 'major'));
         $section = SectionNormalizer::normalize($this->cell($row, 'section'));
         $academicYear = $this->normalizeAcademicYear($this->cell($row, 'academicyear'));
         $semester = $this->normalizeSemester($row['semester'] ?? '');
@@ -530,6 +548,132 @@ class ImportAll implements ToModel, WithHeadingRow // Class to handle the import
             'section' => $section,
             'subject_code' => $subjectCode,
         ];
+    }
+
+    private function updateSubjectTypeOnly(array $row, string $classCode, string $subjectCode, string $subjectType)
+    {
+        if ($classCode === '' || $subjectCode === '') {
+            $this->skipRow($row, 'Missing required course details for subject type update');
+            return null;
+        }
+
+        if (!in_array($subjectType, ['major', 'minor'], true)) {
+            $this->skipRow($row, 'Invalid subject type: ' . $subjectType . '. Must be major or minor');
+            return null;
+        }
+
+        $courses = Course::where('class_code', $classCode)
+            ->where('subject_code', $subjectCode)
+            ->get();
+
+        if ($courses->isEmpty()) {
+            $this->skipRow($row, 'No existing active course found to update subject type');
+            return null;
+        }
+
+        $changed = 0;
+
+        foreach ($courses as $course) {
+            if ($course->subject_type === $subjectType) {
+                continue;
+            }
+
+            $targetCourse = Course::withTrashed()
+                ->where('class_code', $classCode)
+                ->where('subject_code', $subjectCode)
+                ->where('subject_type', $subjectType)
+                ->first();
+
+            if ($targetCourse && $targetCourse->id !== $course->id) {
+                if ($targetCourse->trashed()) {
+                    $targetCourse->restore();
+                }
+
+                $changed += $this->mergeCourseIntoTargetSubjectType($course, $targetCourse);
+                continue;
+            }
+
+            $oldSubjectType = $course->subject_type;
+            $course->update(['subject_type' => $subjectType]);
+            $changed++;
+
+            $this->debugLog[] = [
+                'action' => 'Subject type updated only',
+                'course_id' => $course->id,
+                'class_code' => $classCode,
+                'old_subject_type' => $oldSubjectType,
+                'new_subject_type' => $subjectType,
+            ];
+        }
+
+        $this->importedCount++;
+        $this->updatedSubjectTypeCount += $changed;
+
+        if ($changed === 0) {
+            $this->debugLog[] = [
+                'action' => 'Subject type already correct',
+                'class_code' => $classCode,
+                'subject_type' => $subjectType,
+            ];
+        }
+
+        return null;
+    }
+
+    private function mergeCourseIntoTargetSubjectType(Course $sourceCourse, Course $targetCourse): int
+    {
+        $changed = 0;
+
+        $sourceAssignments = FacultyCourse::withTrashed()
+            ->where('course_id', $sourceCourse->id)
+            ->get();
+
+        foreach ($sourceAssignments as $sourceAssignment) {
+            $targetAssignment = FacultyCourse::withTrashed()
+                ->where('faculty_id', $sourceAssignment->faculty_id)
+                ->where('course_id', $targetCourse->id)
+                ->where('section', $sourceAssignment->section)
+                ->where('academic_year', $sourceAssignment->academic_year)
+                ->where('semester', $sourceAssignment->semester)
+                ->first();
+
+            if ($targetAssignment) {
+                if ($targetAssignment->trashed()) {
+                    $targetAssignment->restore();
+                }
+
+                Schedule::withTrashed()
+                    ->where('faculty_course_id', $sourceAssignment->id)
+                    ->update(['faculty_course_id' => $targetAssignment->id]);
+
+                if (!$sourceAssignment->trashed()) {
+                    $sourceAssignment->delete();
+                }
+            } else {
+                $sourceAssignment->course_id = $targetCourse->id;
+                if ($sourceAssignment->trashed()) {
+                    $sourceAssignment->restore();
+                }
+                $sourceAssignment->save();
+            }
+
+            $changed++;
+        }
+
+        if (!$sourceCourse->facultyCourses()->exists() && !$sourceCourse->trashed()) {
+            $sourceCourse->delete();
+        }
+
+        $this->debugLog[] = [
+            'action' => 'Course merged into existing subject type',
+            'source_course_id' => $sourceCourse->id,
+            'target_course_id' => $targetCourse->id,
+            'class_code' => $targetCourse->class_code,
+            'subject_type' => $targetCourse->subject_type,
+            'assignments_moved' => $changed,
+        ];
+
+        return $changed;
     }
 
     private function cleanValue($value): string

@@ -104,6 +104,17 @@
                                 fullname, department, jobtitle)</small>
                             <small class="text-muted d-block mt-2">Import All adds new assignments and schedules without
                                 deleting previous data.</small>
+                            <div class="form-check mt-3">
+                                <input class="form-check-input" type="checkbox" name="subject_type_only"
+                                    id="facultyImportSubjectTypeOnly" value="1">
+                                <label class="form-check-label fw-semibold" for="facultyImportSubjectTypeOnly">
+                                    Update subject type only
+                                </label>
+                                <small class="text-muted d-block mt-1">
+                                    Use this when re-uploading a corrected file for major/minor only. Faculty,
+                                    assignments, schedules, sections, departments, and evaluations will not be changed.
+                                </small>
+                            </div>
                         </div>
 
                         <!-- Progress Section (hidden by default) -->
@@ -182,6 +193,7 @@
             const successSection = document.getElementById('facultyImportAllSuccessSection');
             const successText = document.getElementById('facultyImportAllSuccessText');
             const submitBtn = document.getElementById('facultyImportAllSubmitBtn');
+            const subjectTypeOnly = document.getElementById('facultyImportSubjectTypeOnly');
 
             const resetModal = () => {
                 fileSection.classList.remove('d-none');
@@ -192,6 +204,8 @@
                 progressText.textContent = '0%';
                 skippedList.innerHTML = '';
                 document.getElementById('facultyImportAllFile').value = '';
+                subjectTypeOnly.checked = false;
+                submitBtn.textContent = submitBtn.dataset.defaultText || 'Import All';
                 submitBtn.disabled = false;
 
                 // Remove any error alerts
@@ -269,7 +283,7 @@
                 progressSection.classList.add('d-none');
                 fileSection.classList.add('d-none');
                 successSection.classList.remove('d-none');
-                successText.textContent =
+                successText.textContent = data.message ||
                     `${importedCount} schedule record${importedCount !== 1 ? 's have' : ' has'} been imported successfully. Previous assignments and schedules were kept.`;
                 submitBtn.textContent = 'Done';
                 submitBtn.disabled = false;
@@ -279,6 +293,10 @@
                     modal.hide();
                 });
             };
+
+            subjectTypeOnly.addEventListener('change', () => {
+                submitBtn.textContent = subjectTypeOnly.checked ? 'Update Subject Type' : (submitBtn.dataset.defaultText || 'Import All');
+            });
 
             // const showErrorMessage = (message) => {
             //     progressSection.classList.add('d-none');
