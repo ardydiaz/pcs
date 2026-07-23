@@ -652,9 +652,9 @@
         }
 
         .evaluation-icon-btn {
-            border: none;
-            background-color: #f8fafc;
-            color: #475569;
+            border: 1px solid rgba(92, 41, 124, 0.14);
+            background: linear-gradient(135deg, rgba(92, 41, 124, 0.1), rgba(255, 183, 54, 0.14));
+            color: #5c297c;
             border-radius: 0.75rem;
             width: 2.25rem;
             height: 2.25rem;
@@ -662,11 +662,14 @@
             align-items: center;
             justify-content: center;
             transition: all 0.2s ease;
+            box-shadow: 0 0.45rem 1rem rgba(44, 0, 63, 0.08);
         }
 
         .evaluation-icon-btn:hover {
-            background-color: #e2e8f0;
-            color: #1f2937;
+            background: linear-gradient(135deg, #5c297c, #8c3f97);
+            border-color: rgba(255, 183, 54, 0.55);
+            color: #ffffff;
+            transform: translateY(-1px);
         }
 
         .faculty-profile-trigger {
