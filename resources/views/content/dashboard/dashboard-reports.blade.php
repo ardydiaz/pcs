@@ -577,7 +577,99 @@
         }
 
         .rating-progress {
+            background: #edf0f4;
+            border-radius: 999px;
             height: 6px;
+            overflow: hidden;
+        }
+
+        .rating-progress .progress-bar {
+            border-radius: inherit;
+            display: block;
+            height: 100%;
+        }
+
+        .rating-progress .progress-bar.bg-success {
+            background: linear-gradient(90deg, #5ee033, #35c75a) !important;
+        }
+
+        .rating-progress .progress-bar.bg-info {
+            background: linear-gradient(90deg, #5c297c, #ffb736) !important;
+        }
+
+        .rating-progress .progress-bar.bg-warning {
+            background: linear-gradient(90deg, #ffb736, #ff8a00) !important;
+        }
+
+        .rating-progress .progress-bar.bg-danger {
+            background: linear-gradient(90deg, #ff4b35, #ec0f5a) !important;
+        }
+
+        .rating-distribution-grid {
+            row-gap: 4.25rem;
+        }
+
+        .rating-distribution-item {
+            padding-bottom: 0.25rem;
+        }
+
+        .rating-summary-card {
+            align-items: center;
+            background:
+                radial-gradient(circle at 100% 0%, rgba(255, 183, 54, 0.2), transparent 4.5rem),
+                linear-gradient(135deg, #ffffff, #fbf7ff);
+            border: 1px solid rgba(92, 41, 124, 0.1);
+            border-radius: 1rem;
+            box-shadow: 0 0.65rem 1.4rem rgba(58, 0, 80, 0.07);
+            display: flex;
+            gap: 0.85rem;
+            height: 100%;
+            padding: 1rem;
+        }
+
+        .rating-summary-icon {
+            align-items: center;
+            border-radius: 0.9rem;
+            display: inline-flex;
+            flex: 0 0 2.75rem;
+            height: 2.75rem;
+            justify-content: center;
+            width: 2.75rem;
+        }
+
+        .rating-summary-icon i {
+            font-size: 1.45rem;
+        }
+
+        .rating-summary-card.positive .rating-summary-icon {
+            background: rgba(94, 224, 51, 0.15);
+            color: #2aaa43;
+        }
+
+        .rating-summary-card.neutral .rating-summary-icon {
+            background: rgba(255, 183, 54, 0.18);
+            color: #d88400;
+        }
+
+        .rating-summary-card.concern .rating-summary-icon {
+            background: rgba(236, 15, 90, 0.12);
+            color: #ec0f5a;
+        }
+
+        .rating-summary-value {
+            color: #3a0050;
+            font-size: 1.45rem;
+            font-weight: 900;
+            line-height: 1;
+            margin-bottom: 0.25rem;
+        }
+
+        .rating-summary-label {
+            color: #43546b;
+            font-size: 0.8rem;
+            font-weight: 800;
+            letter-spacing: 0.02em;
+            margin: 0;
         }
 
         .department-rating-indicator {
@@ -823,8 +915,14 @@
         // Progress bar animations
         function animateProgressBars() {
             document.querySelectorAll('.progress-bar').forEach(bar => {
-                const width = bar.style.width;
+                if (bar.dataset.progressAnimated === 'true') {
+                    return;
+                }
+
+                const width = bar.style.width || bar.getAttribute('aria-valuenow') || '0%';
+                bar.dataset.progressAnimated = 'true';
                 bar.style.width = '0%';
+
                 setTimeout(() => {
                     bar.style.transition = 'width 1s ease-in-out';
                     bar.style.width = width;
@@ -1303,13 +1401,13 @@
                     </div>
                     <div class="card-body">
                         @if($metrics['total_responses'] > 0)
-                            <div class="row">
+                            <div class="row rating-distribution-grid mt-8">
                                 @foreach(['4' => ['Very Effective', 'success'], '3' => ['Effective', 'info'], '2' => ['Somewhat Effective', 'warning'], '1' => ['Not Effective', 'danger']] as $rating => $info)
                                     @php
                                         $count = $metrics['rating_distribution']->get($rating, 0);
                                         $percentage = ($count / $metrics['total_responses']) * 100;
                                     @endphp
-                                    <div class="col-md-6 mb-3">
+                                    <div class="col-md-6 rating-distribution-item">
                                         <div class="d-flex justify-content-between mb-1">
                                             <span class="fw-medium">{{ $info[0] }}</span>
                                             <span class="text-muted">{{ $count }} ({{ number_format($percentage, 1) }}%)</span>
@@ -1322,20 +1420,41 @@
                             </div>
 
                             {{-- Quick Stats --}}
-                            <div class="row mt-4">
-                                <div class="col-md-4 text-center">
-                                    <h6 class="text-success">
-                                        {{ $metrics['rating_distribution']->get('4', 0) + $metrics['rating_distribution']->get('3', 0) }}
-                                    </h6>
-                                    <small class="text-muted">Positive Ratings</small>
+                            <div class="row g-3 mt-10">
+                                <div class="col-md-4">
+                                    <div class="rating-summary-card positive">
+                                        <span class="rating-summary-icon">
+                                            <i class="bx bx-trending-up"></i>
+                                        </span>
+                                        <div>
+                                            <div class="rating-summary-value">
+                                                {{ $metrics['rating_distribution']->get('4', 0) + $metrics['rating_distribution']->get('3', 0) }}
+                                            </div>
+                                            <p class="rating-summary-label">Positive Ratings</p>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div class="col-md-4 text-center">
-                                    <h6 class="text-warning">{{ $metrics['rating_distribution']->get('2', 0) }}</h6>
-                                    <small class="text-muted">Neutral Ratings</small>
+                                <div class="col-md-4">
+                                    <div class="rating-summary-card neutral">
+                                        <span class="rating-summary-icon">
+                                            <i class="bx bx-minus-circle"></i>
+                                        </span>
+                                        <div>
+                                            <div class="rating-summary-value">{{ $metrics['rating_distribution']->get('2', 0) }}</div>
+                                            <p class="rating-summary-label">Neutral Ratings</p>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div class="col-md-4 text-center">
-                                    <h6 class="text-danger">{{ $metrics['rating_distribution']->get('1', 0) }}</h6>
-                                    <small class="text-muted">Needs Improvement</small>
+                                <div class="col-md-4">
+                                    <div class="rating-summary-card concern">
+                                        <span class="rating-summary-icon">
+                                            <i class="bx bx-error-circle"></i>
+                                        </span>
+                                        <div>
+                                            <div class="rating-summary-value">{{ $metrics['rating_distribution']->get('1', 0) }}</div>
+                                            <p class="rating-summary-label">Needs Improvement</p>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         @else
@@ -2227,8 +2346,14 @@
         // Progress bar animations
         function animateProgressBars() {
             document.querySelectorAll('.progress-bar').forEach(bar => {
-                const width = bar.style.width;
+                if (bar.dataset.progressAnimated === 'true') {
+                    return;
+                }
+
+                const width = bar.style.width || bar.getAttribute('aria-valuenow') || '0%';
+                bar.dataset.progressAnimated = 'true';
                 bar.style.width = '0%';
+
                 setTimeout(() => {
                     bar.style.transition = 'width 1s ease-in-out';
                     bar.style.width = width;
