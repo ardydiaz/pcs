@@ -155,6 +155,53 @@
       background: rgba(255, 183, 54, 0.18) !important;
       color: var(--dash-purple-dark) !important;
     }
+
+    @keyframes dashboardFadeSlideIn {
+      from {
+        opacity: 0;
+        transform: translateY(22px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .dashboard-modern .dashboard-brand-card,
+    .dashboard-modern .dashboard-panel-card,
+    .dashboard-modern .dashboard-metric-card {
+      opacity: 0;
+      transform: translateY(22px);
+      transition:
+        opacity 0.65s cubic-bezier(0.22, 1, 0.36, 1),
+        transform 0.65s cubic-bezier(0.22, 1, 0.36, 1),
+        box-shadow 0.25s ease;
+      will-change: opacity, transform;
+    }
+
+    .dashboard-modern .dashboard-reveal-visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .dashboard-modern .dashboard-brand-card.dashboard-reveal-visible,
+    .dashboard-modern .dashboard-metric-card.dashboard-reveal-visible,
+    .dashboard-modern .dashboard-panel-card.dashboard-reveal-visible {
+      animation: dashboardFadeSlideIn 0.65s cubic-bezier(0.22, 1, 0.36, 1) both;
+      animation-delay: var(--dashboard-reveal-delay, 0ms);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .dashboard-modern .dashboard-brand-card,
+      .dashboard-modern .dashboard-panel-card,
+      .dashboard-modern .dashboard-metric-card {
+        animation: none !important;
+        opacity: 1 !important;
+        transform: none !important;
+        transition: none !important;
+      }
+    }
   </style>
 @endsection
 
@@ -598,6 +645,32 @@
 @section('page-script')
   <script>
     document.addEventListener('DOMContentLoaded', function () {
+      const dashboardRevealItems = document.querySelectorAll(
+        '.dashboard-modern .dashboard-brand-card, .dashboard-modern .dashboard-metric-card, .dashboard-modern .dashboard-panel-card'
+      );
+
+      dashboardRevealItems.forEach((item, index) => {
+        item.style.setProperty('--dashboard-reveal-delay', `${Math.min(index * 70, 420)}ms`);
+      });
+
+      if ('IntersectionObserver' in window) {
+        const dashboardRevealObserver = new IntersectionObserver((entries, observer) => {
+          entries.forEach(entry => {
+            if (entry.isIntersecting) {
+              entry.target.classList.add('dashboard-reveal-visible');
+              observer.unobserve(entry.target);
+            }
+          });
+        }, {
+          threshold: 0.12,
+          rootMargin: '0px 0px -40px 0px'
+        });
+
+        dashboardRevealItems.forEach(item => dashboardRevealObserver.observe(item));
+      } else {
+        dashboardRevealItems.forEach(item => item.classList.add('dashboard-reveal-visible'));
+      }
+
       // Response Trend Chart
       const responseTrendData = @json($dailyResponses->pluck('count'));
       const responseTrendDates = @json($dailyResponses->pluck('date'));
