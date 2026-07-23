@@ -690,9 +690,9 @@
         }
 
         .schedule-icon-btn {
-            border: none;
-            background-color: #f8fafc;
-            color: #475569;
+            border: 1px solid rgba(92, 41, 124, 0.14);
+            background: linear-gradient(135deg, rgba(92, 41, 124, 0.1), rgba(255, 183, 54, 0.14));
+            color: #5c297c;
             border-radius: 0.75rem;
             width: 2.25rem;
             height: 2.25rem;
@@ -700,11 +700,17 @@
             align-items: center;
             justify-content: center;
             transition: all 0.2s ease;
+            box-shadow: 0 0.45rem 1rem rgba(44, 0, 63, 0.08);
         }
 
-        .schedule-icon-btn:hover {
-            background-color: #e2e8f0;
-            color: #1f2937;
+        .schedule-icon-btn:hover,
+        .schedule-icon-btn:focus,
+        .schedule-icon-btn.show {
+            border-color: rgba(255, 183, 54, 0.65);
+            background: linear-gradient(135deg, #5c297c, #7a2f8f);
+            color: #ffb736;
+            box-shadow: 0 0.75rem 1.35rem rgba(92, 41, 124, 0.22);
+            transform: translateY(-1px);
         }
 
         .schedule-detail-grid {

@@ -341,9 +341,9 @@
         }
 
         .evaluation-icon-btn {
-            border: none;
-            background-color: #f8fafc;
-            color: #475569;
+            border: 1px solid rgba(92, 41, 124, 0.14);
+            background: linear-gradient(135deg, rgba(92, 41, 124, 0.1), rgba(255, 183, 54, 0.14));
+            color: #5c297c;
             border-radius: 0.75rem;
             width: 2.25rem;
             height: 2.25rem;
@@ -351,11 +351,23 @@
             align-items: center;
             justify-content: center;
             transition: all 0.2s ease;
+            box-shadow: 0 0.45rem 1rem rgba(44, 0, 63, 0.08);
         }
 
-        .evaluation-icon-btn:hover {
-            background-color: #e2e8f0;
-            color: #1f2937;
+        .evaluation-icon-btn:hover,
+        .evaluation-icon-btn:focus,
+        .evaluation-icon-btn.show {
+            background: linear-gradient(135deg, #5c297c, #74318a);
+            border-color: rgba(255, 183, 54, 0.62);
+            color: #ffffff;
+            box-shadow: 0 0.8rem 1.35rem rgba(92, 41, 124, 0.2);
+            transform: translateY(-1px);
+        }
+
+        .evaluation-icon-btn:hover i,
+        .evaluation-icon-btn:focus i,
+        .evaluation-icon-btn.show i {
+            color: #ffd400;
         }
 
         .course-handler-btn {
@@ -372,7 +384,7 @@
             gap: 0.35rem;
             font-weight: 700;
             box-shadow: 0 10px 22px rgba(92, 41, 124, 0.08);
-            transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+            transition: background 0.18s ease, color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
         }
 
         .course-handler-btn i {
@@ -381,10 +393,16 @@
 
         .course-handler-btn:hover:not(:disabled),
         .course-handler-btn:focus:not(:disabled) {
-            border-color: rgba(92, 41, 124, 0.35);
-            color: #3a0050;
+            background: linear-gradient(135deg, #5c297c, #8c3f97);
+            border-color: rgba(255, 183, 54, 0.6);
+            color: #ffffff;
             transform: translateY(-1px);
-            box-shadow: 0 14px 26px rgba(92, 41, 124, 0.14);
+            box-shadow: 0 14px 26px rgba(92, 41, 124, 0.22);
+        }
+
+        .course-handler-btn:hover:not(:disabled) i,
+        .course-handler-btn:focus:not(:disabled) i {
+            color: #ffd400;
         }
 
         .course-handler-btn.is-empty {

@@ -639,15 +639,22 @@
             color: #5c297c;
             font-weight: 800;
             line-height: 1;
-            transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+            box-shadow: 0 0.45rem 1rem rgba(92, 41, 124, 0.06);
+            transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
         }
 
         .faculty-load-btn:hover,
         .faculty-load-btn:focus {
-            background: #efe3f7;
-            border-color: #d9c3e8;
-            color: #4b2266;
+            background: linear-gradient(135deg, #5c297c, #8c3f97);
+            border-color: rgba(255, 183, 54, 0.6);
+            color: #ffffff;
+            box-shadow: 0 0.85rem 1.4rem rgba(92, 41, 124, 0.22);
             transform: translateY(-1px);
+        }
+
+        .faculty-load-btn:hover i,
+        .faculty-load-btn:focus i {
+            color: #ffd400;
         }
 
         .faculty-load-btn.is-empty,
@@ -968,9 +975,9 @@
         }
 
         .evaluation-icon-btn {
-            border: none;
-            background-color: #f8fafc;
-            color: #475569;
+            border: 1px solid rgba(92, 41, 124, 0.14);
+            background: linear-gradient(135deg, rgba(92, 41, 124, 0.1), rgba(255, 183, 54, 0.14));
+            color: #5c297c;
             border-radius: 0.75rem;
             width: 2.25rem;
             height: 2.25rem;
@@ -978,11 +985,23 @@
             align-items: center;
             justify-content: center;
             transition: all 0.2s ease;
+            box-shadow: 0 0.45rem 1rem rgba(44, 0, 63, 0.08);
         }
 
-        .evaluation-icon-btn:hover {
-            background-color: #e2e8f0;
-            color: #1f2937;
+        .evaluation-icon-btn:hover,
+        .evaluation-icon-btn:focus,
+        .evaluation-icon-btn.show {
+            background: linear-gradient(135deg, #5c297c, #74318a);
+            border-color: rgba(255, 183, 54, 0.62);
+            color: #ffffff;
+            box-shadow: 0 0.8rem 1.35rem rgba(92, 41, 124, 0.2);
+            transform: translateY(-1px);
+        }
+
+        .evaluation-icon-btn:hover i,
+        .evaluation-icon-btn:focus i,
+        .evaluation-icon-btn.show i {
+            color: #ffd400;
         }
 
         .evaluation-count-pill {

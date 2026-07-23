@@ -18,6 +18,117 @@
 @auth
 <script>
   (() => {
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    if (reduceMotion) {
+      return;
+    }
+
+    const animatePageSections = () => {
+      const contentRoot = document.querySelector('.layout-page .content-wrapper > .container-xxl.container-p-y, .layout-page .content-wrapper > .container-fluid.container-p-y');
+
+      if (!contentRoot) {
+        return;
+      }
+
+      const isRevealCandidate = (element) => {
+        if (!(element instanceof HTMLElement)) {
+          return false;
+        }
+
+        if (element.matches('script, style, .modal, .offcanvas, .dropdown-menu, .visually-hidden, .container-fluid, .container-xxl, .row')) {
+          return false;
+        }
+
+        if (element.querySelector('.modal, .offcanvas, .dropdown-menu')) {
+          return false;
+        }
+
+        return true;
+      };
+
+      const directSections = Array.from(contentRoot.children).filter(isRevealCandidate);
+      const nestedSections = Array.from(contentRoot.querySelectorAll([
+        ':scope > .container-fluid > *',
+        ':scope > .row > [class*="col-"]',
+        ':scope > .row > [class*="col-"] > .card',
+        ':scope > .card',
+        ':scope > .modern-page-hero',
+        ':scope > .reports-filter-panel',
+        ':scope > .evaluation-card',
+        ':scope > .faculty-directory-hero',
+        ':scope > .data-table-shell',
+      ].join(','))).filter(isRevealCandidate);
+
+      const revealTargets = Array.from(new Set([...directSections, ...nestedSections]))
+        .filter((element) => !element.closest('.modal, .offcanvas, .dropdown-menu'))
+        .slice(0, 36);
+
+      if (!revealTargets.length) {
+        return;
+      }
+
+      revealTargets.forEach((element, index) => {
+        if (element.classList.contains('ui-page-enter')) {
+          return;
+        }
+
+        element.classList.add('ui-page-enter');
+        element.style.setProperty('--ui-enter-delay', `${Math.min(index * 55, 360)}ms`);
+      });
+
+      if (!('IntersectionObserver' in window)) {
+        window.requestAnimationFrame(() => {
+          revealTargets.forEach((element) => element.classList.add('is-visible'));
+        });
+        return;
+      }
+
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) {
+            return;
+          }
+
+          window.requestAnimationFrame(() => {
+            entry.target.classList.add('is-visible');
+          });
+          observer.unobserve(entry.target);
+        });
+      }, {
+        root: null,
+        rootMargin: '0px 0px -8% 0px',
+        threshold: 0.08,
+      });
+
+      revealTargets.forEach((element) => observer.observe(element));
+    };
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', animatePageSections, { once: true });
+    } else {
+      animatePageSections();
+    }
+
+    document.addEventListener('show.bs.modal', (event) => {
+      const modal = event.target;
+      if (!(modal instanceof HTMLElement)) {
+        return;
+      }
+
+      modal.classList.remove('ui-page-enter', 'is-visible');
+      modal.querySelectorAll('.ui-page-enter').forEach((element) => {
+        element.classList.remove('ui-page-enter', 'is-visible');
+        element.style.removeProperty('--ui-enter-delay');
+      });
+    });
+  })();
+</script>
+@endauth
+
+@auth
+<script>
+  (() => {
     const timeoutMs = {{ (int) config('session.lifetime', 120) * 60 * 1000 }};
     const loginUrl = @json(route('login'));
     const logoutUrl = @json(route('logout'));

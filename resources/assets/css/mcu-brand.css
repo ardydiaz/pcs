@@ -218,6 +218,86 @@ a:hover {
   color: var(--mcu-heritage-purple);
 }
 
+.table .dropdown > .btn.p-0.dropdown-toggle.hide-arrow,
+.table-responsive .dropdown > .btn.p-0.dropdown-toggle.hide-arrow,
+.data-table-shell .dropdown > .btn.p-0.dropdown-toggle.hide-arrow,
+.dropdown > .btn.p-0.dropdown-toggle.hide-arrow:has(.bx-dots-vertical-rounded) {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  width: 2.4rem;
+  height: 2.4rem;
+  border: 1px solid rgba(92, 41, 124, 0.12) !important;
+  border-radius: 0.85rem !important;
+  background: linear-gradient(135deg, rgba(92, 41, 124, 0.1), rgba(255, 183, 54, 0.14)) !important;
+  color: var(--mcu-heritage-purple) !important;
+  box-shadow: none;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease;
+}
+
+.table .dropdown > .btn.p-0.dropdown-toggle.hide-arrow:hover,
+.table .dropdown > .btn.p-0.dropdown-toggle.hide-arrow:focus,
+.table .dropdown > .btn.p-0.dropdown-toggle.hide-arrow.show,
+.table-responsive .dropdown > .btn.p-0.dropdown-toggle.hide-arrow:hover,
+.table-responsive .dropdown > .btn.p-0.dropdown-toggle.hide-arrow:focus,
+.table-responsive .dropdown > .btn.p-0.dropdown-toggle.hide-arrow.show,
+.data-table-shell .dropdown > .btn.p-0.dropdown-toggle.hide-arrow:hover,
+.data-table-shell .dropdown > .btn.p-0.dropdown-toggle.hide-arrow:focus,
+.data-table-shell .dropdown > .btn.p-0.dropdown-toggle.hide-arrow.show,
+.dropdown > .btn.p-0.dropdown-toggle.hide-arrow:has(.bx-dots-vertical-rounded):hover,
+.dropdown > .btn.p-0.dropdown-toggle.hide-arrow:has(.bx-dots-vertical-rounded):focus,
+.dropdown > .btn.p-0.dropdown-toggle.hide-arrow:has(.bx-dots-vertical-rounded).show {
+  background: linear-gradient(135deg, var(--mcu-heritage-purple), var(--mcu-purple-haze)) !important;
+  border-color: rgba(255, 183, 54, 0.62) !important;
+  color: #ffffff !important;
+  box-shadow: 0 0.8rem 1.35rem rgba(92, 41, 124, 0.2);
+  transform: translateY(-1px);
+}
+
+.table .dropdown > .btn.p-0.dropdown-toggle.hide-arrow:hover i,
+.table .dropdown > .btn.p-0.dropdown-toggle.hide-arrow:focus i,
+.table .dropdown > .btn.p-0.dropdown-toggle.hide-arrow.show i,
+.table-responsive .dropdown > .btn.p-0.dropdown-toggle.hide-arrow:hover i,
+.table-responsive .dropdown > .btn.p-0.dropdown-toggle.hide-arrow:focus i,
+.table-responsive .dropdown > .btn.p-0.dropdown-toggle.hide-arrow.show i,
+.data-table-shell .dropdown > .btn.p-0.dropdown-toggle.hide-arrow:hover i,
+.data-table-shell .dropdown > .btn.p-0.dropdown-toggle.hide-arrow:focus i,
+.data-table-shell .dropdown > .btn.p-0.dropdown-toggle.hide-arrow.show i,
+.dropdown > .btn.p-0.dropdown-toggle.hide-arrow:has(.bx-dots-vertical-rounded):hover i,
+.dropdown > .btn.p-0.dropdown-toggle.hide-arrow:has(.bx-dots-vertical-rounded):focus i,
+.dropdown > .btn.p-0.dropdown-toggle.hide-arrow:has(.bx-dots-vertical-rounded).show i {
+  color: var(--mcu-gold-burst) !important;
+}
+
+.ui-page-enter {
+  opacity: 0;
+  transform: translateY(16px);
+  transform-origin: center top;
+  transition:
+    opacity 0.48s cubic-bezier(0.2, 0.75, 0.24, 1),
+    transform 0.48s cubic-bezier(0.2, 0.75, 0.24, 1);
+  transition-delay: var(--ui-enter-delay, 0ms);
+  will-change: opacity, transform;
+}
+
+.ui-page-enter.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-page-enter {
+    transition: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
+
 .btn-outline-primary:hover,
 .btn-outline-primary:focus {
   border-color: var(--mcu-heritage-purple);

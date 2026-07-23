@@ -37,6 +37,21 @@
             gap: 0.35rem;
             font-weight: 700;
             box-shadow: 0 10px 22px rgba(92, 41, 124, 0.08);
+            transition: background 0.18s ease, color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+        }
+
+        .course-handler-btn:hover:not(:disabled),
+        .course-handler-btn:focus:not(:disabled) {
+            background: linear-gradient(135deg, #5c297c, #8c3f97);
+            border-color: rgba(255, 183, 54, 0.6);
+            color: #ffffff;
+            transform: translateY(-1px);
+            box-shadow: 0 14px 26px rgba(92, 41, 124, 0.22);
+        }
+
+        .course-handler-btn:hover:not(:disabled) i,
+        .course-handler-btn:focus:not(:disabled) i {
+            color: #ffd400;
         }
 
         .course-handler-btn.is-empty {

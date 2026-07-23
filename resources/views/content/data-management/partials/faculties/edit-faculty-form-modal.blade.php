@@ -18,7 +18,7 @@
                         </div>
                         <div class="mb-3">
                             <label class="form-label" for="editEmployeeNo">Employee Number</label>
-                            <input type="text" name="employee_no" id="editEmployeeNo" class="form-control" readonly tabindex="-1" required>
+                            <input type="text" name="employee_no" id="editEmployeeNo" class="form-control" placeholder="EMP-0001" required>
                         </div>
                         <div class="mb-3">
                             <label class="form-label" for="editDepartment">Department</label>
