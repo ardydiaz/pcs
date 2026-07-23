@@ -1355,35 +1355,12 @@
                     <div class="card-header">
                         <h5 class="card-title mb-0">Recent Evaluations</h5>
                     </div>
-                    <div class="card-body p-0">
-                        <div class="recent-activity p-3">
-                            @forelse($recentResponses as $response)
-                                                <div class="d-flex align-items-center mb-3">
-                                                    <div class="avatar flex-shrink-0 me-3">
-                                                        <span class="avatar-initial rounded bg-light text-dark">
-                                                            {{ substr($response->resolved_course_code ?? 'N', 0, 2) }}
-                                                        </span>
-                                                    </div>
-                                                    <div class="flex-grow-1">
-                                                        <h6 class="mb-1">{{ $response->resolved_course_code }}
-                                                        </h6>
-                                                        <div class="d-flex align-items-center">
-                                                            <span
-                                                                class="badge bg-{{ 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            $response->effectiveness_rating == '4' ? 'success' :
-                                ($response->effectiveness_rating == '3' ? 'info' :
-                                    ($response->effectiveness_rating == '2' ? 'warning' : 'danger')) 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        }} me-2">{{ $response->effectiveness_rating }}</span>
-                                                            <small class="text-muted">{{ $response->created_at->diffForHumans() }}</small>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                            @empty
-                                <div class="text-center py-4">
-                                    <i class="bx bx-time text-muted mb-2" style="font-size: 2rem;"></i>
-                                    <p class="text-muted mb-0">No recent activity</p>
-                                </div>
-                            @endforelse
+                    <div class="card-body p-0" id="reportsRecentResponses">
+                        <div class="text-center py-5">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <p class="text-muted mt-2 mb-0">Loading recent evaluations...</p>
                         </div>
                     </div>
                 </div>
@@ -1391,133 +1368,13 @@
         </div>
 
         {{-- Faculty Performance Tables --}}
-        <div class="row align-items-stretch">
-
-            {{-- Top Rated Faculties --}}
-            <div class="col-lg-6 mb-4 d-flex">
-                <div class="card w-100 h-100 report-card">
-                    <div class="card-header">
-                        <h5 class="card-title mb-0">Top Rated Faculties</h5>
+        <div id="reportsFacultyRatings">
+            <div class="card report-card mb-4">
+                <div class="card-body text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
                     </div>
-                    <div class="card-body">
-                        @forelse($facultyRatings['top_rated'] as $index => $faculty)
-                            @php
-                                $facultyDepartments = collect(explode(',', $faculty['department'] ?? ''))
-                                    ->map(function ($value) {
-                                        return trim($value);
-                                    })
-                                    ->filter(function ($value) {
-                                        return $value !== '';
-                                    })
-                                    ->values();
-                                $rankNumber = $index + 1;
-                            @endphp
-                            <div class="d-flex align-items-center gap-2 mb-3">
-                                <span class="badge bg-{{ $rankNumber <= 3 ? 'success' : 'primary' }} rounded-pill" style="min-width: 40px; display: flex; align-items: center; justify-content: center;">
-                                    #{{ $rankNumber }}
-                                </span>
-                                <div class="flex-grow-1">
-                                    <h6 class="mb-0">{{ $faculty['faculty_name'] }}</h6>
-                                    <small class="text-muted">{{ $facultyDepartments->first() ?? 'No department' }}</small>
-                                </div>
-                                <div class="text-end">
-                                    <div class="fw-medium">{{ $faculty['average_rating'] }}/4.0</div>
-                                    <small class="text-muted">{{ $faculty['total_responses'] }} responses</small>
-                                </div>
-                            </div>
-                        @empty
-                            <div class="text-center py-3">
-                                <i class="bx bx-star text-muted mb-2" style="font-size: 2rem;"></i>
-                                <p class="text-muted mb-0">No rating data available</p>
-                            </div>
-                        @endforelse
-                    </div>
-                </div>
-            </div>
-
-            {{-- Low Rated Faculties --}}
-            <div class="col-lg-6 mb-4 d-flex">
-                <div class="card w-100 h-100 report-card">
-                    <div class="card-header">
-                        <h5 class="card-title mb-0">Low Rated Faculties</h5>
-                    </div>
-                    <div class="card-body">
-                        @forelse($facultyRatings['low_rated'] as $index => $faculty)
-                            @php
-                                $facultyDepartments = collect(explode(',', $faculty['department'] ?? ''))
-                                    ->map(function ($value) {
-                                        return trim($value);
-                                    })
-                                    ->filter(function ($value) {
-                                        return $value !== '';
-                                    })
-                                    ->values();
-                                $rankNumber = $index + 1;
-                            @endphp
-                            <div class="d-flex align-items-center gap-2 mb-3">
-                                <span class="badge bg-{{ $rankNumber <= 3 ? 'danger' : 'secondary' }} rounded-pill" style="min-width: 40px; display: flex; align-items: center; justify-content: center;">
-                                    #{{ $rankNumber }}
-                                </span>
-                                <div class="flex-grow-1">
-                                    <h6 class="mb-0">{{ $faculty['faculty_name'] }}</h6>
-                                    <small class="text-muted">{{ $facultyDepartments->first() ?? 'No department' }}</small>
-                                </div>
-                                <div class="text-end">
-                                    <div class="fw-medium">{{ $faculty['average_rating'] }}/4.0</div>
-                                    <small class="text-muted">{{ $faculty['total_responses'] }} responses</small>
-                                </div>
-                            </div>
-                        @empty
-                            <div class="text-center py-3">
-                                <i class="bx bx-trending-down text-muted mb-2" style="font-size: 2rem;"></i>
-                                <p class="text-muted mb-0">No rating data available</p>
-                            </div>
-                        @endforelse
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="row">
-            {{-- Most Evaluated Faculties --}}
-            <div class="col-lg-12 mb-4">
-                <div class="card report-card">
-                    <div class="card-header">
-                        <h5 class="card-title mb-0">Most Evaluated Faculties</h5>
-                    </div>
-                    <div class="card-body">
-                        @forelse($facultyRatings['most_evaluated'] as $index => $faculty)
-                            @php
-                                $facultyDepartments = collect(explode(',', $faculty['department'] ?? ''))
-                                    ->map(function ($value) {
-                                        return trim($value);
-                                    })
-                                    ->filter(function ($value) {
-                                        return $value !== '';
-                                    })
-                                    ->values();
-                                $rankNumber = $index + 1;
-                            @endphp
-                            <div class="d-flex align-items-center gap-2 mb-3">
-                                <span class="badge bg-{{ $rankNumber <= 3 ? 'info' : 'secondary' }} rounded-pill" style="min-width: 40px; display: flex; align-items: center; justify-content: center;">
-                                    #{{ $rankNumber }}
-                                </span>
-                                <div class="flex-grow-1">
-                                    <h6 class="mb-0">{{ $faculty['faculty_name'] }}</h6>
-                                    <small class="text-muted">{{ $facultyDepartments->first() ?? 'No department' }}</small>
-                                </div>
-                                <div class="text-end">
-                                    <div class="fw-medium">{{ $faculty['total_responses'] }} responses</div>
-                                    <small class="text-muted">{{ $faculty['average_rating'] }}/4.0 avg</small>
-                                </div>
-                            </div>
-                        @empty
-                            <div class="text-center py-3">
-                                <i class="bx bx-bar-chart text-muted mb-2" style="font-size: 2rem;"></i>
-                                <p class="text-muted mb-0">No evaluation data available</p>
-                            </div>
-                        @endforelse
-                    </div>
+                    <p class="text-muted mt-2 mb-0">Loading faculty performance...</p>
                 </div>
             </div>
         </div>
@@ -2257,6 +2114,63 @@
             loadFacultyData(currentDepartment, page, perPage, search);
         }
 
+        function loadReportLazySections() {
+            const recentContainer = document.getElementById('reportsRecentResponses');
+            const facultyContainer = document.getElementById('reportsFacultyRatings');
+
+            if (!recentContainer && !facultyContainer) {
+                return;
+            }
+
+            const url = new URL('{{ route('reports.lazy.sections') }}');
+            url.searchParams.set('department', '{{ $selectedDepartment }}');
+            url.searchParams.set('academic_year', '{{ $selectedAcademicYear }}');
+            url.searchParams.set('semester', '{{ $selectedSemester }}');
+            url.searchParams.set('subject_type', '{{ $selectedSubjectType }}');
+
+            fetch(url, {
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                }
+            })
+                .then((response) => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error ${response.status}`);
+                    }
+
+                    return response.json();
+                })
+                .then((data) => {
+                    if (!data.success) {
+                        throw new Error(data.message || 'Unable to load report sections.');
+                    }
+
+                    if (recentContainer) {
+                        recentContainer.innerHTML = data.recent_html || '';
+                    }
+                    if (facultyContainer) {
+                        facultyContainer.innerHTML = data.faculty_html || '';
+                    }
+                })
+                .catch((error) => {
+                    const fallback = `
+                        <div class="text-center py-5">
+                            <i class="bx bx-error text-danger mb-2" style="font-size: 2rem;"></i>
+                            <h6 class="text-danger mb-2">Unable to load this section</h6>
+                            <p class="text-muted mb-0">${escapeMetricHtml(error.message || 'Please refresh and try again.')}</p>
+                        </div>
+                    `;
+
+                    if (recentContainer) {
+                        recentContainer.innerHTML = fallback;
+                    }
+                    if (facultyContainer) {
+                        facultyContainer.innerHTML = `<div class="card report-card mb-4"><div class="card-body">${fallback}</div></div>`;
+                    }
+                });
+        }
+
         // Faculty search and pagination handlers
         document.addEventListener('DOMContentLoaded', function () {
             // Faculty per page change
@@ -2293,6 +2207,7 @@
             bindDepartmentExportButton();
             bindFilteredResultToggle();
             bindMetricCards();
+            loadReportLazySections();
         });
 
         // Form auto-submit on filter change

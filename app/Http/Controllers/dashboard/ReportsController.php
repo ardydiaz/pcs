@@ -191,30 +191,17 @@ class ReportsController extends Controller
                     $excludedDepartments,
                     $selectedSubjectType
                 ),
-                'recentResponses' => $this->getRecentResponses(
-                    $selectedDepartment,
-                    $selectedAcademicYear,
-                    $selectedSemester,
-                    10,
-                    $lockedDepartments->values()->all(),
-                    $excludedDepartments,
-                    $selectedSubjectType
-                ),
-                'facultyRatings' => $this->getFacultyRatings(
-                    $selectedDepartment,
-                    $selectedAcademicYear,
-                    $selectedSemester,
-                    $lockedDepartments->values()->all(),
-                    $excludedDepartments,
-                    $selectedSubjectType
-                ),
             ];
         });
 
         $metrics = $reportData['metrics'];
         $departmentBreakdown = $reportData['departmentBreakdown'];
-        $recentResponses = $reportData['recentResponses'];
-        $facultyRatings = $reportData['facultyRatings'];
+        $recentResponses = collect();
+        $facultyRatings = [
+            'top_rated' => collect(),
+            'low_rated' => collect(),
+            'most_evaluated' => collect(),
+        ];
 
         return view('content.dashboard.dashboard-reports', compact(
             'metrics',
@@ -232,6 +219,113 @@ class ReportsController extends Controller
             'isDepartmentScoped',
             'lockedDepartment'
         ));
+    }
+
+    public function getLazySections(Request $request): JsonResponse
+    {
+        $excludedDepartments = self::EXCLUDED_DEPARTMENTS;
+        $user = $request->user();
+        $accessLevels = collect($user?->access_level ?? []);
+        $isAdmin = $user && $user->role === 'Admin';
+        $hasReportAccess = $isAdmin
+            || $accessLevels->contains('View All Reports')
+            || $accessLevels->contains('View Department Reports');
+
+        if (!$hasReportAccess) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized.'], 404);
+        }
+
+        $allowedDepartments = [];
+        if (!$isAdmin) {
+            $allowedDepartments = collect($this->resolveDepartmentScope($user))
+                ->filter(fn ($value) => $value !== '')
+                ->values()
+                ->all();
+
+            if (empty($allowedDepartments)) {
+                return response()->json([
+                    'success' => true,
+                    'recent_html' => view('content.dashboard.partials.reports-recent-responses', [
+                        'recentResponses' => collect(),
+                    ])->render(),
+                    'faculty_html' => view('content.dashboard.partials.reports-faculty-ratings', [
+                        'facultyRatings' => [
+                            'top_rated' => collect(),
+                            'low_rated' => collect(),
+                            'most_evaluated' => collect(),
+                        ],
+                    ])->render(),
+                ]);
+            }
+        }
+
+        $department = $request->get('department', 'all');
+        if ($department !== 'all') {
+            $department = $this->normalizeDepartmentName($department) ?? $department;
+        }
+
+        if (in_array($department, $excludedDepartments, true)) {
+            $department = 'all';
+        }
+
+        if (!$isAdmin && $department !== 'all' && !in_array($department, $allowedDepartments, true)) {
+            $department = 'all';
+        }
+
+        $academicYear = $request->get('academic_year', 'all');
+        $semester = $request->get('semester', 'all');
+        $subjectType = $request->get('subject_type', 'all');
+
+        if (!in_array($subjectType, ['all', 'major', 'minor'], true)) {
+            $subjectType = 'all';
+        }
+
+        $cacheKey = 'reports.lazy.sections.v1.' . md5(json_encode([
+            'department' => $department,
+            'academic_year' => $academicYear,
+            'semester' => $semester,
+            'subject_type' => $subjectType,
+            'allowed_departments' => $allowedDepartments,
+        ]));
+
+        $data = Cache::remember($cacheKey, now()->addMinutes(3), function () use (
+            $department,
+            $academicYear,
+            $semester,
+            $subjectType,
+            $allowedDepartments,
+            $excludedDepartments
+        ) {
+            return [
+                'recentResponses' => $this->getRecentResponses(
+                    $department,
+                    $academicYear,
+                    $semester,
+                    10,
+                    $allowedDepartments,
+                    $excludedDepartments,
+                    $subjectType
+                ),
+                'facultyRatings' => $this->getFacultyRatings(
+                    $department,
+                    $academicYear,
+                    $semester,
+                    $allowedDepartments,
+                    $excludedDepartments,
+                    $subjectType
+                ),
+            ];
+        });
+
+        return response()->json([
+            'success' => true,
+            'recent_html' => view('content.dashboard.partials.reports-recent-responses', [
+                'recentResponses' => $data['recentResponses'],
+            ])->render(),
+            'faculty_html' => view('content.dashboard.partials.reports-faculty-ratings', [
+                'facultyRatings' => $data['facultyRatings'],
+            ])->render(),
+        ]);
     }
 
     public function getMetricDetails(Request $request): JsonResponse
