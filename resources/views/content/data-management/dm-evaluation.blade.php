@@ -952,18 +952,20 @@
         }
 
         .btn.btn-tertiary {
-            background: transparent;
-            border: none;
-            color: #64748b;
+            background: rgba(92, 41, 124, 0.08);
+            border: 1px solid rgba(92, 41, 124, 0.18);
+            color: #5c297c;
             padding: 0.55rem 1.2rem;
+            font-weight: 700;
         }
 
         .btn.btn-tertiary:hover,
         .btn.btn-tertiary:focus,
         .btn.btn-tertiary:active {
-            background: transparent;
-            color: #64748b;
-            box-shadow: none;
+            background: #fff3d6;
+            border-color: rgba(255, 183, 54, 0.75);
+            color: #3a0050;
+            box-shadow: 0 10px 24px rgba(92, 41, 124, 0.12);
         }
 
         div[data-table-id="evaluationTable"] [data-table-info] {
@@ -2178,14 +2180,14 @@
                     <button type="button" class="btn btn-tertiary evaluation-modal-btn"
                         data-bs-dismiss="modal">Close</button>
                     <a id="facultyProfileResponsesBtn" href="#" class="btn btn-outline-primary evaluation-modal-btn">
-                        View Responses
+                        <i class="bx bx-show me-1"></i> View Responses
                     </a>
                     <a id="facultyProfileDownloadResponsesBtn" href="#"
                         class="btn btn-outline-primary evaluation-modal-btn">
-                        Download Responses
+                        <i class="bx bx-download me-1"></i> Download Responses
                     </a>
                     <a id="facultyProfileQrBtn" href="#" class="btn btn-faculty-primary evaluation-modal-btn">
-                        Download QR
+                        <i class="bx bx-qr me-1"></i> Download QR
                     </a>
                 </div>
             </div>
