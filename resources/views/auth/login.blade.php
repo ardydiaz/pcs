@@ -45,6 +45,64 @@
             font-family: 'Roboto', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
         }
 
+        @keyframes loginShellEnter {
+            from {
+                opacity: 0;
+                transform: translateY(24px) scale(0.985);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        @keyframes loginPanelEnter {
+            from {
+                opacity: 0;
+                transform: translateX(24px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        @keyframes brandContentEnter {
+            from {
+                opacity: 0;
+                transform: translateX(-26px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        @keyframes softFloat {
+            0%,
+            100% {
+                transform: translate3d(0, 0, 0) scale(1);
+            }
+
+            50% {
+                transform: translate3d(14px, -12px, 0) scale(1.03);
+            }
+        }
+
+        @keyframes dotDrift {
+            0%,
+            100% {
+                transform: translateY(0);
+            }
+
+            50% {
+                transform: translateY(-14px);
+            }
+        }
+
         .login-backdrop {
             position: fixed;
             inset: 0;
@@ -69,6 +127,7 @@
             background:
                 radial-gradient(circle, rgba(255, 194, 14, 0.34), transparent 62%),
                 radial-gradient(circle at 70% 30%, rgba(92, 41, 124, 0.16), transparent 58%);
+            animation: softFloat 9s ease-in-out infinite;
         }
 
         .login-backdrop::after {
@@ -77,6 +136,7 @@
             background:
                 radial-gradient(circle, rgba(92, 41, 124, 0.26), transparent 62%),
                 radial-gradient(circle at 20% 80%, rgba(16, 168, 180, 0.14), transparent 54%);
+            animation: softFloat 11s ease-in-out infinite reverse;
         }
 
         .dot-field {
@@ -87,6 +147,7 @@
             background-size: 10px 10px;
             opacity: 0.42;
             pointer-events: none;
+            animation: dotDrift 8s ease-in-out infinite;
         }
 
         .dot-field-left {
@@ -111,6 +172,7 @@
             background: rgba(255, 255, 255, 0.74);
             box-shadow: 0 28px 70px rgba(44, 0, 63, 0.18);
             backdrop-filter: blur(18px);
+            animation: loginShellEnter 0.72s cubic-bezier(0.22, 1, 0.36, 1) both;
         }
 
         .brand-panel {
@@ -154,6 +216,7 @@
             height: 100%;
             display: flex;
             flex-direction: column;
+            animation: brandContentEnter 0.78s cubic-bezier(0.22, 1, 0.36, 1) 0.12s both;
         }
 
         .brand-kicker {
@@ -241,6 +304,7 @@
             background:
                 linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(252, 250, 255, 0.98)),
                 radial-gradient(circle at top, rgba(255, 194, 14, 0.12), transparent 18rem);
+            animation: loginPanelEnter 0.78s cubic-bezier(0.22, 1, 0.36, 1) 0.18s both;
         }
 
         .login-card {
@@ -452,6 +516,17 @@
 
             .login-title {
                 font-size: 1.14rem;
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *,
+            *::before,
+            *::after {
+                animation-duration: 0.001ms !important;
+                animation-iteration-count: 1 !important;
+                scroll-behavior: auto !important;
+                transition-duration: 0.001ms !important;
             }
         }
     </style>
