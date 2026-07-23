@@ -798,14 +798,9 @@ class EvaluationController extends Controller
             ->where('evaluation_id', $evaluation->id)
             ->get();
 
-        $activeLinksCount = Evaluation::where('faculty_id', $evaluation->faculty_id)
-            ->where('is_active', true)
-            ->count();
+        $activeLinksCount = $evaluation->is_active ? 1 : 0;
 
-        $qrLinks = Evaluation::where('faculty_id', $evaluation->faculty_id)
-            ->latest()
-            ->limit(6)
-            ->get()
+        $qrLinks = collect([$evaluation])
             ->map(function (Evaluation $item) {
                 return [
                     'id' => $item->id,
