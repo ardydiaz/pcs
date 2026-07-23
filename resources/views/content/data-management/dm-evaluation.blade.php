@@ -2180,6 +2180,10 @@
                     <a id="facultyProfileResponsesBtn" href="#" class="btn btn-outline-primary evaluation-modal-btn">
                         View Responses
                     </a>
+                    <a id="facultyProfileDownloadResponsesBtn" href="#"
+                        class="btn btn-outline-primary evaluation-modal-btn">
+                        Download Responses
+                    </a>
                     <a id="facultyProfileQrBtn" href="#" class="btn btn-faculty-primary evaluation-modal-btn">
                         Download QR
                     </a>
@@ -3124,11 +3128,13 @@
             const subtitleEl = document.getElementById('facultyProfileSubtitle');
             const bodyEl = document.getElementById('facultyProfileBody');
             const responsesBtn = document.getElementById('facultyProfileResponsesBtn');
+            const downloadResponsesBtn = document.getElementById('facultyProfileDownloadResponsesBtn');
             const qrBtn = document.getElementById('facultyProfileQrBtn');
 
             if (titleEl) titleEl.textContent = 'Loading profile...';
             if (subtitleEl) subtitleEl.innerHTML = '';
             if (responsesBtn) responsesBtn.classList.add('disabled');
+            if (downloadResponsesBtn) downloadResponsesBtn.classList.add('disabled');
             if (qrBtn) qrBtn.classList.add('disabled');
             if (bodyEl) {
                 bodyEl.innerHTML = `
@@ -3184,6 +3190,7 @@
             const subtitleEl = document.getElementById('facultyProfileSubtitle');
             const bodyEl = document.getElementById('facultyProfileBody');
             const responsesBtn = document.getElementById('facultyProfileResponsesBtn');
+            const downloadResponsesBtn = document.getElementById('facultyProfileDownloadResponsesBtn');
             const qrBtn = document.getElementById('facultyProfileQrBtn');
 
             if (titleEl) titleEl.textContent = faculty.name || 'Unknown Faculty';
@@ -3203,6 +3210,10 @@
             if (responsesBtn) {
                 responsesBtn.href = actions.responses_url || '#';
                 responsesBtn.classList.toggle('disabled', !actions.responses_url);
+            }
+            if (downloadResponsesBtn) {
+                downloadResponsesBtn.href = actions.download_responses_url || '#';
+                downloadResponsesBtn.classList.toggle('disabled', !actions.download_responses_url);
             }
             if (qrBtn) {
                 qrBtn.href = actions.download_qr_url || '#';

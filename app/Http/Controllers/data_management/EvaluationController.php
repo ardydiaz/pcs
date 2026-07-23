@@ -874,6 +874,7 @@ class EvaluationController extends Controller
             'qr_links' => $qrLinks,
             'actions' => [
                 'responses_url' => route('dm.evaluation.responses', $evaluation) . '?from=dm',
+                'download_responses_url' => route('dm.evaluation.responses.export', $evaluation) . '?from=dm',
                 'download_qr_url' => route('dm.evaluation.qr.download', $evaluation),
                 'poster_url' => route('dm.evaluation.qr.poster', $evaluation),
             ],
