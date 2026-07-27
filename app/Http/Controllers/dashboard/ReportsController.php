@@ -182,20 +182,11 @@ class ReportsController extends Controller
                     $selectedDepartment,
                     $lockedDepartments->values()->all()
                 ),
-                'departmentBreakdown' => $this->getDepartmentBreakdown(
-                    $selectedDepartment,
-                    $selectedAcademicYear,
-                    $selectedSemester,
-                    $perPage,
-                    $lockedDepartments->values()->all(),
-                    $excludedDepartments,
-                    $selectedSubjectType
-                ),
             ];
         });
 
         $metrics = $reportData['metrics'];
-        $departmentBreakdown = $reportData['departmentBreakdown'];
+        $departmentBreakdown = collect();
         $recentResponses = collect();
         $facultyRatings = [
             'top_rated' => collect(),
@@ -235,6 +226,13 @@ class ReportsController extends Controller
             return response()->json(['success' => false, 'message' => 'Unauthorized.'], 404);
         }
 
+        $requestSubjectType = $request->get('subject_type', 'all');
+        $requestSubjectType = in_array($requestSubjectType, ['all', 'major', 'minor'], true)
+            ? $requestSubjectType
+            : 'all';
+        $requestPerPageRaw = $request->get('per_page', 10);
+        $requestPerPage = $requestPerPageRaw === 'all' ? 'all' : (int) $requestPerPageRaw;
+
         $allowedDepartments = [];
         if (!$isAdmin) {
             $allowedDepartments = collect($this->resolveDepartmentScope($user))
@@ -245,6 +243,11 @@ class ReportsController extends Controller
             if (empty($allowedDepartments)) {
                 return response()->json([
                     'success' => true,
+                    'department_html' => view('content.dashboard.partials.reports-department-breakdown', [
+                        'departmentBreakdown' => collect(),
+                        'selectedSubjectType' => $requestSubjectType,
+                        'perPage' => $requestPerPage,
+                    ])->render(),
                     'recent_html' => view('content.dashboard.partials.reports-recent-responses', [
                         'recentResponses' => collect(),
                     ])->render(),
@@ -274,17 +277,15 @@ class ReportsController extends Controller
 
         $academicYear = $request->get('academic_year', 'all');
         $semester = $request->get('semester', 'all');
-        $subjectType = $request->get('subject_type', 'all');
+        $subjectType = $requestSubjectType;
+        $perPage = $requestPerPage;
 
-        if (!in_array($subjectType, ['all', 'major', 'minor'], true)) {
-            $subjectType = 'all';
-        }
-
-        $cacheKey = 'reports.lazy.sections.v1.' . md5(json_encode([
+        $cacheKey = 'reports.lazy.sections.v2.' . md5(json_encode([
             'department' => $department,
             'academic_year' => $academicYear,
             'semester' => $semester,
             'subject_type' => $subjectType,
+            'per_page' => $perPage,
             'allowed_departments' => $allowedDepartments,
         ]));
 
@@ -293,10 +294,20 @@ class ReportsController extends Controller
             $academicYear,
             $semester,
             $subjectType,
+            $perPage,
             $allowedDepartments,
             $excludedDepartments
         ) {
             return [
+                'departmentBreakdown' => $this->getDepartmentBreakdown(
+                    $department,
+                    $academicYear,
+                    $semester,
+                    $perPage,
+                    $allowedDepartments,
+                    $excludedDepartments,
+                    $subjectType
+                ),
                 'recentResponses' => $this->getRecentResponses(
                     $department,
                     $academicYear,
@@ -319,6 +330,11 @@ class ReportsController extends Controller
 
         return response()->json([
             'success' => true,
+            'department_html' => view('content.dashboard.partials.reports-department-breakdown', [
+                'departmentBreakdown' => $data['departmentBreakdown'],
+                'selectedSubjectType' => $subjectType,
+                'perPage' => $perPage,
+            ])->render(),
             'recent_html' => view('content.dashboard.partials.reports-recent-responses', [
                 'recentResponses' => $data['recentResponses'],
             ])->render(),
