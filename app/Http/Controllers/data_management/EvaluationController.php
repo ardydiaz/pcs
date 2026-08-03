@@ -1365,13 +1365,18 @@ class EvaluationController extends Controller
         $semester = request('semester', $evaluation->semester);
         $subjectType = request('subject_type', 'all');
         $department = trim((string) request('department', ''));
+        $program = $this->normalizeDentistryProgram(request('program', 'all'));
+        if (!$this->shouldApplyDentistryProgramFilter($department, $program, request()->user())) {
+            $program = 'all';
+        }
         
         \Log::info('ViewResponses - Starting', [
             'evaluation_id' => $evaluation->id,
             'faculty_id' => $evaluation->faculty_id,
             'academic_year' => $academicYear,
             'semester' => $semester,
-            'subject_type' => $subjectType
+            'subject_type' => $subjectType,
+            'program' => $program
         ]);
         
         // Build query to fetch responses based on evaluation and filter parameters
@@ -1401,12 +1406,14 @@ class EvaluationController extends Controller
         
         $responses = $query->latest()->get();
         $responses = $this->filterResponsesByRequestedDepartment($responses, $department);
+        $responses = $this->filterResponsesByDentistryProgram($responses, $department, $program);
         
         \Log::info('ViewResponses - Query result', [
             'evaluation_id' => $evaluation->id,
             'academic_year' => $academicYear,
             'semester' => $semester,
             'subject_type' => $subjectType,
+            'program' => $program,
             'count' => $responses->count()
         ]);
         
@@ -1434,6 +1441,7 @@ class EvaluationController extends Controller
             
             $responses = $fallbackQuery->latest()->get();
             $responses = $this->filterResponsesByRequestedDepartment($responses, $department);
+            $responses = $this->filterResponsesByDentistryProgram($responses, $department, $program);
             
             \Log::info('ViewResponses - Fallback result', [
                 'count' => $responses->count()
@@ -1454,6 +1462,7 @@ class EvaluationController extends Controller
             'semester' => $semester,
             'department' => $department,
             'subject_type' => $subjectType,
+            'program' => $program,
             'responses_count' => $responses->count(),
                 'courses_evaluated_count' => $coursesEvaluatedCount,
             ],
@@ -1475,6 +1484,10 @@ class EvaluationController extends Controller
         $semester = $request->get('semester', $evaluation->semester);
         $subjectType = $request->get('subject_type', 'all');
         $department = trim((string) $request->get('department', ''));
+        $program = $this->normalizeDentistryProgram($request->get('program', 'all'));
+        if (!$this->shouldApplyDentistryProgramFilter($department, $program, $request->user())) {
+            $program = 'all';
+        }
         $startDate = $request->get('start_date');
         $endDate = $request->get('end_date');
 
@@ -1485,6 +1498,7 @@ class EvaluationController extends Controller
             'semester' => $semester,
             'department' => $department,
             'subject_type' => $subjectType,
+            'program' => $program,
             'start_date' => $startDate,
             'end_date' => $endDate
         ]);
@@ -1607,6 +1621,7 @@ class EvaluationController extends Controller
         $responses = $allResponses
             ->filter(fn (EvaluationResponse $response) => $this->responseHasActiveCourseLink($response))
             ->pipe(fn ($collection) => $this->filterResponsesByRequestedDepartment($collection, $department))
+            ->pipe(fn ($collection) => $this->filterResponsesByDentistryProgram($collection, $department, $program))
             ->values();
 
         $facultySlug = Str::slug($evaluation->resolved_faculty_name, '_');
@@ -1662,6 +1677,78 @@ class EvaluationController extends Controller
         return $response->schedule !== null
             && $response->schedule->facultyCourse !== null
             && $response->schedule->facultyCourse->course !== null;
+    }
+
+    private function normalizeDentistryProgram(?string $program): string
+    {
+        $value = strtolower(trim((string) ($program ?? 'all')));
+
+        if ($value === 'dmd') {
+            $value = 'ddm';
+        }
+
+        return in_array($value, ['ddm', 'msd'], true) ? $value : 'all';
+    }
+
+    private function filterResponsesByDentistryProgram($responses, string $department, string $program)
+    {
+        $program = $this->normalizeDentistryProgram($program);
+        if (!$this->shouldApplyDentistryProgramFilter($department, $program, request()->user())) {
+            return $responses;
+        }
+
+        $prefixes = $program === 'all' ? ['DDM', 'MSD'] : [strtoupper($program)];
+
+        return $responses
+            ->filter(function (EvaluationResponse $response) use ($prefixes) {
+                $facultyCourse = $response->schedule?->facultyCourse;
+                $course = $facultyCourse?->course;
+                $values = [
+                    $facultyCourse?->section,
+                    $course?->class_code,
+                    $course?->subject_code,
+                    $response->course_code_snapshot,
+                    $response->course_name_snapshot,
+                    $response->resolved_course_code,
+                    $response->resolved_course_name,
+                ];
+
+                foreach ($values as $value) {
+                    $normalized = strtoupper(preg_replace('/\s+/', '', (string) ($value ?? '')));
+                    foreach ($prefixes as $prefix) {
+                        if ($normalized !== '' && str_starts_with($normalized, $prefix)) {
+                            return true;
+                        }
+                    }
+                }
+
+                return false;
+            })
+            ->values();
+    }
+
+    private function shouldApplyDentistryProgramFilter(string $department, string $program, $user = null): bool
+    {
+        if ($department !== 'College of Dentistry') {
+            return false;
+        }
+
+        if ($this->normalizeDentistryProgram($program) !== 'all') {
+            return true;
+        }
+
+        return $this->isDentistryProgramRestrictedUser($user ?? request()->user());
+    }
+
+    private function isDentistryProgramRestrictedUser($user = null): bool
+    {
+        if (!$user || $user->role === 'Admin') {
+            return false;
+        }
+
+        $jobTitle = strtolower(trim((string) ($user->job_title ?? $user->faculty?->job_title ?? '')));
+
+        return in_array($jobTitle, ['dean', 'vice dean'], true);
     }
 
     private function filterResponsesByRequestedDepartment($responses, string $department)

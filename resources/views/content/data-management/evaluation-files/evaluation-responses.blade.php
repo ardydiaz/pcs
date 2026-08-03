@@ -591,9 +591,10 @@
                         $academicYear = request('academic_year', $evaluation->academic_year);
                         $semester = request('semester', $evaluation->semester);
                         $subjectType = request('subject_type', 'all');
+                        $program = request('program', 'all');
                         
                         if ($from === 'reports') {
-                            $backRoute = route('reports') . '?department=' . $department . '&academic_year=' . $academicYear . '&semester=' . $semester . '&subject_type=' . $subjectType;
+                            $backRoute = route('reports') . '?department=' . $department . '&academic_year=' . $academicYear . '&semester=' . $semester . '&subject_type=' . $subjectType . '&program=' . $program;
                             $backLabel = 'Back to Reports';
                         } else {
                             $backRoute = route('dm.evaluation');
@@ -657,6 +658,7 @@
                             <input type="hidden" name="semester" value="{{ request('semester', $evaluation->semester) }}">
                             <input type="hidden" name="subject_type" value="{{ request('subject_type', 'all') }}">
                             <input type="hidden" name="department" value="{{ request('department', '') }}">
+                            <input type="hidden" name="program" value="{{ request('program', 'all') }}">
                         </div>
                         <div class="modal-footer">
                             <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>

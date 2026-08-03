@@ -882,7 +882,7 @@
         }
 
         // Form auto-submit on filter change
-        document.querySelectorAll('select[name="department"], select[name="academic_year"], select[name="semester"], select[name="subject_type"]').forEach(select => {
+        document.querySelectorAll('select[name="department"], select[name="academic_year"], select[name="semester"], select[name="subject_type"], select[name="program"]').forEach(select => {
             select.addEventListener('change', function () {
                 // Add loading state
                 const button = document.querySelector('button[type="submit"]');
@@ -1019,11 +1019,19 @@
             </div>
         </div>
 
+        @php
+            $showDentistryProgramFilter = $selectedDepartment === 'College of Dentistry'
+                || (!empty($isDepartmentScoped)
+                    && isset($departments)
+                    && $departments->count() === 1
+                    && $departments->first() === 'College of Dentistry');
+        @endphp
+
         {{-- Filters --}}
         <div class="card mb-4 filter-section">
             <div class="card-body">
                 <form method="GET" action="{{ route('reports') }}" class="row g-3">
-                    <div class="col-md-3">
+                    <div class="col-md-2">
                         <label class="form-label">Department</label>
                         @if (!empty($isDepartmentScoped))
                             <input type="hidden" name="department" value="{{ $selectedDepartment }}">
@@ -1075,7 +1083,15 @@
                             <option value="minor" {{ $selectedSubjectType == 'minor' ? 'selected' : '' }}>GenEd Course</option>
                         </select>
                     </div>
-                    <div class="col-md-3 d-flex align-items-end">
+                    <div class="col-md-2 dentistry-program-filter" style="{{ $showDentistryProgramFilter ? '' : 'display:none;' }}">
+                        <label class="form-label">Program</label>
+                        <select name="program" class="form-select">
+                            <option value="all" {{ ($selectedProgram ?? 'all') == 'all' ? 'selected' : '' }}>All Programs</option>
+                            <option value="ddm" {{ ($selectedProgram ?? 'all') == 'ddm' ? 'selected' : '' }}>DDM</option>
+                            <option value="msd" {{ ($selectedProgram ?? 'all') == 'msd' ? 'selected' : '' }}>MSD</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2 d-flex align-items-end">
                         <button type="submit" class="btn btn-primary w-100">
                             <i class="bx bx-filter-alt me-1"></i>Apply Filters
                         </button>
@@ -1127,6 +1143,12 @@
                                     All Types
                                 @endif
                             </span>
+                            @if(($selectedProgram ?? 'all') !== 'all')
+                                <span class="filtered-result-chip">
+                                    <i class="bx bx-layer"></i>
+                                    {{ strtoupper($selectedProgram) }}
+                                </span>
+                            @endif
                         </div>
                     </div>
                     <button class="filtered-result-toggle-btn" type="button" data-bs-toggle="collapse"
@@ -1420,6 +1442,17 @@
                                 {{ $selectedSubjectType === 'major' ? 'Professional Course' : 'GenEd Course' }} Only
                             </span>
                         @endif
+                        @if($showDentistryProgramFilter)
+                            <span class="badge bg-warning text-dark ms-2">
+                                @if(($selectedProgram ?? 'all') !== 'all')
+                                    {{ strtoupper($selectedProgram) }} Only
+                                @elseif(!empty($isDentistryProgramRestricted))
+                                    DDM/MSD Programs
+                                @else
+                                    All Dentistry Programs
+                                @endif
+                            </span>
+                        @endif
                     </h5>
                     <button type="button" class="reports-faculty-close" data-bs-dismiss="modal" aria-label="Close">×</button>
                 </div>
@@ -1443,6 +1476,17 @@
                             </span>
                         @else
                             <span class="badge bg-label-secondary">All Subject Types</span>
+                        @endif
+                        @if($showDentistryProgramFilter)
+                            <span class="badge bg-warning text-dark">
+                                @if(($selectedProgram ?? 'all') !== 'all')
+                                    {{ strtoupper($selectedProgram) }}
+                                @elseif(!empty($isDentistryProgramRestricted))
+                                    DDM/MSD Programs
+                                @else
+                                    All Dentistry Programs
+                                @endif
+                            </span>
                         @endif
                         <span class="ms-auto text-muted small" id="modalFacultyCount"></span>
                     </div>
@@ -1518,6 +1562,7 @@
                     <div class="modal-body">
                         <input type="hidden" name="department" id="departmentExportDepartment">
                         <input type="hidden" name="subject_type" value="{{ $selectedSubjectType }}">
+                        <input type="hidden" name="program" value="{{ $selectedProgram ?? 'all' }}">
                         <input type="hidden" name="academic_year" value="{{ $selectedAcademicYear }}">
                         <input type="hidden" name="semester" value="{{ $selectedSemester }}">
                         <div class="mb-3">
@@ -1554,6 +1599,23 @@
                                     Subject type filter active:
                                     <span class="badge">
                                         {{ $selectedSubjectType === 'major' ? 'Professional Course' : 'Minor Course' }} Only
+                                    </span>
+                                </small>
+                            </div>
+                        @endif
+                        @if($showDentistryProgramFilter)
+                            <div class="mt-3 department-export-filter-note">
+                                <small>
+                                    <i class="bx bx-layer me-1"></i>
+                                    Dentistry program filter active:
+                                    <span class="badge">
+                                        @if(($selectedProgram ?? 'all') !== 'all')
+                                            {{ strtoupper($selectedProgram) }} Only
+                                        @elseif(!empty($isDentistryProgramRestricted))
+                                            DDM/MSD Programs
+                                        @else
+                                            All Dentistry Programs
+                                        @endif
                                     </span>
                                 </small>
                             </div>
@@ -1715,6 +1777,7 @@
             url.searchParams.set('academic_year', '{{ $selectedAcademicYear }}');
             url.searchParams.set('semester', '{{ $selectedSemester }}');
             url.searchParams.set('subject_type', '{{ $selectedSubjectType }}');
+            url.searchParams.set('program', '{{ $selectedProgram ?? 'all' }}');
 
             fetch(url, {
                 headers: {
@@ -1874,6 +1937,7 @@
             url.searchParams.set('academic_year', '{{ $selectedAcademicYear }}');
             url.searchParams.set('semester', '{{ $selectedSemester }}');
             url.searchParams.set('subject_type', '{{ $selectedSubjectType }}');
+            url.searchParams.set('program', '{{ $selectedProgram ?? 'all' }}');
 
             // Show loading
             document.getElementById('facultyTableContainer').innerHTML = `
@@ -2121,6 +2185,7 @@
             url.searchParams.set('academic_year', '{{ $selectedAcademicYear }}');
             url.searchParams.set('semester', '{{ $selectedSemester }}');
             url.searchParams.set('subject_type', '{{ $selectedSubjectType }}');
+            url.searchParams.set('program', '{{ $selectedProgram ?? 'all' }}');
             url.searchParams.set('per_page', '{{ $perPage }}');
 
             fetch(url, {
@@ -2212,7 +2277,7 @@
         });
 
         // Form auto-submit on filter change
-        document.querySelectorAll('select[name="department"], select[name="academic_year"], select[name="semester"], select[name="subject_type"]').forEach(select => {
+        document.querySelectorAll('select[name="department"], select[name="academic_year"], select[name="semester"], select[name="subject_type"], select[name="program"]').forEach(select => {
             select.addEventListener('change', function () {
                 // Add loading state
                 const button = document.querySelector('button[type="submit"]');

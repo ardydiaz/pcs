@@ -103,7 +103,7 @@
                     <td class="text-center">
                         @if(!empty($faculty->evaluation_id))
                             <a class="btn btn-sm btn-outline-primary"
-                                href="{{ route('dm.evaluation.responses', $faculty->evaluation_id) }}?from=reports&department={{ $selectedDepartment }}&academic_year={{ $selectedAcademicYear }}&semester={{ $selectedSemester }}&subject_type={{ $selectedSubjectType }}">
+                                href="{{ route('dm.evaluation.responses', $faculty->evaluation_id) }}?from=reports&department={{ $selectedDepartment }}&academic_year={{ $selectedAcademicYear }}&semester={{ $selectedSemester }}&subject_type={{ $selectedSubjectType }}&program={{ $selectedProgram ?? 'all' }}">
                                 <i class="bx bx-show me-1"></i>View Responses
                             </a>
                         @else

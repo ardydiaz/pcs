@@ -42,6 +42,7 @@ class ReportsController extends Controller
         $user = $request->user();
         $accessLevels = collect($user?->access_level ?? []);
         $isAdmin = $user && $user->role === 'Admin';
+        $isDentistryProgramRestricted = $this->isDentistryProgramRestrictedUser($user);
         $hasReportAccess = $isAdmin
             || $accessLevels->contains('View All Reports')
             || $accessLevels->contains('View Department Reports');
@@ -72,6 +73,7 @@ class ReportsController extends Controller
         $selectedAcademicYear = $request->get('academic_year', 'all');
         $selectedSemester = $request->get('semester', 'all');
         $selectedSubjectType = $request->get('subject_type', 'all');
+        $selectedProgram = $this->normalizeDentistryProgram($request->get('program', 'all'));
         $perPageRaw = $request->get('per_page', 10);
         $perPage = $perPageRaw === 'all' ? 'all' : (int) $perPageRaw;
 
@@ -90,6 +92,10 @@ class ReportsController extends Controller
             } elseif ($selectedDepartment !== 'all' && !$lockedDepartments->contains($selectedDepartment)) {
                 $selectedDepartment = 'all';
             }
+        }
+
+        if (!$this->shouldApplyDentistryProgram($selectedDepartment, $lockedDepartments->values()->all(), $user, $selectedProgram)) {
+            $selectedProgram = 'all';
         }
 
         // Get all departments for filter dropdown
@@ -156,11 +162,13 @@ class ReportsController extends Controller
             $evaluationsQuery->where('semester', $selectedSemester);
         }
 
-        $reportCacheKey = 'reports.index.v4.' . md5(json_encode([
+        $reportCacheKey = 'reports.index.v7.' . md5(json_encode([
             'department' => $selectedDepartment,
             'academic_year' => $selectedAcademicYear,
             'semester' => $selectedSemester,
             'subject_type' => $selectedSubjectType,
+            'program' => $selectedProgram,
+            'dentistry_program_restricted' => $isDentistryProgramRestricted,
             'per_page' => $perPage,
             'locked_departments' => $lockedDepartments->values()->all(),
         ]));
@@ -171,6 +179,7 @@ class ReportsController extends Controller
             $selectedDepartment,
             $selectedAcademicYear,
             $selectedSemester,
+            $selectedProgram,
             $perPage,
             $lockedDepartments,
             $excludedDepartments
@@ -180,7 +189,8 @@ class ReportsController extends Controller
                     $evaluationsQuery,
                     $selectedSubjectType,
                     $selectedDepartment,
-                    $lockedDepartments->values()->all()
+                    $lockedDepartments->values()->all(),
+                    $selectedProgram
                 ),
             ];
         });
@@ -203,6 +213,8 @@ class ReportsController extends Controller
             'selectedAcademicYear',
             'selectedSemester',
             'selectedSubjectType',
+            'selectedProgram',
+            'isDentistryProgramRestricted',
             'departmentBreakdown',
             'recentResponses',
             'facultyRatings',
@@ -218,6 +230,7 @@ class ReportsController extends Controller
         $user = $request->user();
         $accessLevels = collect($user?->access_level ?? []);
         $isAdmin = $user && $user->role === 'Admin';
+        $isDentistryProgramRestricted = $this->isDentistryProgramRestrictedUser($user);
         $hasReportAccess = $isAdmin
             || $accessLevels->contains('View All Reports')
             || $accessLevels->contains('View Department Reports');
@@ -278,13 +291,19 @@ class ReportsController extends Controller
         $academicYear = $request->get('academic_year', 'all');
         $semester = $request->get('semester', 'all');
         $subjectType = $requestSubjectType;
+        $program = $this->normalizeDentistryProgram($request->get('program', 'all'));
+        if (!$this->shouldApplyDentistryProgram($department, $allowedDepartments, $user, $program)) {
+            $program = 'all';
+        }
         $perPage = $requestPerPage;
 
-        $cacheKey = 'reports.lazy.sections.v2.' . md5(json_encode([
+        $cacheKey = 'reports.lazy.sections.v6.' . md5(json_encode([
             'department' => $department,
             'academic_year' => $academicYear,
             'semester' => $semester,
             'subject_type' => $subjectType,
+            'program' => $program,
+            'dentistry_program_restricted' => $isDentistryProgramRestricted,
             'per_page' => $perPage,
             'allowed_departments' => $allowedDepartments,
         ]));
@@ -294,6 +313,7 @@ class ReportsController extends Controller
             $academicYear,
             $semester,
             $subjectType,
+            $program,
             $perPage,
             $allowedDepartments,
             $excludedDepartments
@@ -306,7 +326,8 @@ class ReportsController extends Controller
                     $perPage,
                     $allowedDepartments,
                     $excludedDepartments,
-                    $subjectType
+                    $subjectType,
+                    $program
                 ),
                 'recentResponses' => $this->getRecentResponses(
                     $department,
@@ -315,7 +336,8 @@ class ReportsController extends Controller
                     10,
                     $allowedDepartments,
                     $excludedDepartments,
-                    $subjectType
+                    $subjectType,
+                    $program
                 ),
                 'facultyRatings' => $this->getFacultyRatings(
                     $department,
@@ -323,7 +345,8 @@ class ReportsController extends Controller
                     $semester,
                     $allowedDepartments,
                     $excludedDepartments,
-                    $subjectType
+                    $subjectType,
+                    $program
                 ),
             ];
         });
@@ -349,6 +372,7 @@ class ReportsController extends Controller
         $user = $request->user();
         $accessLevels = collect($user?->access_level ?? []);
         $isAdmin = $user && $user->role === 'Admin';
+        $isDentistryProgramRestricted = $this->isDentistryProgramRestrictedUser($user);
         $hasReportAccess = $isAdmin
             || $accessLevels->contains('View All Reports')
             || $accessLevels->contains('View Department Reports');
@@ -394,16 +418,22 @@ class ReportsController extends Controller
         if (!in_array($subjectType, ['all', 'major', 'minor'], true)) {
             $subjectType = 'all';
         }
+        $program = $this->normalizeDentistryProgram($request->get('program', 'all'));
+        if (!$this->shouldApplyDentistryProgram($department, $allowedDepartments, $user, $program)) {
+            $program = 'all';
+        }
 
         $page = max(1, (int) $request->get('page', 1));
         $perPage = min(25, max(5, (int) $request->get('per_page', 10)));
 
-        $cacheKey = 'reports.metric.details.' . md5(json_encode([
+        $cacheKey = 'reports.metric.details.v3.' . md5(json_encode([
             'metric' => $metric,
             'department' => $department,
             'academic_year' => $academicYear,
             'semester' => $semester,
             'subject_type' => $subjectType,
+            'program' => $program,
+            'dentistry_program_restricted' => $isDentistryProgramRestricted,
             'allowed_departments' => $allowedDepartments,
             'page' => $page,
             'per_page' => $perPage,
@@ -415,16 +445,17 @@ class ReportsController extends Controller
             $academicYear,
             $semester,
             $subjectType,
+            $program,
             $allowedDepartments,
             $excludedDepartments,
             $page,
             $perPage
         ) {
             return match ($metric) {
-                'total_faculties' => $this->buildMetricFacultyRows($department, $academicYear, $semester, $subjectType, $allowedDepartments, $excludedDepartments, $page, $perPage),
-                'total_responses' => $this->buildMetricResponseRows($department, $academicYear, $semester, $subjectType, $allowedDepartments, $excludedDepartments, $page, $perPage),
-                'average_rating' => $this->buildMetricRatingRows($department, $academicYear, $semester, $subjectType, $allowedDepartments, $excludedDepartments, $page, $perPage),
-                'courses_evaluated' => $this->buildMetricCourseRows($department, $academicYear, $semester, $subjectType, $allowedDepartments, $excludedDepartments, $page, $perPage),
+                'total_faculties' => $this->buildMetricFacultyRows($department, $academicYear, $semester, $subjectType, $program, $allowedDepartments, $excludedDepartments, $page, $perPage),
+                'total_responses' => $this->buildMetricResponseRows($department, $academicYear, $semester, $subjectType, $program, $allowedDepartments, $excludedDepartments, $page, $perPage),
+                'average_rating' => $this->buildMetricRatingRows($department, $academicYear, $semester, $subjectType, $program, $allowedDepartments, $excludedDepartments, $page, $perPage),
+                'courses_evaluated' => $this->buildMetricCourseRows($department, $academicYear, $semester, $subjectType, $program, $allowedDepartments, $excludedDepartments, $page, $perPage),
             };
         });
 
@@ -458,6 +489,10 @@ class ReportsController extends Controller
         if (!in_array($subjectType, ['all', 'major', 'minor'], true)) {
             $subjectType = 'all';
         }
+        $program = $this->normalizeDentistryProgram($request->get('program', 'all'));
+        if (!$this->shouldApplyDentistryProgram($department, [$department], $request->user(), $program)) {
+            $program = 'all';
+        }
         $ratingFilter = $request->get('rating_filter', 'all');
         $statusFilter = $request->get('status_filter', 'all');
         $sortKey = $request->get('sort_key', 'name');
@@ -490,6 +525,91 @@ class ReportsController extends Controller
 
         // Fetch faculties and their evaluations for the requested department
         try {
+            $pageSize = $perPage === 'all' ? 1000 : max((int) $perPage, 1);
+            $facultyRowsQuery = $this->reportResponseBaseQuery(
+                $department,
+                $academicYear,
+                $semester,
+                $subjectType,
+                [$department],
+                $excludedDepartments,
+                $program
+            )
+                ->selectRaw("
+                    MAX(evaluation_responses.evaluation_id) as evaluation_id,
+                    COALESCE(faculty_courses.faculty_id, evaluations.faculty_id, evaluations.faculty_name_snapshot) as faculty_group_key,
+                    COALESCE(NULLIF(faculty_users.name, ''), NULLIF(users.name, ''), NULLIF(evaluations.faculty_name_snapshot, ''), 'Unknown') as name,
+                    ? as department,
+                    LOWER(COALESCE(NULLIF(faculty_users.status, ''), NULLIF(users.status, ''), 'active')) as status,
+                    COUNT(DISTINCT evaluation_responses.evaluation_id) as evaluation_count,
+                    COUNT(DISTINCT evaluation_responses.evaluation_id) as active_evaluations,
+                    COUNT(evaluation_responses.id) as response_count,
+                    ROUND(AVG(evaluation_responses.effectiveness_rating), 2) as average_rating
+                ", [$department])
+                ->groupBy('faculty_group_key', 'name', 'department', 'status')
+                ->having('response_count', '>', 0);
+
+            if ($search) {
+                $needle = '%' . str_replace(['%', '_'], ['\\%', '\\_'], trim($search)) . '%';
+                $facultyRowsQuery->where(function ($query) use ($needle, $department) {
+                    $query->whereRaw("COALESCE(NULLIF(faculty_users.name, ''), NULLIF(users.name, ''), NULLIF(evaluations.faculty_name_snapshot, ''), 'Unknown') LIKE ?", [$needle])
+                        ->orWhereRaw('? LIKE ?', [$department, $needle]);
+                });
+            }
+
+            if ($statusFilter !== 'all') {
+                $facultyRowsQuery->whereRaw(
+                    "LOWER(COALESCE(NULLIF(faculty_users.status, ''), NULLIF(users.status, ''), 'active')) = ?",
+                    [strtolower(trim((string) $statusFilter))]
+                );
+            }
+
+            if ($ratingFilter !== 'all') {
+                match ($ratingFilter) {
+                    'very_effective' => $facultyRowsQuery->havingRaw('AVG(evaluation_responses.effectiveness_rating) >= 3.5'),
+                    'effective' => $facultyRowsQuery->havingRaw('AVG(evaluation_responses.effectiveness_rating) >= 2.5 AND AVG(evaluation_responses.effectiveness_rating) < 3.5'),
+                    'somewhat_effective' => $facultyRowsQuery->havingRaw('AVG(evaluation_responses.effectiveness_rating) >= 1.5 AND AVG(evaluation_responses.effectiveness_rating) < 2.5'),
+                    'not_effective' => $facultyRowsQuery->havingRaw('AVG(evaluation_responses.effectiveness_rating) > 0 AND AVG(evaluation_responses.effectiveness_rating) < 1.5'),
+                    'no_ratings' => $facultyRowsQuery->havingRaw('COUNT(evaluation_responses.id) = 0'),
+                    default => null,
+                };
+            }
+
+            $sortMap = [
+                'name' => 'name',
+                'evaluations' => 'evaluation_count',
+                'responses' => 'response_count',
+                'avg_rating' => 'average_rating',
+                'status' => 'status',
+            ];
+            $facultyRowsQuery->orderBy($sortMap[$sortKey] ?? 'name', $sortDir);
+
+            $faculties = $facultyRowsQuery->paginate($pageSize);
+
+            $selectedAcademicYear = $academicYear;
+            $selectedSemester = $semester;
+            $selectedSubjectType = $subjectType;
+            $selectedDepartment = $department;
+            $selectedProgram = $program;
+            $html = view('content.dashboard.partials.faculty-modal-table', compact('faculties', 'selectedDepartment', 'selectedAcademicYear', 'selectedSemester', 'selectedSubjectType', 'selectedProgram'))->render();
+            $pagination = $perPage !== 'all'
+                ? $faculties->appends($request->all())->links('pagination::bootstrap-4')->render()
+                : '';
+
+            return response()->json([
+                'success' => true,
+                'html' => $html,
+                'pagination' => $pagination,
+                'meta' => [
+                    'current_page' => $faculties->currentPage(),
+                    'last_page' => $faculties->lastPage(),
+                    'per_page' => $faculties->perPage(),
+                    'total' => $faculties->total(),
+                    'from' => $faculties->firstItem(),
+                    'to' => $faculties->lastItem(),
+                ],
+            ]);
+
             $assignmentFacultyIdsQuery = EvaluationResponse::join('evaluations', 'evaluation_responses.evaluation_id', '=', 'evaluations.id')
                 ->join('schedules', 'evaluation_responses.schedule_id', '=', 'schedules.id')
                 ->join('faculty_courses', 'schedules.faculty_course_id', '=', 'faculty_courses.id')
@@ -877,6 +997,10 @@ class ReportsController extends Controller
         if (!in_array($subjectType, ['all', 'major', 'minor'], true)) {
             $subjectType = 'all';
         }
+        $program = $this->normalizeDentistryProgram($request->get('program', 'all'));
+        if (!$this->shouldApplyDentistryProgram($department, [$department], $user, $program)) {
+            $program = 'all';
+        }
         $startDate = $request->get('start_date');
         $endDate = $request->get('end_date');
 
@@ -914,47 +1038,52 @@ class ReportsController extends Controller
             $evaluationsQuery->where('semester', $semester);
         }
 
-        $evaluations = $evaluationsQuery->get();
-        if ($evaluations->isEmpty()) {
+        $evaluationCount = (clone $evaluationsQuery)->count();
+        if ($evaluationCount === 0) {
             return redirect()->back()->with('error', 'No evaluations found for the selected filters.');
         }
 
-        $evaluationIds = $evaluations->pluck('id')->filter()->values();
-
-        // Collect all responses across all faculty
-        $responsesQuery = EvaluationResponse::with(['evaluation', 'schedule.facultyCourse.course'])
-            ->whereIn('evaluation_id', $evaluationIds);
+        $responsesQuery = $this->reportResponseBaseQuery(
+            $department,
+            $academicYear,
+            $semester,
+            $subjectType,
+            [$department],
+            $excludedDepartments,
+            $program
+        )->selectRaw("
+            evaluation_responses.id,
+            evaluation_responses.effectiveness_rating,
+            evaluation_responses.feedback_comments,
+            evaluation_responses.created_at,
+            COALESCE(NULLIF(faculty_users.name, ''), NULLIF(users.name, ''), NULLIF(evaluations.faculty_name_snapshot, ''), 'Unknown') as faculty_name,
+            evaluations.academic_year,
+            evaluations.semester,
+            COALESCE(courses.subject_type, 'N/A') as subject_type,
+            COALESCE(NULLIF(courses.class_code, ''), NULLIF(evaluation_responses.course_code_snapshot, ''), 'N/A') as course_code,
+            COALESCE(faculty_courses.section, '') as section,
+            COALESCE(NULLIF(courses.subject_code, ''), NULLIF(evaluation_responses.course_name_snapshot, ''), 'N/A') as course_name
+        ");
 
         if ($start) {
-            $responsesQuery->where('created_at', '>=', $start);
+            $responsesQuery->where('evaluation_responses.created_at', '>=', $start);
         }
         if ($end) {
-            $responsesQuery->where('created_at', '<=', $end);
+            $responsesQuery->where('evaluation_responses.created_at', '<=', $end);
         }
 
-        // Apply subject_type filter
-        if ($subjectType !== 'all') {
-            $responsesQuery->whereHas('schedule.facultyCourse.course');
-        }
-
-        $responses = $responsesQuery->get()
-            ->filter(fn ($response) => $this->responseHandledByDepartment($response, $department))
-            ->filter(fn ($response) => $this->responseMatchesResolvedSubjectType($response, $subjectType))
-            ->values();
-
-        // Sort responses by faculty name alphabetically, then by created_at within each faculty
-        $responses = $responses->sortBy(function ($response) {
-            $facultyName = $response->evaluation?->resolved_faculty_name ?? 'Unknown';
-            $createdAt = $response->created_at?->timestamp ?? 0;
-            return [$facultyName, $createdAt];
-        })->values();
+        $responses = $responsesQuery
+            ->orderBy('faculty_name')
+            ->orderBy('evaluation_responses.created_at')
+            ->get();
 
         // Generate filename
         $departmentSlug = preg_replace('/[^A-Za-z0-9]+/', '_', ucwords(strtolower($department)));
         $departmentSlug = trim($departmentSlug, '_');
         $dateTag = now()->format('Y-m-d_H-i-s');
         $subjectTag = $subjectType !== 'all' ? '_' . ucfirst($subjectType) : '';
-        $csvFilename = "Evaluation_Responses_{$departmentSlug}{$subjectTag}_{$dateTag}.csv";
+        $programTag = $program !== 'all' ? '_' . strtoupper($program) : '';
+        $csvFilename = "Evaluation_Responses_{$departmentSlug}{$programTag}{$subjectTag}_{$dateTag}.csv";
 
         // Prepare data for export
         $headers = [
@@ -989,14 +1118,13 @@ class ReportsController extends Controller
         }
 
         foreach ($responses as $response) {
-            $evaluation = $response->evaluation;
-            $course = optional(optional($response->schedule)->facultyCourse)->course;
-            $subjectTypeValue = $this->formatResolvedResponseSubjectType($response);
-            
-            $section = optional(optional($response->schedule)->facultyCourse)->section ?? '';
-            
-            // Clean up faculty name - remove extra spaces and fix encoding
-            $facultyName = $evaluation?->resolved_faculty_name ?? 'Unknown';
+            $subjectTypeValue = match (strtolower((string) $response->subject_type)) {
+                'major' => 'Professional Course',
+                'minor' => 'Minor Course',
+                default => 'N/A',
+            };
+
+            $facultyName = $response->faculty_name ?? 'Unknown';
             
             // Fix encoding issues - convert from ISO-8859-1 to UTF-8 if needed
             $facultyName = iconv('UTF-8', 'UTF-8//IGNORE', $facultyName);
@@ -1007,13 +1135,13 @@ class ReportsController extends Controller
             $data[] = [
                 $facultyName,
                 $department,
-                $evaluation?->academic_year ?? '',
-                $this->formatSemesterLabel($evaluation?->semester ?? ''),
+                $response->academic_year ?? '',
+                $this->formatSemesterLabel($response->semester ?? ''),
                 $subjectTypeValue,
-                $response->resolved_course_code,
-                $section,
-                $response->resolved_course_name,
-                $response->effectiveness_text,
+                $response->course_code,
+                $response->section,
+                $response->course_name,
+                $this->formatEffectivenessText((int) $response->effectiveness_rating),
                 $response->effectiveness_rating,
                 $response->feedback_comments,
             ];
@@ -1027,9 +1155,10 @@ class ReportsController extends Controller
                 'academic_year' => $academicYear,
                 'semester' => $semester,
                 'subject_type' => $subjectType,
+                'program' => $this->formatDentistryProgramLabel($program),
                 'start_date' => $start?->toDateString(),
                 'end_date' => $end?->toDateString(),
-                'evaluation_count' => $evaluations->count(),
+                'evaluation_count' => $evaluationCount,
                 'response_count' => $responses->count(),
                 'file_name' => $csvFilename,
             ],
@@ -1051,7 +1180,7 @@ class ReportsController extends Controller
         ]);
     }
 
-    private function calculateMetrics($evaluationsQuery, string $subjectType = 'all', string $department = 'all', array $allowedDepartments = [])
+    private function calculateMetrics($evaluationsQuery, string $subjectType = 'all', string $department = 'all', array $allowedDepartments = [], string $program = 'all')
     {
         $evaluationIdsQuery = (clone $evaluationsQuery)->select('evaluations.id');
 
@@ -1066,44 +1195,40 @@ class ReportsController extends Controller
             )
             ->count('faculty_name');
 
-        $responses = EvaluationResponse::with(['evaluation', 'schedule.facultyCourse.course'])
-            ->whereIn('evaluation_id', $evaluationIdsQuery)
-            ->get()
-            ->filter(fn ($response) => $this->responseMatchesResolvedSubjectType($response, $subjectType))
-            ->filter(function ($response) use ($department, $allowedDepartments) {
-                if ($department !== 'all') {
-                    return $this->responseHandledByDepartment($response, $department);
-                }
+        $responsesQuery = $this->reportResponseBaseQuery(
+            $department,
+            'all',
+            'all',
+            $subjectType,
+            $allowedDepartments,
+            [],
+            $program
+        )->whereIn('evaluation_responses.evaluation_id', $evaluationIdsQuery);
 
-                if (empty($allowedDepartments)) {
-                    return true;
-                }
+        $responseStats = (clone $responsesQuery)
+            ->selectRaw('
+                COUNT(evaluation_responses.id) as total_responses,
+                AVG(evaluation_responses.effectiveness_rating) as average_rating,
+                COUNT(DISTINCT COALESCE(schedules.id, evaluation_responses.course_code_snapshot)) as courses_evaluated,
+                SUM(CASE WHEN TRIM(COALESCE(evaluation_responses.feedback_comments, "")) <> "" THEN 1 ELSE 0 END) as responses_with_feedback
+            ')
+            ->first();
 
-                foreach ($allowedDepartments as $allowedDepartment) {
-                    if ($this->responseHandledByDepartment($response, $allowedDepartment)) {
-                        return true;
-                    }
-                }
-
-                return false;
-            })
-            ->values();
-
-        $totalResponses = $responses->count();
-        $ratingDistribution = $responses
-            ->groupBy('effectiveness_rating')
-            ->map(fn ($items) => $items->count());
+        $totalResponses = (int) ($responseStats->total_responses ?? 0);
+        $ratingDistribution = (clone $responsesQuery)
+            ->select('evaluation_responses.effectiveness_rating')
+            ->selectRaw('COUNT(*) as rating_count')
+            ->groupBy('evaluation_responses.effectiveness_rating')
+            ->pluck('rating_count', 'evaluation_responses.effectiveness_rating');
 
         return [
             'total_evaluations' => $totalEvaluations,
             'active_evaluations' => $totalEvaluations,
             'total_responses' => $totalResponses,
             'total_faculties' => $totalFaculties,
-            'average_rating' => $totalResponses > 0 ? round((float) $responses->avg('effectiveness_rating'), 2) : 0,
-            'courses_evaluated' => $responses->unique(fn ($response) => $response->schedule_id ?: $response->course_code_snapshot)->count(),
-            'responses_with_feedback' => $responses
-                ->filter(fn ($response) => trim((string) ($response->feedback_comments ?? '')) !== '')
-                ->count(),
+            'average_rating' => $totalResponses > 0 ? round((float) ($responseStats->average_rating ?? 0), 2) : 0,
+            'courses_evaluated' => (int) ($responseStats->courses_evaluated ?? 0),
+            'responses_with_feedback' => (int) ($responseStats->responses_with_feedback ?? 0),
             'rating_distribution' => $ratingDistribution,
         ];
     }
@@ -1125,327 +1250,107 @@ class ReportsController extends Controller
         return 'no_ratings';
     }
 
-    private function getDepartmentBreakdown($selectedDepartment, $academicYear, $semester, $perPage = null, array $allowedDepartments = [], array $excludedDepartments = [], string $subjectType = 'all')
+    private function getDepartmentBreakdown($selectedDepartment, $academicYear, $semester, $perPage = null, array $allowedDepartments = [], array $excludedDepartments = [], string $subjectType = 'all', string $program = 'all')
     {
         if (in_array($selectedDepartment, $excludedDepartments, true)) {
             return collect();
         }
         $facultyDepartmentCounts = $this->buildFacultyDepartmentCounts($allowedDepartments, $excludedDepartments);
-        $evaluationsQuery = Evaluation::where('is_active', true);
-
-        if ($academicYear !== 'all') {
-            $evaluationsQuery->where('academic_year', $academicYear);
-        }
-        if ($semester !== 'all') {
-            $evaluationsQuery->where('semester', $semester);
-        }
-
-        if (!empty($excludedDepartments)) {
-            foreach ($excludedDepartments as $excludedDepartment) {
-                $evaluationsQuery->whereRaw(
-                    "NOT FIND_IN_SET(?, REPLACE(faculty_department_snapshot, ', ', ','))",
-                    [$excludedDepartment]
-                );
-            }
-        }
+        $departments = $selectedDepartment !== 'all'
+            ? [$selectedDepartment]
+            : self::OFFICIAL_DEPARTMENTS;
 
         if (!empty($allowedDepartments)) {
-            $evaluationsQuery->where(function ($query) use ($allowedDepartments) {
-                foreach ($allowedDepartments as $department) {
-                    $query->orWhereRaw(
-                        "FIND_IN_SET(?, REPLACE(faculty_department_snapshot, ', ', ','))",
-                        [$department]
-                    );
-                }
-            });
+            $departments = array_values(array_intersect($departments, $allowedDepartments));
+        }
+        if (!empty($excludedDepartments)) {
+            $departments = array_values(array_diff($departments, $excludedDepartments));
         }
 
-        $evaluations = $evaluationsQuery->get();
-        $breakdown = [];
+        $breakdown = collect($departments)->map(function ($department) use ($academicYear, $semester, $subjectType, $program, $allowedDepartments, $excludedDepartments, $facultyDepartmentCounts) {
+            $evaluationQuery = Evaluation::where('is_active', true);
+            $this->applyReportEvaluationFilters($evaluationQuery, $department, $academicYear, $semester, [], $excludedDepartments);
 
-        // Helper to get filtered responses for a set of evaluation IDs and actual handled department.
-        $getResponses = function ($evaluationIds, ?string $departmentScope = null) use ($subjectType) {
-            $responses = EvaluationResponse::with(['evaluation', 'schedule.facultyCourse.course'])
-                ->whereIn('evaluation_id', $evaluationIds)
+            $responseQuery = $this->reportResponseBaseQuery(
+                $department,
+                $academicYear,
+                $semester,
+                $subjectType,
+                $allowedDepartments,
+                $excludedDepartments,
+                $department === 'College of Dentistry' ? $program : 'all'
+            );
+
+            $stats = (clone $responseQuery)
+                ->selectRaw('COUNT(evaluation_responses.id) as response_count, AVG(evaluation_responses.effectiveness_rating) as average_rating')
+                ->first();
+
+            $splitRows = (clone $responseQuery)
+                ->select('courses.subject_type')
+                ->selectRaw('COUNT(evaluation_responses.id) as response_count, AVG(evaluation_responses.effectiveness_rating) as average_rating')
+                ->groupBy('courses.subject_type')
                 ->get()
-                ->filter(fn ($response) => $this->responseMatchesResolvedSubjectType($response, $subjectType))
-                ->values();
-
-            if ($departmentScope !== null && $departmentScope !== 'all') {
-                $responses = $responses
-                    ->filter(fn ($response) => $this->responseHandledByDepartment($response, $departmentScope))
-                    ->values();
-            }
-
-            return $responses;
-        };
-
-        // Helper to get major/minor response counts and avg ratings for a set of evaluation IDs
-        $getSubjectTypeSplit = function ($evaluationIds, ?string $departmentScope = null) use ($subjectType) {
-            if ($evaluationIds->isEmpty()) {
-                return ['major_responses' => 0, 'minor_responses' => 0, 'major_avg_rating' => 0, 'minor_avg_rating' => 0];
-            }
-
-            $subjectTypes = $subjectType === 'all' ? ['major', 'minor'] : [$subjectType];
-            $responses = EvaluationResponse::with(['evaluation', 'schedule.facultyCourse.course'])
-                ->whereIn('evaluation_id', $evaluationIds)
-                ->get()
-                ->filter(function ($response) use ($subjectTypes) {
-                    return in_array($this->resolveResponseSubjectType($response), $subjectTypes, true);
-                })
-                ->values();
-
-            if ($departmentScope !== null && $departmentScope !== 'all') {
-                $responses = $responses
-                    ->filter(fn ($response) => $this->responseHandledByDepartment($response, $departmentScope))
-                    ->values();
-            }
-
-            $rows = $responses
-                ->groupBy(fn ($response) => $this->resolveResponseSubjectType($response))
-                ->map(function ($items) {
-                    return (object) [
-                        'cnt' => $items->count(),
-                        'avg_rating' => $items->avg('effectiveness_rating'),
-                    ];
-                });
+                ->keyBy('subject_type');
 
             return [
-                'major_responses' => (int) ($rows->get('major')?->cnt ?? 0),
-                'minor_responses' => (int) ($rows->get('minor')?->cnt ?? 0),
-                'major_avg_rating' => $rows->get('major') ? round((float) $rows->get('major')->avg_rating, 2) : 0,
-                'minor_avg_rating' => $rows->get('minor') ? round((float) $rows->get('minor')->avg_rating, 2) : 0,
+                'department' => $department,
+                'faculty_count' => $facultyDepartmentCounts[$department] ?? 0,
+                'total_evaluations' => (clone $evaluationQuery)->count(),
+                'active_evaluations' => (clone $evaluationQuery)->count(),
+                'total_responses' => (int) ($stats->response_count ?? 0),
+                'average_rating' => (int) ($stats->response_count ?? 0) > 0 ? round((float) ($stats->average_rating ?? 0), 2) : 0,
+                'major_responses' => (int) ($splitRows->get('major')?->response_count ?? 0),
+                'minor_responses' => (int) ($splitRows->get('minor')?->response_count ?? 0),
+                'major_avg_rating' => $splitRows->get('major') ? round((float) $splitRows->get('major')->average_rating, 2) : 0,
+                'minor_avg_rating' => $splitRows->get('minor') ? round((float) $splitRows->get('minor')->average_rating, 2) : 0,
             ];
-        };
-
-        if ($selectedDepartment !== 'all') {
-            $deptEvaluations = $evaluations->filter(function ($evaluation) use ($selectedDepartment) {
-                $departments = $this->normalizeDepartmentList($evaluation->resolved_faculty_department ?? '');
-                return in_array($selectedDepartment, $departments, true);
-            });
-
-            $responses = $getResponses($deptEvaluations->pluck('id'), $selectedDepartment);
-            $split = $getSubjectTypeSplit($deptEvaluations->pluck('id'), $selectedDepartment);
-
-            $breakdown[] = [
-                'department' => $selectedDepartment,
-                'faculty_count' => $facultyDepartmentCounts[$selectedDepartment] ?? 0,
-                'total_evaluations' => $deptEvaluations->count(),
-                'active_evaluations' => $deptEvaluations->count(),
-                'total_responses' => $responses->count(),
-                'average_rating' => $responses->count() > 0 ? round($responses->avg('effectiveness_rating'), 2) : 0,
-                'major_responses' => $split['major_responses'],
-                'minor_responses' => $split['minor_responses'],
-                'major_avg_rating' => $split['major_avg_rating'],
-                'minor_avg_rating' => $split['minor_avg_rating'],
-            ];
-        } else {
-            $departmentGroups = [];
-            foreach ($evaluations as $evaluation) {
-                $departments = $this->normalizeDepartmentList($evaluation->resolved_faculty_department ?? '');
-                if (!empty($excludedDepartments)) {
-                    $departments = array_values(array_diff($departments, $excludedDepartments));
-                }
-                if (!empty($allowedDepartments)) {
-                    $departments = array_values(array_intersect($departments, $allowedDepartments));
-                }
-                foreach ($departments as $dept) {
-                    $departmentGroups[$dept] = $departmentGroups[$dept] ?? collect();
-                    $departmentGroups[$dept]->push($evaluation);
-                }
-            }
-
-            foreach ($departmentGroups as $dept => $deptEvaluations) {
-                $responses = $getResponses($deptEvaluations->pluck('id'), $dept);
-                $split = $getSubjectTypeSplit($deptEvaluations->pluck('id'), $dept);
-
-                $breakdown[] = [
-                    'department' => $dept,
-                    'faculty_count' => $facultyDepartmentCounts[$dept] ?? 0,
-                    'total_evaluations' => $deptEvaluations->count(),
-                    'active_evaluations' => $deptEvaluations->count(),
-                    'total_responses' => $responses->count(),
-                    'average_rating' => $responses->count() > 0 ? round($responses->avg('effectiveness_rating'), 2) : 0,
-                    'major_responses' => $split['major_responses'],
-                    'minor_responses' => $split['minor_responses'],
-                    'major_avg_rating' => $split['major_avg_rating'],
-                    'minor_avg_rating' => $split['minor_avg_rating'],
-                ];
-            }
-        }
-
-        return collect($breakdown)->sortByDesc('total_responses');
-    }
-
-    private function getRecentResponses($department, $academicYear, $semester, $limit = 10, array $allowedDepartments = [], array $excludedDepartments = [], string $subjectType = 'all')
-    {
-        $query = EvaluationResponse::with([
-            'evaluation',
-            'schedule.facultyCourse.course'
-        ])->whereHas('evaluation', function ($q) use ($department) {
-            $q->where('is_active', true);
-            if ($department !== 'all') {
-                $q->whereRaw(
-                    "FIND_IN_SET(?, REPLACE(faculty_department_snapshot, ', ', ','))",
-                    [$department]
-                );
-            }
+        })->filter(function ($department) {
+            return ($department['active_evaluations'] ?? 0) > 0 || ($department['total_responses'] ?? 0) > 0;
         });
 
-        if (!empty($excludedDepartments)) {
-            $query->whereHas('evaluation', function ($q) use ($excludedDepartments) {
-                foreach ($excludedDepartments as $departmentItem) {
-                    $q->whereRaw(
-                        "NOT FIND_IN_SET(?, REPLACE(faculty_department_snapshot, ', ', ','))",
-                        [$departmentItem]
-                    );
-                }
-            });
-        }
-
-        if (!empty($allowedDepartments)) {
-            $query->whereHas('evaluation', function ($q) use ($allowedDepartments) {
-                $q->where(function ($inner) use ($allowedDepartments) {
-                    foreach ($allowedDepartments as $departmentItem) {
-                        $inner->orWhereRaw(
-                            "FIND_IN_SET(?, REPLACE(faculty_department_snapshot, ', ', ','))",
-                            [$departmentItem]
-                        );
-                    }
-                });
-            });
-        }
-
-        if ($academicYear !== 'all') {
-            $query->whereHas('evaluation', function ($q) use ($academicYear) {
-                $q->where('academic_year', $academicYear);
-            });
-        }
-
-        if ($semester !== 'all') {
-            $query->whereHas('evaluation', function ($q) use ($semester) {
-                $q->where('semester', $semester);
-            });
-        }
-
-        // Filter by subject_type via the schedule → facultyCourse → course relationship
-        if ($subjectType !== 'all') {
-            $query->whereHas('schedule.facultyCourse.course', function ($q) use ($subjectType) {
-                $q->where('subject_type', $subjectType);
-            });
-        }
-
-        $responses = $query->latest()->limit($limit * 5)->get();
-
-        if ($department !== 'all') {
-            $responses = $responses
-                ->filter(fn ($response) => $this->responseHandledByDepartment($response, $department))
-                ->values();
-        } elseif (!empty($allowedDepartments)) {
-            $responses = $responses
-                ->filter(function ($response) use ($allowedDepartments) {
-                    foreach ($allowedDepartments as $allowedDepartment) {
-                        if ($this->responseHandledByDepartment($response, $allowedDepartment)) {
-                            return true;
-                        }
-                    }
-
-                    return false;
-                })
-                ->values();
-        }
-
-        return $responses->take($limit)->values();
+        return $breakdown->sortByDesc('total_responses')->values();
     }
 
-    private function getFacultyRatings($department, $academicYear, $semester, array $allowedDepartments = [], array $excludedDepartments = [], string $subjectType = 'all')
+    private function getRecentResponses($department, $academicYear, $semester, $limit = 10, array $allowedDepartments = [], array $excludedDepartments = [], string $subjectType = 'all', string $program = 'all')
     {
-        $evaluationsQuery = Evaluation::where('is_active', true);
-
-        if ($academicYear !== 'all') {
-            $evaluationsQuery->where('academic_year', $academicYear);
-        }
-        if ($semester !== 'all') {
-            $evaluationsQuery->where('semester', $semester);
-        }
-
-        if (!empty($excludedDepartments)) {
-            foreach ($excludedDepartments as $excludedDepartment) {
-                $evaluationsQuery->whereRaw(
-                    "NOT FIND_IN_SET(?, REPLACE(faculty_department_snapshot, ', ', ','))",
-                    [$excludedDepartment]
-                );
-            }
-        }
-
-        if (!empty($allowedDepartments)) {
-            $this->whereAnyDepartment($evaluationsQuery, $allowedDepartments, 'faculty_department_snapshot');
-        }
-
-        if ($department !== 'all') {
-            $this->whereAnyDepartment($evaluationsQuery, [$department], 'faculty_department_snapshot');
-        }
-
-        $responses = EvaluationResponse::with(['evaluation', 'schedule.facultyCourse.faculty.user', 'schedule.facultyCourse.course'])
-            ->whereIn('evaluation_id', (clone $evaluationsQuery)->select('id'))
+        return $this->reportResponseBaseQuery($department, $academicYear, $semester, $subjectType, $allowedDepartments, $excludedDepartments, $program)
+            ->selectRaw("
+                evaluation_responses.id,
+                evaluation_responses.effectiveness_rating,
+                evaluation_responses.created_at,
+                COALESCE(NULLIF(courses.class_code, ''), NULLIF(evaluation_responses.course_code_snapshot, ''), 'N/A') as resolved_course_code
+            ")
+            ->orderByDesc('evaluation_responses.created_at')
+            ->limit($limit)
             ->get()
-            ->filter(fn ($response) => $this->responseMatchesResolvedSubjectType($response, $subjectType))
-            ->filter(function ($response) use ($department, $allowedDepartments) {
-                if ($department !== 'all') {
-                    return $this->responseHandledByDepartment($response, $department);
-                }
-
-                if (empty($allowedDepartments)) {
-                    return true;
-                }
-
-                foreach ($allowedDepartments as $allowedDepartment) {
-                    if ($this->responseHandledByDepartment($response, $allowedDepartment)) {
-                        return true;
-                    }
-                }
-
-                return false;
-            })
-            ->values();
-
-        $ratings = $responses
-            ->groupBy(function ($response) {
-                $facultyCourse = optional($response->schedule)->facultyCourse;
-                $facultyId = optional($facultyCourse)->faculty_id;
-                if ($facultyId) {
-                    return 'faculty:' . $facultyId;
-                }
-
-                $userId = optional($response->evaluation)->faculty_id;
-                if ($userId) {
-                    return 'user:' . $userId;
-                }
-
-                return 'name:' . strtolower(trim((string) optional($response->evaluation)->resolved_faculty_name));
-            })
-            ->map(function ($facultyResponses) use ($department) {
-                $firstResponse = $facultyResponses->first();
-                $evaluation = $firstResponse?->evaluation;
-                $facultyCourse = optional($firstResponse?->schedule)->facultyCourse;
-                $faculty = optional($facultyCourse)->faculty;
-                $facultyUser = optional($faculty)->user;
-                $facultyName = trim((string) ($facultyUser?->name ?? $evaluation?->resolved_faculty_name ?? 'Unknown'));
-
+            ->map(function ($response) {
+                $response->created_at = Carbon::parse($response->created_at);
+                return $response;
+            });
+    }
+    private function getFacultyRatings($department, $academicYear, $semester, array $allowedDepartments = [], array $excludedDepartments = [], string $subjectType = 'all', string $program = 'all')
+    {
+        $ratingsCollection = $this->reportResponseBaseQuery($department, $academicYear, $semester, $subjectType, $allowedDepartments, $excludedDepartments, $program)
+            ->selectRaw("
+                COALESCE(faculty_courses.faculty_id, evaluations.faculty_id, evaluations.faculty_name_snapshot) as faculty_group_key,
+                COALESCE(NULLIF(faculty_users.name, ''), NULLIF(users.name, ''), NULLIF(evaluations.faculty_name_snapshot, ''), 'Unknown') as faculty_name,
+                COALESCE(NULLIF(faculty_courses.department, ''), NULLIF(faculties.department, ''), NULLIF(evaluations.faculty_department_snapshot, ''), 'No department') as department,
+                AVG(evaluation_responses.effectiveness_rating) as average_rating,
+                COUNT(evaluation_responses.id) as total_responses,
+                COUNT(DISTINCT COALESCE(schedules.id, evaluation_responses.course_code_snapshot)) as courses_count
+            ")
+            ->groupBy('faculty_group_key', 'faculty_name', 'department')
+            ->having('total_responses', '>', 0)
+            ->get()
+            ->map(function ($row) use ($department) {
                 return [
-                    'faculty_name' => $facultyName === '' ? 'Unknown' : $facultyName,
-                    'department' => $department !== 'all'
-                        ? $department
-                        : ($facultyCourse?->department ?: $faculty?->department ?: $evaluation?->resolved_faculty_department ?: 'No department'),
-                    'average_rating' => round($facultyResponses->avg('effectiveness_rating'), 2),
-                    'total_responses' => $facultyResponses->count(),
-                    'courses_count' => $facultyResponses->unique('schedule_id')->count(),
+                    'faculty_name' => $row->faculty_name ?: 'Unknown',
+                    'department' => $department !== 'all' ? $department : ($row->department ?: 'No department'),
+                    'average_rating' => round((float) $row->average_rating, 2),
+                    'total_responses' => (int) $row->total_responses,
+                    'courses_count' => (int) $row->courses_count,
                 ];
-            })
-            ->values()
-            ->all();
-
-        $ratingsCollection = collect($ratings);
+            });
 
         return [
             'top_rated' => $ratingsCollection->sortByDesc('average_rating')->values()->take(5),
@@ -1584,6 +1489,130 @@ class ReportsController extends Controller
         };
     }
 
+    private function reportResponseBaseQuery(string $department, string $academicYear, string $semester, string $subjectType, array $allowedDepartments = [], array $excludedDepartments = [], string $program = 'all')
+    {
+        $query = DB::table('evaluation_responses')
+            ->join('evaluations', 'evaluations.id', '=', 'evaluation_responses.evaluation_id')
+            ->leftJoin('users', 'users.id', '=', 'evaluations.faculty_id')
+            ->leftJoin('schedules', 'schedules.id', '=', 'evaluation_responses.schedule_id')
+            ->leftJoin('faculty_courses', 'faculty_courses.id', '=', 'schedules.faculty_course_id')
+            ->leftJoin('courses', 'courses.id', '=', 'faculty_courses.course_id')
+            ->leftJoin('faculties', 'faculties.id', '=', 'faculty_courses.faculty_id')
+            ->leftJoin('users as faculty_users', 'faculty_users.id', '=', 'faculties.user_id')
+            ->where('evaluations.is_active', true)
+            ->whereNull('evaluations.deleted_at')
+            ->where(function ($inner) {
+                $inner->whereNull('schedules.id')->orWhereNull('schedules.deleted_at');
+            })
+            ->where(function ($inner) {
+                $inner->whereNull('faculty_courses.id')->orWhereNull('faculty_courses.deleted_at');
+            })
+            ->where(function ($inner) {
+                $inner->whereNull('courses.id')->orWhereNull('courses.deleted_at');
+            });
+
+        if ($academicYear !== 'all') {
+            $query->where('evaluations.academic_year', $academicYear)
+                ->where(function ($inner) use ($academicYear) {
+                    $inner->whereNull('faculty_courses.id')
+                        ->orWhere('faculty_courses.academic_year', $academicYear);
+                });
+        }
+
+        if ($semester !== 'all') {
+            $query->where('evaluations.semester', $semester)
+                ->where(function ($inner) use ($semester) {
+                    $inner->whereNull('faculty_courses.id')
+                        ->orWhere('faculty_courses.semester', $semester);
+                });
+        }
+
+        if ($subjectType !== 'all') {
+            $query->where('courses.subject_type', $subjectType);
+        }
+
+        if ($this->shouldApplyDentistryProgram($department, $allowedDepartments, null, $program)) {
+            $this->applyDentistryProgramFilter($query, $program);
+        }
+
+        foreach ($excludedDepartments as $excludedDepartment) {
+            $this->whereResponseNotHandledByDepartment($query, $excludedDepartment);
+        }
+
+        if ($department !== 'all') {
+            $this->whereResponseHandledByAnyDepartment($query, [$department]);
+        } elseif (!empty($allowedDepartments)) {
+            $this->whereResponseHandledByAnyDepartment($query, $allowedDepartments);
+        }
+
+        return $query;
+    }
+
+    private function applyReportEvaluationFilters($query, string $department, string $academicYear, string $semester, array $allowedDepartments = [], array $excludedDepartments = []): void
+    {
+        $query->where('is_active', true);
+
+        if ($academicYear !== 'all') {
+            $query->where('academic_year', $academicYear);
+        }
+        if ($semester !== 'all') {
+            $query->where('semester', $semester);
+        }
+
+        foreach ($excludedDepartments as $excludedDepartment) {
+            $query->whereRaw(
+                "NOT FIND_IN_SET(?, REPLACE(faculty_department_snapshot, ', ', ','))",
+                [$excludedDepartment]
+            );
+        }
+
+        if ($department !== 'all') {
+            $this->whereAnyDepartment($query, [$department], 'faculty_department_snapshot');
+        } elseif (!empty($allowedDepartments)) {
+            $this->whereAnyDepartment($query, $allowedDepartments, 'faculty_department_snapshot');
+        }
+    }
+
+    private function whereResponseHandledByAnyDepartment($query, array $departments): void
+    {
+        $aliases = collect($departments)
+            ->flatMap(fn ($department) => $this->departmentAliases((string) $department))
+            ->map(fn ($department) => $this->normalizeDepartmentName($department) ?? trim((string) $department))
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($aliases->isEmpty()) {
+            $query->whereRaw('0 = 1');
+            return;
+        }
+
+        $query->where(function ($builder) use ($aliases) {
+            foreach ($aliases as $department) {
+                $builder->orWhereRaw(
+                    "FIND_IN_SET(?, REPLACE(COALESCE(NULLIF(faculty_courses.department, ''), evaluations.faculty_department_snapshot, ''), ', ', ','))",
+                    [$department]
+                );
+            }
+        });
+    }
+
+    private function whereResponseNotHandledByDepartment($query, string $department): void
+    {
+        $aliases = collect($this->departmentAliases($department))
+            ->map(fn ($alias) => $this->normalizeDepartmentName($alias) ?? trim((string) $alias))
+            ->filter()
+            ->unique()
+            ->values();
+
+        foreach ($aliases as $alias) {
+            $query->whereRaw(
+                "NOT FIND_IN_SET(?, REPLACE(COALESCE(NULLIF(faculty_courses.department, ''), evaluations.faculty_department_snapshot, ''), ', ', ','))",
+                [$alias]
+            );
+        }
+    }
+
     private function metricEvaluationQuery(string $department, string $academicYear, string $semester, array $allowedDepartments, array $excludedDepartments)
     {
         $query = Evaluation::where('is_active', true);
@@ -1673,7 +1702,7 @@ class ReportsController extends Controller
         }
     }
 
-    private function buildMetricFacultyRows(string $department, string $academicYear, string $semester, string $subjectType, array $allowedDepartments, array $excludedDepartments, int $page, int $perPage): array
+    private function buildMetricFacultyRows(string $department, string $academicYear, string $semester, string $subjectType, string $program, array $allowedDepartments, array $excludedDepartments, int $page, int $perPage): array
     {
         $responseCountSql = $subjectType === 'all'
             ? 'COUNT(evaluation_responses.id)'
@@ -1700,6 +1729,9 @@ class ReportsController extends Controller
             ", $bindings);
 
         $this->applyMetricEvaluationFiltersToQuery($query, $department, $academicYear, $semester, $allowedDepartments, $excludedDepartments);
+        if ($this->shouldApplyDentistryProgram($department, $allowedDepartments, null, $program)) {
+            $this->applyDentistryProgramFilter($query, $program);
+        }
 
         $paginator = $query
             ->groupBy(
@@ -1726,9 +1758,9 @@ class ReportsController extends Controller
         });
     }
 
-    private function buildMetricResponseRows(string $department, string $academicYear, string $semester, string $subjectType, array $allowedDepartments, array $excludedDepartments, int $page, int $perPage): array
+    private function buildMetricResponseRows(string $department, string $academicYear, string $semester, string $subjectType, string $program, array $allowedDepartments, array $excludedDepartments, int $page, int $perPage): array
     {
-        $query = $this->metricResponseBaseQuery($department, $academicYear, $semester, $subjectType, $allowedDepartments, $excludedDepartments)
+        $query = $this->metricResponseBaseQuery($department, $academicYear, $semester, $subjectType, $allowedDepartments, $excludedDepartments, $program)
             ->selectRaw("
                 evaluation_responses.id,
                 COALESCE(NULLIF(users.name, ''), NULLIF(evaluations.faculty_name_snapshot, ''), 'Unknown') as faculty_name,
@@ -1754,9 +1786,9 @@ class ReportsController extends Controller
         });
     }
 
-    private function buildMetricRatingRows(string $department, string $academicYear, string $semester, string $subjectType, array $allowedDepartments, array $excludedDepartments, int $page, int $perPage): array
+    private function buildMetricRatingRows(string $department, string $academicYear, string $semester, string $subjectType, string $program, array $allowedDepartments, array $excludedDepartments, int $page, int $perPage): array
     {
-        $query = $this->metricResponseBaseQuery($department, $academicYear, $semester, $subjectType, $allowedDepartments, $excludedDepartments)
+        $query = $this->metricResponseBaseQuery($department, $academicYear, $semester, $subjectType, $allowedDepartments, $excludedDepartments, $program)
             ->selectRaw("
                 evaluations.faculty_id,
                 COALESCE(NULLIF(users.name, ''), NULLIF(evaluations.faculty_name_snapshot, ''), 'Unknown') as faculty_name,
@@ -1790,9 +1822,9 @@ class ReportsController extends Controller
         });
     }
 
-    private function buildMetricCourseRows(string $department, string $academicYear, string $semester, string $subjectType, array $allowedDepartments, array $excludedDepartments, int $page, int $perPage): array
+    private function buildMetricCourseRows(string $department, string $academicYear, string $semester, string $subjectType, string $program, array $allowedDepartments, array $excludedDepartments, int $page, int $perPage): array
     {
-        $query = $this->metricResponseBaseQuery($department, $academicYear, $semester, $subjectType, $allowedDepartments, $excludedDepartments)
+        $query = $this->metricResponseBaseQuery($department, $academicYear, $semester, $subjectType, $allowedDepartments, $excludedDepartments, $program)
             ->selectRaw("
                 COALESCE(courses.id, CONCAT('snapshot:', COALESCE(evaluation_responses.course_code_snapshot, 'N/A'))) as course_key,
                 TRIM(CONCAT(
@@ -1838,7 +1870,7 @@ class ReportsController extends Controller
         });
     }
 
-    private function metricResponseBaseQuery(string $department, string $academicYear, string $semester, string $subjectType, array $allowedDepartments, array $excludedDepartments)
+    private function metricResponseBaseQuery(string $department, string $academicYear, string $semester, string $subjectType, array $allowedDepartments, array $excludedDepartments, string $program = 'all')
     {
         $query = DB::table('evaluation_responses')
             ->join('evaluations', 'evaluations.id', '=', 'evaluation_responses.evaluation_id')
@@ -1851,6 +1883,10 @@ class ReportsController extends Controller
 
         if ($subjectType !== 'all') {
             $query->where('courses.subject_type', $subjectType);
+        }
+
+        if ($this->shouldApplyDentistryProgram($department, $allowedDepartments, null, $program)) {
+            $this->applyDentistryProgramFilter($query, $program);
         }
 
         return $query;
@@ -1975,6 +2011,17 @@ class ReportsController extends Controller
         };
     }
 
+    private function formatEffectivenessText(int $rating): string
+    {
+        return match ($rating) {
+            4 => 'Very Effective',
+            3 => 'Effective',
+            2 => 'Somewhat Effective',
+            1 => 'Not Effective',
+            default => 'Unknown',
+        };
+    }
+
     private function responseHandledByDepartment($response, string $department): bool
     {
         $facultyCourse = optional($response->schedule)->facultyCourse;
@@ -2036,6 +2083,89 @@ class ReportsController extends Controller
         };
     }
 
+    private function normalizeDentistryProgram(?string $program): string
+    {
+        $value = strtolower(trim((string) ($program ?? 'all')));
+
+        if ($value === 'dmd') {
+            $value = 'ddm';
+        }
+
+        return in_array($value, ['ddm', 'msd'], true) ? $value : 'all';
+    }
+
+    private function formatDentistryProgramLabel(string $program): string
+    {
+        return match ($this->normalizeDentistryProgram($program)) {
+            'ddm' => 'DDM',
+            'msd' => 'MSD',
+            default => 'All Programs',
+        };
+    }
+
+    private function shouldApplyDentistryProgram(string $department, array $allowedDepartments = [], ?User $user = null, string $program = 'all'): bool
+    {
+        if (!$this->isDentistryScope($department, $allowedDepartments)) {
+            return false;
+        }
+
+        if ($this->normalizeDentistryProgram($program) !== 'all') {
+            return true;
+        }
+
+        return $this->isDentistryProgramRestrictedUser($user ?? request()->user());
+    }
+
+    private function isDentistryScope(string $department, array $allowedDepartments = []): bool
+    {
+        if ($department === 'College of Dentistry') {
+            return true;
+        }
+
+        if ($department !== 'all') {
+            return false;
+        }
+
+        $normalizedAllowedDepartments = collect($allowedDepartments)
+            ->map(fn ($value) => $this->normalizeDepartmentName((string) $value) ?? trim((string) $value))
+            ->filter()
+            ->unique()
+            ->values();
+
+        return $normalizedAllowedDepartments->count() === 1
+            && $normalizedAllowedDepartments->first() === 'College of Dentistry';
+    }
+
+    private function isDentistryProgramRestrictedUser(?User $user): bool
+    {
+        if (!$user || $user->role === 'Admin') {
+            return false;
+        }
+
+        $jobTitle = strtolower(trim((string) ($user->job_title ?? $user->faculty?->job_title ?? '')));
+
+        return in_array($jobTitle, ['dean', 'vice dean'], true);
+    }
+
+    private function applyDentistryProgramFilter($query, string $program): void
+    {
+        $program = $this->normalizeDentistryProgram($program);
+        $prefixes = $program === 'all' ? ['DDM', 'MSD'] : [strtoupper($program)];
+
+        $query->where(function ($builder) use ($prefixes) {
+            foreach ($prefixes as $prefix) {
+                $builder->orWhere(function ($inner) use ($prefix) {
+                    $inner
+                        ->whereRaw("UPPER(REPLACE(COALESCE(faculty_courses.section, ''), ' ', '')) LIKE ?", [$prefix . '%'])
+                        ->orWhereRaw("UPPER(REPLACE(COALESCE(courses.class_code, ''), ' ', '')) LIKE ?", [$prefix . '%'])
+                        ->orWhereRaw("UPPER(REPLACE(COALESCE(courses.subject_code, ''), ' ', '')) LIKE ?", [$prefix . '%'])
+                        ->orWhereRaw("UPPER(REPLACE(COALESCE(evaluation_responses.course_code_snapshot, ''), ' ', '')) LIKE ?", [$prefix . '%'])
+                        ->orWhereRaw("UPPER(REPLACE(COALESCE(evaluation_responses.course_name_snapshot, ''), ' ', '')) LIKE ?", [$prefix . '%']);
+                });
+            }
+        });
+    }
+
     private function normalizeDepartmentName(?string $department): ?string
     {
         $department = preg_replace('/\s+/', ' ', trim((string) ($department ?? '')));
@@ -2052,6 +2182,7 @@ class ReportsController extends Controller
             'bachelor of science in nursing' => 'College of Nursing',
             'dentistry' => 'College of Dentistry',
             'cod' => 'College of Dentistry',
+            'ddm' => 'College of Dentistry',
             'dmd' => 'College of Dentistry',
             'dds' => 'College of Dentistry',
             'msd' => 'College of Dentistry',
@@ -2123,7 +2254,7 @@ class ReportsController extends Controller
 
         $aliases = [
             'College of Nursing' => ['College of Nursing', 'Nursing', 'CON', 'BS Nursing', 'BSN', 'BACHELOR OF SCIENCE IN NURSING'],
-            'College of Dentistry' => ['College of Dentistry', 'Dentistry', 'COD', 'DMD', 'DDS', 'MSD', 'MSDO', 'Master of Science in Dentistry', 'Master of Science in Dentistry with specialization in Orthodontics'],
+            'College of Dentistry' => ['College of Dentistry', 'Dentistry', 'COD', 'DDM', 'DMD', 'DDS', 'MSD', 'MSDO', 'Master of Science in Dentistry', 'Master of Science in Dentistry with specialization in Orthodontics'],
             'College of Arts and Sciences' => ['College of Arts and Sciences', 'CAS', 'Arts and Sciences', 'BACHELOR OF ARTS IN COMMUNICATION', 'Communication', 'Psychology', 'BS Psych', 'BSPSYCH', 'AB Communication', 'BACHELOR OF SCIENCE IN PSYCHOLOGY', 'BSIT', 'CAS-BS IN INFORMATION TECHNOLOGY', 'Information Technology'],
             'College of Medical Technology' => ['College of Medical Technology', 'CMT', 'BS MT', 'BSMT', 'Medical Technology', 'CMT - BS IN MEDICAL TECHNOLOGY', 'BACHELOR OF SCIENCE IN MEDICAL TECHNOLOGY'],
             'College of Medicine' => ['College of Medicine', 'Medicine', 'COM', 'COLLEGE OF MEDICINE'],
