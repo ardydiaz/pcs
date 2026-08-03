@@ -682,6 +682,20 @@
         .schedule-pill--course {
         }
 
+        .schedule-term-stack {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.25rem;
+        }
+
+        .schedule-term-stack small {
+            font-size: 0.76rem;
+            font-weight: 700;
+            line-height: 1.1;
+            padding-left: 0.15rem;
+        }
+
         .schedule-pill-group {
             display: flex;
             flex-wrap: wrap;

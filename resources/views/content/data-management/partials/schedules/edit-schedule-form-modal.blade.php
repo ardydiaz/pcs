@@ -37,7 +37,8 @@
                                                     data-faculty="{{ $option['faculty'] ?? '' }}"
                                                     data-section="{{ $option['section'] ?? '' }}"
                                                     data-academic-year="{{ $option['academic_year_display'] ?? '' }}"
-                                                    data-semester="{{ $option['semester'] ?? '' }}">
+                                                    data-semester="{{ $option['semester'] ?? '' }}"
+                                                    data-subject-type="{{ $option['subject_type'] ?? '' }}">
                                                 <span class="course-dropdown-title">
                                                     {{ $option['code'] }}
                                                     @if(!empty($option['subject']))
@@ -81,8 +82,8 @@
                                     <option value="minor">GenEd Course</option>
                                 </select>
                                 <small class="text-muted d-block mt-2">
-                                    Admin only: this updates the course subject type without changing the schedule,
-                                    faculty, section, department, or responses.
+                                    Admin correction: use this when Major/Minor was wrong from import. Faculty,
+                                    section, department, schedule, and responses will stay intact.
                                 </small>
                             </div>
                         @endif

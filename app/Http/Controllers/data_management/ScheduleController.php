@@ -149,6 +149,9 @@ class ScheduleController extends Controller
         $targetFacultyCourse = FacultyCourse::with(['course', 'faculty.user'])->findOrFail($validated['faculty_course_id']);
         $this->authorizeFacultyCourseDepartmentAccess($targetFacultyCourse);
         $originalFacultyCourse = $schedule->facultyCourse;
+        $subjectTypeChanged = $subjectType !== null
+            && $targetFacultyCourse->course
+            && $targetFacultyCourse->course->subject_type !== $subjectType;
 
         if ($subjectType !== null) {
             $targetFacultyCourse = $this->resolveFacultyCourseForScheduleSubjectType($targetFacultyCourse, $subjectType);
@@ -172,8 +175,11 @@ class ScheduleController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Matching schedule already existed, so the duplicate was merged.',
+                'message' => $subjectTypeChanged
+                    ? 'Subject type correction matched an existing schedule, so the duplicate was merged.'
+                    : 'Matching schedule already existed, so the duplicate was merged.',
                 'merged' => true,
+                'subject_type_updated' => $subjectTypeChanged,
                 'removed_id' => $schedule->id,
                 'data' => $existingSchedule,
             ]);
@@ -187,7 +193,10 @@ class ScheduleController extends Controller
         ]);
         return response()->json([
             'success' => true,
-            'message' => 'Schedule updated successfully!',
+            'message' => $subjectTypeChanged
+                ? 'Schedule updated and subject type corrected successfully.'
+                : 'Schedule updated successfully!',
+            'subject_type_updated' => $subjectTypeChanged,
             'data' => $schedule
         ]);
     }

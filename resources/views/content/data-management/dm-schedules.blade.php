@@ -80,6 +80,7 @@
                 'academic_year' => $academicYear,
                 'academic_year_display' => $formattedAcademicYear,
                 'semester' => $semesterDisplay,
+                'subject_type' => $course->subject_type ?? '',
                 'term' => $termLabel,
                 'search' => $searchValue,
             ];
@@ -339,11 +340,15 @@
             }
 
             // Helper function to render course information with multiple faculty support
-            const renderCourseInfoDisplay = (faculty, section, academicYear, semester) => {
-                if (!faculty && !section && !academicYear && !semester) {
+            const renderCourseInfoDisplay = (faculty, section, academicYear, semester, subjectType = '') => {
+                if (!faculty && !section && !academicYear && !semester && !subjectType) {
                     return '<span class="text-muted text-center">No faculty information available</span>';
                 }
 
+                const normalizedSubjectType = String(subjectType || '').toLowerCase();
+                const subjectTypeLabel = normalizedSubjectType === 'minor'
+                    ? 'GenEd Course'
+                    : (normalizedSubjectType === 'major' ? 'Professional Course' : '');
                 let html = '<div class="row g-2">';
 
                 // Render faculty as badges with color code #6610f2
@@ -367,6 +372,9 @@
                 }
                 if (semester) {
                     html += `<div class="col-12"><strong>Semester:</strong> <span>${semester}</span></div>`;
+                }
+                if (subjectTypeLabel) {
+                    html += `<div class="col-12"><strong>Subject Type:</strong> <span class="badge" style="background-color: #fff3cd; color: #4c1d95; border: 1px solid rgba(255, 183, 54, 0.6);">${subjectTypeLabel}</span></div>`;
                 }
                 html += '</div>';
                 return html;
@@ -456,10 +464,11 @@
                             const section = option.dataset.section || '';
                             const academicYear = option.dataset.academicYear || '';
                             const semester = option.dataset.semester || '';
+                            const subjectType = option.dataset.subjectType || '';
 
                             // Auto-update the display with selected course information
                             facultyDisplay.innerHTML = renderCourseInfoDisplay(faculty, section, academicYear,
-                                semester);
+                                semester, subjectType);
                             facultyDisplay.style.minHeight = 'auto';
                         }
                     });
@@ -476,9 +485,10 @@
                             const section = option.dataset.section || '';
                             const academicYear = option.dataset.academicYear || '';
                             const semester = option.dataset.semester || '';
+                            const subjectType = option.dataset.subjectType || '';
 
                             facultyDisplay.innerHTML = renderCourseInfoDisplay(faculty, section, academicYear,
-                                semester);
+                                semester, subjectType);
                             facultyDisplay.style.opacity = '0.7';
                         }
                     });
@@ -1488,6 +1498,16 @@
                             data-pill-value="schedule-section">${this.escapeHtml(sectionSource)}</span>` :
                         '<span class="text-muted">—</span>';
 
+                    const semesterLabel = this.formatSemesterLabel(schedule.semester);
+                    const semesterDisplay = semesterLabel && semesterLabel !== 'N/A' ?
+                        `<div class="schedule-term-stack">
+                            <span class="schedule-pill"
+                                data-pill-palette="purple"
+                                data-pill-value="schedule-semester">${this.escapeHtml(semesterLabel)}</span>
+                            <small class="d-block mt-1 text-muted">${this.escapeHtml(schedule.academic_year || 'N/A')}</small>
+                        </div>` :
+                        '<span class="text-muted">N/A</span>';
+
                     const subjectTypeRaw = String(schedule.subject_type ?? '').toLowerCase();
                     const subjectTypeDisplay = subjectTypeRaw === 'minor' ?
                         `<span class="schedule-pill"
@@ -1557,6 +1577,9 @@
                             ${sectionDisplay}
                         </td>
                         <td>
+                            ${semesterDisplay}
+                        </td>
+                        <td>
                             ${subjectTypeDisplay}
                         </td>
                         <td>
@@ -1573,7 +1596,7 @@
                 buildEmptyStateRow() {
                     return `
                     <tr data-empty>
-                        <td colspan="{{ $canDelete ? 7 : 6 }}" class="text-center py-5">
+                        <td colspan="{{ $canDelete ? 8 : 7 }}" class="text-center py-5">
                             <div class="empty-state">
                                 <i class="fa-solid fa-calendar-days display-4 text-muted mb-3"></i>
                                 <h5 class="mb-2">No schedules found</h5>
@@ -1587,7 +1610,7 @@
                 buildSearchEmptyRow() {
                     return `
                     <tr data-empty-search style="display: none;">
-                        <td colspan="{{ $canDelete ? 7 : 6 }}" class="text-center py-5">
+                        <td colspan="{{ $canDelete ? 8 : 7 }}" class="text-center py-5">
                             <div class="empty-state">
                                 <i class="fa-solid fa-magnifying-glass display-4 text-muted mb-3"></i>
                                 <h5 class="mb-2">No results found</h5>
@@ -1789,8 +1812,9 @@
                             const section = courseOption.dataset.section || '';
                             const academicYear = courseOption.dataset.academicYear || '';
                             const semester = courseOption.dataset.semester || '';
+                            const subjectType = courseOption.dataset.subjectType || schedule.subject_type || '';
 
-                            facultyDisplay.innerHTML = renderCourseInfoDisplay(faculty, section, academicYear, semester);
+                            facultyDisplay.innerHTML = renderCourseInfoDisplay(faculty, section, academicYear, semester, subjectType);
                         }
                     }
 

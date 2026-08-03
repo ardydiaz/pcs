@@ -1020,7 +1020,9 @@
         </div>
 
         @php
-            $showDentistryProgramFilter = $selectedDepartment === 'College of Dentistry'
+            $reportUserIsAdmin = auth()->user()?->role === 'Admin';
+            $showDentistryProgramFilter = $reportUserIsAdmin
+                || $selectedDepartment === 'College of Dentistry'
                 || (!empty($isDepartmentScoped)
                     && isset($departments)
                     && $departments->count() === 1

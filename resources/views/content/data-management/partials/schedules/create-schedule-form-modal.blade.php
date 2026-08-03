@@ -36,7 +36,8 @@
                                                     data-faculty="{{ $option['faculty'] ?? '' }}"
                                                     data-section="{{ $option['section'] ?? '' }}"
                                                     data-academic-year="{{ $option['academic_year_display'] ?? '' }}"
-                                                    data-semester="{{ $option['semester'] ?? '' }}">
+                                                    data-semester="{{ $option['semester'] ?? '' }}"
+                                                    data-subject-type="{{ $option['subject_type'] ?? '' }}">
                                                 <span class="course-dropdown-title">
                                                     {{ $option['code'] }}
                                                     @if(!empty($option['subject']))
